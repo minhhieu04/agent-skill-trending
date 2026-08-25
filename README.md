@@ -13,7 +13,7 @@
 [![React](https://img.shields.io/badge/React-18.3-61DAFB?style=flat-square&logo=react&logoColor=black)](https://react.dev/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.5-3178C6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?style=flat-square&logo=docker&logoColor=white)](https://www.docker.com/)
-[![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg?style=flat-square)](LICENSE)
+[![License: MIT OR Apache-2.0](https://img.shields.io/badge/License-MIT_or_Apache_2.0-blue.svg?style=flat-square)](LICENSE)
 
 <p align="center">
   <b>Nền tảng tự động thu thập, xếp hạng thông minh, quét bảo mật, chuyển đổi mã nhị phân và xuất cấu hình 1-chạm cho Google Antigravity, OpenAI Codex, Cursor & Claude.</b>
@@ -301,6 +301,11 @@ PYTHONPATH=backend backend/.venv/bin/pytest backend/tests -v --tb=short
 
 ## 📜 GIẤY PHÉP / LICENSE
 
-Dự án được phân phối dưới giấy phép **[Apache License 2.0](LICENSE)**. Toàn quyền sử dụng, chỉnh sửa và phân phối cho mục đích cá nhân lẫn thương mại.
+Dự án này được cấp phép kép (**Dual-Licensed**) theo một trong hai giấy phép tùy chọn của người sử dụng (tương tự chuẩn của hệ sinh thái Rust/WebAssembly):
+
+* **[MIT License](LICENSE-MIT)**: Cực kỳ thông thoáng, cho phép mọi người tự do sử dụng, chỉnh sửa và đóng gói thương mại.
+* **[Apache License 2.0](LICENSE-APACHE)**: Bổ sung điều khoản bảo vệ quyền sở hữu trí tuệ, bằng sáng chế (Patent Grant) và thương hiệu tác giả.
+
+Chi tiết xem tại file **[LICENSE](LICENSE)**.
 
 Copyright (c) 2026 **Minh Hieu Tran (minhhieu04)**.
