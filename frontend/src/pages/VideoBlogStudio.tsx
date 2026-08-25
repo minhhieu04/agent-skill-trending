@@ -73,7 +73,7 @@ export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({
   const [readingSpeed, setReadingSpeed] = useState<string>('+15%');
   const [pitch, setPitch] = useState<string>('+2Hz');
   const [voicePreset, setVoicePreset] = useState<'hype' | 'professional' | 'podcast'>('hype');
-  const [voiceProviderFilter, setVoiceProviderFilter] = useState<'all' | 'google_tts' | 'edge_tts'>('all');
+  const [voiceProviderFilter, setVoiceProviderFilter] = useState<'all' | 'gemini_audio' | 'google_tts' | 'edge_tts'>('all');
   const [ttsResult, setTtsResult] = useState<TTSResult | null>(null);
 
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
@@ -86,8 +86,10 @@ export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({
   const [isExportingVideo, setIsExportingVideo] = useState<boolean>(false);
   const [exportProgress, setExportProgress] = useState<number>(0);
   const [isGeneratingImages, setIsGeneratingImages] = useState<boolean>(false);
+  const [previewingVoiceId, setPreviewingVoiceId] = useState<string | null>(null);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const previewAudioRef = useRef<HTMLAudioElement | null>(null);
   const videoContainerRef = useRef<HTMLDivElement | null>(null);
 
   const currentSkill = skills.find(s => s.id === Number(selectedSkillId)) || initialSkill;
@@ -224,20 +226,70 @@ export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({
     });
   };
 
-  const handlePreviewVoice = (voice: VoiceOption) => {
-    ttsMutation.mutate({
-      text: voice.preview_text,
-      voice: voice.id,
-      provider: voice.provider || 'edge_tts',
-      rate: readingSpeed,
-      pitch: pitch
-    });
+  const handlePreviewVoice = async (voice: VoiceOption) => {
+    // If currently previewing this exact voice, toggle stop
+    if (previewingVoiceId === voice.id && previewAudioRef.current) {
+      previewAudioRef.current.pause();
+      previewAudioRef.current.currentTime = 0;
+      previewAudioRef.current = null;
+      setPreviewingVoiceId(null);
+      return;
+    }
+
+    // Stop any existing preview audio
+    if (previewAudioRef.current) {
+      previewAudioRef.current.pause();
+      previewAudioRef.current = null;
+    }
+
+    setPreviewingVoiceId(voice.id);
+    showToast(language === 'vi' ? `Đang tải giọng đọc ${voice.name}...` : `Loading ${voice.name} preview...`);
+
+    try {
+      const res = await api.synthesizeTTS({
+        text: voice.preview_text,
+        voice: voice.id,
+        provider: voice.provider || 'edge_tts',
+        rate: readingSpeed,
+        pitch: pitch
+      });
+
+      if (res && res.audio_base64) {
+        const audio = new Audio(`data:audio/mp3;base64,${res.audio_base64}`);
+        audio.volume = volume;
+        previewAudioRef.current = audio;
+
+        audio.onended = () => {
+          setPreviewingVoiceId(null);
+        };
+        audio.onerror = (e) => {
+          console.warn('Audio preview error:', e);
+          setPreviewingVoiceId(null);
+          showToast(language === 'vi' ? 'Không thể phát âm thanh nghe thử' : 'Failed to play preview', 'error');
+        };
+
+        await audio.play();
+      } else {
+        setPreviewingVoiceId(null);
+        showToast(language === 'vi' ? 'Không nhận được dữ liệu âm thanh' : 'No audio data received', 'error');
+      }
+    } catch (err: any) {
+      setPreviewingVoiceId(null);
+      showToast(err.message || 'Lỗi khi nghe thử giọng', 'error');
+    }
   };
 
   const handleSynthesizeFullAudio = () => {
     if (!storyboard || storyboard.scenes.length === 0) {
       showToast(language === 'vi' ? 'Vui lòng sinh kịch bản video trước' : 'Please generate storyboard first', 'error');
       return;
+    }
+
+    // Stop preview if playing
+    if (previewAudioRef.current) {
+      previewAudioRef.current.pause();
+      previewAudioRef.current = null;
+      setPreviewingVoiceId(null);
     }
 
     const currentVoiceObj = voices.find(v => v.id === selectedVoice);
@@ -268,8 +320,13 @@ export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({
   const togglePlay = () => {
     if (!audioRef.current) return;
 
-    if (!ttsResult?.audio_base64 && !audioRef.current.src) {
-      showToast(language === 'vi' ? 'Vui lòng bấm tạo giọng đọc AI ở Bước 2 trước' : 'Please synthesize audio first', 'error');
+    if (!ttsResult?.audio_base64) {
+      if (storyboard && storyboard.scenes.length > 0) {
+        showToast(language === 'vi' ? 'Đang tự động tạo giọng đọc AI cho toàn bộ video...' : 'Synthesizing AI voiceover for video...');
+        handleSynthesizeFullAudio();
+        return;
+      }
+      showToast(language === 'vi' ? 'Vui lòng sinh kịch bản ở Bước 1 trước' : 'Please generate storyboard first', 'error');
       return;
     }
 
@@ -573,6 +630,10 @@ export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({
                 <Radio className="w-3.5 h-3.5 animate-pulse text-rose-400" />
                 AI Video & Blog Studio v4.0
               </span>
+              <span className="px-2 py-0.5 text-[10px] font-mono rounded bg-cyan-500/10 text-cyan-400 border border-cyan-500/30 font-semibold flex items-center gap-1">
+                <Sparkles className="w-2.5 h-2.5" />
+                Gemini 2.0 Live & Google AI
+              </span>
               <span className="px-2 py-0.5 text-[10px] font-mono rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 font-semibold">
                 Audio: Neural Edge-TTS (0đ)
               </span>
@@ -663,6 +724,30 @@ export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({
                 placeholder={t('studio_topic_placeholder')}
                 className="w-full px-3.5 py-2.5 text-xs rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-rose-500"
               />
+
+              <div className="flex flex-wrap gap-1.5 pt-1">
+                <span className="text-[10px] text-slate-400 font-semibold self-center">
+                  {language === 'vi' ? 'Gợi ý hot:' : 'Hot topics:'}
+                </span>
+                {[
+                  'Google Antigravity & AI Agent 2026',
+                  'DeepMind Gemini 2.0 Live Audio',
+                  'Model Context Protocol & Subagent',
+                  'AST Security Scanner'
+                ].map((tag) => (
+                  <button
+                    key={tag}
+                    type="button"
+                    onClick={() => {
+                      setCustomTopic(tag);
+                      setSelectedSkillId('');
+                    }}
+                    className="px-2 py-0.5 text-[10px] rounded-md bg-slate-100 dark:bg-slate-800 hover:bg-rose-500/10 hover:text-rose-500 dark:hover:text-rose-400 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700 transition-all font-medium"
+                  >
+                    + {tag}
+                  </button>
+                ))}
+              </div>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
@@ -862,11 +947,22 @@ export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({
                   </div>
                 </div>
               ) : (
-                <div className="py-12 text-center text-slate-400 dark:text-slate-600 text-xs">
-                  <Sparkles className="w-8 h-8 mx-auto mb-2 opacity-40 text-rose-500" />
-                  {language === 'vi'
-                    ? 'Chưa có nội dung. Hãy nhập chủ đề và nhấn nút "Sinh Blog & Kịch Bản" ở bên trái.'
-                    : 'No content generated yet. Configure topic and click Generate on the left.'}
+                <div className="py-12 text-center text-slate-400 dark:text-slate-600 text-xs space-y-3">
+                  <Sparkles className="w-8 h-8 mx-auto opacity-40 text-rose-500 animate-pulse" />
+                  <p>
+                    {language === 'vi'
+                      ? 'Chưa có nội dung. Hãy nhấn nút dưới đây để AI tự động viết blog & phân cảnh!'
+                      : 'No content generated yet. Click the button below to generate AI blog & storyboard!'}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={handleGenerateAll}
+                    disabled={blogMutation.isPending || storyboardMutation.isPending}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/30 rounded-xl text-xs font-bold transition-all"
+                  >
+                    <Sparkles className="w-3.5 h-3.5 text-rose-500" />
+                    {language === 'vi' ? '🚀 Bấm Để Sinh Blog & Kịch Bản Ngay' : '🚀 Generate Blog & Storyboard Now'}
+                  </button>
                 </div>
               )}
             </div>
@@ -931,7 +1027,7 @@ export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({
             </div>
 
             {/* Provider Filter Tabs */}
-            <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-3">
+            <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-3">
               <span className="text-xs font-bold text-slate-500 dark:text-slate-400 mr-2">
                 {language === 'vi' ? 'Công nghệ AI Speech:' : 'Speech Engine:'}
               </span>
@@ -944,7 +1040,19 @@ export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({
                     : 'text-slate-500 hover:text-slate-200'
                 }`}
               >
-                {language === 'vi' ? 'Tất Cả Giọng' : 'All Voices'}
+                {language === 'vi' ? 'Tất Cả' : 'All'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setVoiceProviderFilter('gemini_audio')}
+                className={`px-3 py-1 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 ${
+                  voiceProviderFilter === 'gemini_audio'
+                    ? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-md shadow-cyan-500/20 font-extrabold'
+                    : 'text-slate-500 hover:text-cyan-400'
+                }`}
+              >
+                <Radio className="w-3 h-3 text-cyan-300 animate-pulse" />
+                <span>Gemini 2.0 Live Audio ⚡</span>
               </button>
               <button
                 type="button"
@@ -1005,7 +1113,11 @@ export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({
                             <span>{voice.style}</span>
                             {voice.badge && (
                               <span className={`px-1.5 py-0.2 rounded text-[8px] font-bold ${
-                                voice.badge.includes('GOOGLE') ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30' : 'bg-indigo-500/20 text-indigo-400'
+                                voice.badge.includes('GEMINI')
+                                  ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30'
+                                  : voice.badge.includes('GOOGLE')
+                                  ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
+                                  : 'bg-indigo-500/20 text-indigo-400'
                               }`}>
                                 {voice.badge}
                               </span>
@@ -1029,11 +1141,23 @@ export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({
                           e.stopPropagation();
                           handlePreviewVoice(voice);
                         }}
-                        disabled={ttsMutation.isPending}
-                        className="text-xs font-bold text-slate-700 dark:text-slate-300 hover:text-indigo-500 flex items-center gap-1.5 transition-colors"
+                        className={`text-xs font-bold flex items-center gap-1.5 transition-colors ${
+                          previewingVoiceId === voice.id
+                            ? 'text-rose-500 font-extrabold animate-pulse'
+                            : 'text-slate-700 dark:text-slate-300 hover:text-indigo-500'
+                        }`}
                       >
-                        <Volume2 className="w-3.5 h-3.5 text-indigo-500" />
-                        {t('studio_preview_audio')}
+                        {previewingVoiceId === voice.id ? (
+                          <>
+                            <Volume2 className="w-3.5 h-3.5 text-rose-500 animate-bounce" />
+                            <span>{language === 'vi' ? 'Đang Phát (Bấm Dừng)' : 'Playing (Stop)'}</span>
+                          </>
+                        ) : (
+                          <>
+                            <Volume2 className="w-3.5 h-3.5 text-indigo-500" />
+                            <span>{t('studio_preview_audio')}</span>
+                          </>
+                        )}
                       </button>
 
                       <span className="text-[10px] text-slate-400 font-mono">
@@ -1331,6 +1455,36 @@ export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({
                   </div>
                 </div>
               </div>
+
+              {!ttsResult?.audio_base64 && (
+                <div className="w-full max-w-xl p-3.5 rounded-2xl bg-gradient-to-r from-indigo-950/90 to-slate-900 border border-indigo-500/30 flex items-center justify-between gap-3 text-xs mt-3 animate-in fade-in">
+                  <div className="flex items-center gap-2 text-indigo-300">
+                    <Sparkles className="w-4 h-4 text-rose-400 shrink-0 animate-pulse" />
+                    <span className="font-semibold">
+                      {language === 'vi'
+                        ? 'Chưa tạo giọng đọc cho video này.'
+                        : 'No voiceover synthesized yet.'}
+                    </span>
+                  </div>
+                  <button
+                    onClick={handleSynthesizeFullAudio}
+                    disabled={ttsMutation.isPending || !storyboard}
+                    className="px-3 py-1.5 bg-gradient-to-r from-indigo-500 to-rose-500 hover:from-indigo-600 hover:to-rose-600 text-white font-extrabold rounded-xl text-xs flex items-center gap-1.5 shadow-md shadow-indigo-500/25 transition-all disabled:opacity-50"
+                  >
+                    {ttsMutation.isPending ? (
+                      <>
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                        <span>{language === 'vi' ? 'Đang tạo...' : 'Creating...'}</span>
+                      </>
+                    ) : (
+                      <>
+                        <Mic className="w-3.5 h-3.5" />
+                        <span>{language === 'vi' ? 'Tạo Giọng Đọc Ngay' : 'Synthesize Now'}</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              )}
 
               <div className="w-full max-w-xl mt-4 flex items-center justify-between gap-3 bg-slate-900/90 p-3 rounded-2xl border border-slate-800 shadow-lg">
                 <button

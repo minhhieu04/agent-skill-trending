@@ -64,6 +64,16 @@ class HackerNewsCollector(BaseCollector):
                                             "story_id": hit.get("objectID")
                                         }
                                     })
+                    elif resp.status_code == 429:
+                        retry_after = resp.headers.get("Retry-After", "60")
+                        self.logger.warning(
+                            f"[QUOTA] HackerNews Algolia API rate limited (429) for query={query!r} "
+                            f"— retry after {retry_after}s."
+                        )
+                    elif resp.status_code in (500, 503):
+                        self.logger.warning(f"[SERVER] HackerNews Algolia server error {resp.status_code} for query={query!r} — skipping.")
+                    else:
+                        self.logger.warning(f"HackerNews unexpected status {resp.status_code} for query={query!r}")
                 except Exception as e:
                     self.logger.error(f"Error searching HN for '{query}': {e}")
 

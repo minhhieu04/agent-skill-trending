@@ -41,7 +41,6 @@ class RedditCollector(BaseCollector):
                             gh_repos = self._extract_github_urls(full_content)
 
                             for gh_path in gh_repos:
-                                # Clean trailing chars if any
                                 gh_clean = gh_path.rstrip("/").rstrip(".git")
                                 parts = gh_clean.split("/")
                                 if len(parts) >= 2:
@@ -64,6 +63,23 @@ class RedditCollector(BaseCollector):
                                             "post_url": f"https://reddit.com{post_data.get('permalink', '')}"
                                         }
                                     })
+                    elif resp.status_code == 429:
+                        # Reddit enforces 429 when rate-limited (without OAuth)
+                        retry_after = resp.headers.get("Retry-After", "60")
+                        self.logger.warning(
+                            f"[QUOTA] Reddit r/{sub} rate limited (429) — "
+                            f"retry after {retry_after}s. "
+                            f"Consider adding REDDIT_CLIENT_ID/SECRET env vars for higher limits."
+                        )
+                    elif resp.status_code == 403:
+                        self.logger.warning(
+                            f"[AUTH] Reddit r/{sub} returned 403 Forbidden — "
+                            f"subreddit may be private or quarantined."
+                        )
+                    elif resp.status_code in (500, 503):
+                        self.logger.warning(f"[SERVER] Reddit r/{sub} server error {resp.status_code} — skipping.")
+                    else:
+                        self.logger.warning(f"Reddit r/{sub} unexpected status {resp.status_code}")
                 except Exception as e:
                     self.logger.error(f"Error fetching from Reddit r/{sub}: {e}")
 

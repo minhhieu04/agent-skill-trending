@@ -153,3 +153,16 @@ def test_synthesize_google_wavenet():
     assert "audio_base64" in data
     assert "subtitle_entries" in data
 
+def test_synthesize_gemini_2_native_audio():
+    payload = {
+        "text": "Testing Gemini 2.0 Flash Native Live Audio streaming output.",
+        "voice": "gemini-Aoede",
+        "provider": "gemini_audio"
+    }
+    res = client.post("/api/v1/studio/tts/synthesize", json=payload)
+    assert res.status_code == 200
+    data = res.json()
+    assert "audio_base64" in data
+    assert "subtitle_entries" in data
+
+

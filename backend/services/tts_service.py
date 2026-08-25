@@ -1,12 +1,13 @@
 import base64
 import logging
 from typing import Dict, Any, List, Optional
+from config import settings
 
 logger = logging.getLogger("TTSService")
 
-# Curated Hot AI Voices (Edge-TTS + Google WaveNet & Journey)
+# Curated Hot AI Voices: Gemini 2.0 Live Native Audio + Google WaveNet + Edge-TTS (Diểm Phúc, Minh Hiếu)
 CURATED_VOICES = [
-    # Vietnamese Voices
+    # --- Vietnamese Voices ---
     {
         "id": "vi-VN-HoaiMyNeural",
         "name": "Diểm Phúc (Nữ - Truyền Cảm)",
@@ -55,7 +56,70 @@ CURATED_VOICES = [
         "recommended_preset": "professional",
         "badge": "GOOGLE AI"
     },
-    # English Voices
+
+    # --- Gemini 2.0 Live Native Audio Voices (Direct Multimodal Streaming) ---
+    {
+        "id": "gemini-Aoede",
+        "name": "Gemini 2.0 Live - Aoede (Nữ - Biểu Cảm)",
+        "provider": "gemini_audio",
+        "language": "multi",
+        "gender": "female",
+        "style": "Gemini 2.0 Multimodal Native Audio",
+        "description": "Mô hình âm thanh Gemini 2.0 Flash Native Audio trực tiếp, biểu cảm linh hoạt, độ trễ siêu thấp.",
+        "preview_text": "Hello! I am Aoede, streaming live from Gemini 2.0 native audio with expressive storytelling tone.",
+        "recommended_preset": "hype",
+        "badge": "GEMINI 2.0"
+    },
+    {
+        "id": "gemini-Puck",
+        "name": "Gemini 2.0 Live - Puck (Nam - Năng Động)",
+        "provider": "gemini_audio",
+        "language": "multi",
+        "gender": "male",
+        "style": "Gemini 2.0 Multimodal Native Audio",
+        "description": "Giọng nam trẻ trung, đầy nhiệt huyết, tối ưu cho video Shorts, TikTok và tech demos.",
+        "preview_text": "Hey what is up developers! Puck here, powered by Gemini 2.0 live native audio stream.",
+        "recommended_preset": "hype",
+        "badge": "GEMINI 2.0"
+    },
+    {
+        "id": "gemini-Charon",
+        "name": "Gemini 2.0 Live - Charon (Nam - Trầm Lắng)",
+        "provider": "gemini_audio",
+        "language": "multi",
+        "gender": "male",
+        "style": "Gemini 2.0 Multimodal Native Audio",
+        "description": "Giọng nam trầm tĩnh, sâu lắng, hoàn hảo cho podcast công nghệ và phân tích kiến trúc.",
+        "preview_text": "Welcome. This is Charon speaking via Gemini 2.0 native audio intelligence.",
+        "recommended_preset": "professional",
+        "badge": "GEMINI 2.0"
+    },
+    {
+        "id": "gemini-Kore",
+        "name": "Gemini 2.0 Live - Kore (Nữ - Trong Trẻo)",
+        "provider": "gemini_audio",
+        "language": "multi",
+        "gender": "female",
+        "style": "Gemini 2.0 Multimodal Native Audio",
+        "description": "Giọng nữ trong trẻo, tự nhiên, thích hợp cho video giải thích sản phẩm và tutorial.",
+        "preview_text": "Hi there! I am Kore, your AI co-host for today's developer deep dive.",
+        "recommended_preset": "professional",
+        "badge": "GEMINI 2.0"
+    },
+    {
+        "id": "gemini-Fenrir",
+        "name": "Gemini 2.0 Live - Fenrir (Nam - Bản Lĩnh)",
+        "provider": "gemini_audio",
+        "language": "multi",
+        "gender": "male",
+        "style": "Gemini 2.0 Multimodal Native Audio",
+        "description": "Giọng nam đĩnh đạc, uy lực, rất thích hợp cho bài thuyết trình Keynote và ra mắt tính năng lớn.",
+        "preview_text": "Let us explore the future of agentic engineering with Gemini 2.0 native capabilities.",
+        "recommended_preset": "hype",
+        "badge": "GEMINI 2.0"
+    },
+
+    # --- English & International Voices ---
     {
         "id": "en-US-Journey-F",
         "name": "Google Journey (Female - Expressive)",
@@ -134,10 +198,10 @@ class TTSService:
         provider: str = "edge_tts"
     ) -> Dict[str, Any]:
         """
-        Synthesizes text to speech.
-        - If provider == 'google_tts': tries Google Cloud TTS first, falls back to Edge-TTS.
-        - If provider == 'edge_tts': uses Edge-TTS directly.
-        Returns base64 audio and word-level subtitle timings.
+        Synthesizes text to speech using selected AI audio engine:
+        1. gemini_audio: Gemini 2.0 Flash Native Audio Output
+        2. google_tts: Google Cloud WaveNet / Journey TTS
+        3. edge_tts: Microsoft Edge Neural TTS (Free, high quality)
         """
         clean_text = text.strip()
         if not clean_text:
@@ -149,15 +213,87 @@ class TTSService:
                 "status": "empty_text"
             }
 
-        # Try Google Cloud TTS for google_tts provider
+        # 1. Gemini 2.0 Native Audio path
+        if provider == "gemini_audio" or voice.startswith("gemini-"):
+            result = await TTSService._synthesize_gemini_audio(clean_text, voice, rate, pitch)
+            if result:
+                return result
+            logger.info("Gemini 2.0 Native Audio unavailable, falling back to Edge-TTS")
+
+        # 2. Google Cloud TTS path
         if provider == "google_tts":
             result = await TTSService._synthesize_google_cloud(clean_text, voice, rate, pitch)
             if result:
                 return result
             logger.info("Google Cloud TTS unavailable, falling back to Edge-TTS")
 
-        # Edge-TTS (primary or fallback)
+        # 3. Edge-TTS path (primary or reliable fallback)
         return await TTSService._synthesize_edge_tts(clean_text, voice, rate, pitch)
+
+    @staticmethod
+    async def _synthesize_gemini_audio(
+        text: str, voice: str, rate: str, pitch: str
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Synthesizes speech using Gemini 2.0 Flash Native Audio Output.
+        """
+        if not settings.GEMINI_API_KEY:
+            return None
+
+        # Extract voice name (e.g., 'gemini-Aoede' -> 'Aoede')
+        voice_name = voice.replace("gemini-", "")
+        if voice_name not in ["Puck", "Charon", "Kore", "Fenrir", "Aoede"]:
+            voice_name = "Aoede"
+
+        try:
+            from google import genai
+            from google.genai import types as genai_types
+
+            client = genai.Client(api_key=settings.GEMINI_API_KEY)
+            prompt = f"Please read the following text aloud with natural intonation, clear pronunciation, and expressive emotion. Do not include any explanations or intro text, only speak the exact words:\n\n{text}"
+
+            response = client.models.generate_content(
+                model="gemini-2.0-flash",
+                contents=prompt,
+                config=genai_types.GenerateContentConfig(
+                    response_modalities=["AUDIO"],
+                    speech_config=genai_types.SpeechConfig(
+                        voice_config=genai_types.VoiceConfig(
+                            prebuilt_voice_config=genai_types.PrebuiltVoiceConfig(
+                                voice_name=voice_name
+                            )
+                        )
+                    )
+                )
+            )
+
+            if response.candidates and response.candidates[0].content.parts:
+                for part in response.candidates[0].content.parts:
+                    if hasattr(part, "inline_data") and part.inline_data:
+                        audio_data = part.inline_data.data
+                        if isinstance(audio_data, bytes):
+                            audio_b64 = base64.b64encode(audio_data).decode("utf-8")
+                        else:
+                            audio_b64 = str(audio_data)
+
+                        words = text.split()
+                        estimated_duration = max(2.0, len(words) * 0.38)
+                        subtitle_entries = TTSService._generate_synthetic_timings(text, estimated_duration)
+
+                        return {
+                            "audio_base64": audio_b64,
+                            "duration_seconds": round(estimated_duration, 2),
+                            "subtitle_entries": subtitle_entries,
+                            "voice": voice,
+                            "status": "success",
+                            "message": f"Gemini 2.0 Native Audio ({voice_name})"
+                        }
+
+        except Exception as e:
+            logger.warning(f"Gemini 2.0 Native Audio synthesis failed: {e}")
+            return None
+
+        return None
 
     @staticmethod
     async def _synthesize_google_cloud(
@@ -167,7 +303,6 @@ class TTSService:
         Attempts Google Cloud Text-to-Speech synthesis.
         Returns None if unavailable (not installed or no credentials).
         """
-        # Only supported Google voice IDs
         gcloud_voice_map = {
             "vi-VN-Wavenet-A": ("vi-VN", "vi-VN-Wavenet-A"),
             "vi-VN-Wavenet-B": ("vi-VN", "vi-VN-Wavenet-B"),
@@ -182,7 +317,6 @@ class TTSService:
 
             lang_code, voice_name = gcloud_voice_map[voice]
 
-            # Convert rate string "+15%" → speaking_rate 1.15
             speaking_rate = 1.0
             if rate:
                 try:
@@ -191,7 +325,6 @@ class TTSService:
                 except ValueError:
                     pass
 
-            # Convert pitch string "+2Hz" → semitones (approximation)
             pitch_semitones = 0.0
             if pitch:
                 try:
@@ -216,7 +349,6 @@ class TTSService:
             )
             audio_base64 = base64.b64encode(response.audio_content).decode("utf-8")
 
-            # Google Cloud TTS basic tier doesn't emit word boundaries — estimate timings
             words = text.split()
             estimated_duration = max(2.0, len(words) * 0.38)
             subtitle_entries = TTSService._generate_synthetic_timings(text, estimated_duration)
@@ -242,14 +374,17 @@ class TTSService:
         text: str, voice: str, rate: str, pitch: str
     ) -> Dict[str, Any]:
         """
-        Synthesizes using Edge-TTS with automatic voice mapping for Google voice IDs.
-        Returns word-level subtitle timings from WordBoundary events.
+        Synthesizes using Edge-TTS with automatic voice mapping for Google and Gemini voice IDs.
         """
-        # Map Google voice IDs to nearest Edge-TTS equivalents
         voice_map = {
             "vi-VN-Wavenet-A": "vi-VN-HoaiMyNeural",
             "vi-VN-Wavenet-B": "vi-VN-NamMinhNeural",
             "en-US-Journey-F": "en-US-JennyNeural",
+            "gemini-Aoede": "en-US-JennyNeural",
+            "gemini-Puck": "en-US-ChristopherNeural",
+            "gemini-Charon": "vi-VN-NamMinhNeural",
+            "gemini-Kore": "vi-VN-HoaiMyNeural",
+            "gemini-Fenrir": "en-US-ChristopherNeural",
         }
         target_voice = voice_map.get(voice, voice)
 

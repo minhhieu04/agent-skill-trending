@@ -20,6 +20,7 @@ from collectors import (
     AwesomeListCollector,
     BaseCollector
 )
+from collectors.github_collector import QuotaExceededError
 from analyzer import Scorer, Categorizer, RelevanceMatcher
 
 logger = logging.getLogger("CollectPipeline")
@@ -83,7 +84,33 @@ async def run_full_collection_pipeline(triggered_by: str = "scheduler", user_id:
         raw_results = await asyncio.gather(*[_fetch_single_collector(c) for c in collectors], return_exceptions=True)
 
         for i, res in enumerate(raw_results):
-            if isinstance(res, Exception) or not isinstance(res, dict):
+            is_quota = False
+            if isinstance(res, QuotaExceededError):
+                col_name = res.source
+                status_str = "quota_exceeded"
+                items = []
+                err = res.reason
+                is_quota = True
+                # Write dedicated quota AuditLog
+                try:
+                    quota_audit = AuditLog(
+                        user_id=user_id,
+                        username=triggered_by,
+                        action="quota_exceeded",
+                        target_type="data_source",
+                        detail={
+                            "source": res.source,
+                            "reason": res.reason,
+                            "retry_after": res.retry_after,
+                            "run_id": run_id
+                        }
+                    )
+                    db.add(quota_audit)
+                    db.commit()
+                    logger.warning(f"[AUDIT] Quota exceeded for source={res.source}: {res.reason}")
+                except Exception:
+                    db.rollback()
+            elif isinstance(res, Exception) or not isinstance(res, dict):
                 col_name = collectors[i].name if i < len(collectors) else "unknown"
                 status_str = "failed"
                 items = []
