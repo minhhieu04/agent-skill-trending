@@ -18,7 +18,8 @@ import {
   TTSResult,
   BlogGenerateRequest,
   StoryboardRequest,
-  TTSRequest
+  TTSRequest,
+  SceneImageResponse
 } from '../types';
 
 const rawBase = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace(/\/+$/, '') : '';
@@ -313,6 +314,16 @@ export const api = {
       body: JSON.stringify(data),
     });
     if (!res.ok) throw new Error('Failed to synthesize AI voice audio');
+    return res.json();
+  },
+
+  generateSceneImage: async (prompt: string, sceneNumber: number = 1): Promise<SceneImageResponse> => {
+    const res = await fetch(`${API_BASE}/studio/scene/image`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+      body: JSON.stringify({ prompt, scene_number: sceneNumber }),
+    });
+    if (!res.ok) throw new Error('Failed to generate scene visual');
     return res.json();
   }
 };

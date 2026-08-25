@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Skill } from '../types';
 import { ScoreBadge } from '../components/ScoreBadge';
+import { TechLogo } from '../components/TechLogo';
 import { 
   Scale, 
   Plus, 
@@ -60,28 +61,36 @@ export const SkillCompare: React.FC<SkillCompareProps> = ({
                 className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white transition-all duration-200 shadow-md shadow-emerald-600/20 hover:scale-105 active:scale-95"
               >
                 <Plus className="w-4 h-4" />
-                {t('add_skill_compare')}
+                <span>{t('add_skill_compare')}</span>
               </button>
 
               {selectorOpen && (
-                <div className="absolute right-0 mt-2 w-72 max-h-80 overflow-y-auto rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl p-2 z-50 animate-scale-in">
-                  <div className="text-[11px] font-semibold text-slate-400 px-3 py-1.5 uppercase">
+                <div className="absolute right-0 mt-2 w-72 max-h-80 overflow-y-auto rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl p-2 z-30 space-y-1 animate-scale-in">
+                  <div className="text-[11px] font-bold text-slate-400 px-3 py-1 uppercase tracking-wider">
                     {t('select_skill_to_compare')}
                   </div>
-                  {availableToAdd.slice(0, 15).map((skill) => (
+                  {availableToAdd.map((s) => (
                     <div
-                      key={skill.id}
+                      key={s.id}
                       onClick={() => {
-                        onAddSkillToCompare(skill.id);
+                        onAddSkillToCompare(s.id);
                         setSelectorOpen(false);
                       }}
-                      className="p-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer flex items-center justify-between text-xs transition-colors hover:translate-x-1 duration-150"
+                      className="p-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer flex items-center justify-between transition-colors"
                     >
-                      <span className="font-semibold text-slate-800 dark:text-slate-200 truncate pr-2">
-                        {skill.title || skill.name}
-                      </span>
-                      <span className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 shrink-0">
-                        {skill.category}
+                      <div className="truncate mr-2 flex items-center gap-2">
+                        <TechLogo name={s.name || s.title || s.primary_language || ''} className="w-4 h-4 shrink-0" />
+                        <div>
+                          <div className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">
+                            {s.title || s.name}
+                          </div>
+                          <div className="text-[10px] text-slate-400 font-mono">
+                            {s.category}
+                          </div>
+                        </div>
+                      </div>
+                      <span className="text-[10px] font-bold text-sky-600 dark:text-sky-400 font-mono shrink-0">
+                        +{t('btn_compare')}
                       </span>
                     </div>
                   ))}
@@ -136,10 +145,11 @@ export const SkillCompare: React.FC<SkillCompareProps> = ({
                       }}
                       role="button"
                       tabIndex={0}
-                      className="text-lg font-black text-slate-900 dark:text-slate-100 hover:text-emerald-600 dark:hover:text-emerald-400 cursor-pointer mt-1.5 transition-colors focus:outline-none focus:ring-1 focus:ring-emerald-500 rounded"
+                      className="text-base font-bold text-slate-900 dark:text-slate-100 hover:text-sky-600 dark:hover:text-sky-400 cursor-pointer mt-1 truncate"
                     >
                       {skill.title || skill.name}
                     </h3>
+                    <p className="text-[11px] text-slate-400 font-mono truncate">{skill.name}</p>
                   </div>
 
                   <button

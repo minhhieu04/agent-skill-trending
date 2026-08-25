@@ -282,9 +282,9 @@ def seed_initial_curated_skills():
                     SkillBundle(
                         slug="antigravity-data-stack",
                         name="Google Antigravity & AI Agent Master Stack",
-                        title="🪐 Google Antigravity & Data Intelligence Stack",
+                        title="Google Antigravity & Data Intelligence Stack",
                         description="Complete bundle for building enterprise subagents, BigQuery analytics, and procedural skills using Google Antigravity & Gemini CLI.",
-                        icon="Sparkles",
+                        icon="antigravity",
                         badge="Google Deepmind Stack",
                         category="ai-agent",
                         target_stack="Google Antigravity / Gemini CLI",
@@ -295,9 +295,9 @@ def seed_initial_curated_skills():
                     SkillBundle(
                         slug="golang-microservices-stack",
                         name="High-Performance Golang Microservices Stack",
-                        title="🐹 Golang High-Performance Microservices Stack",
+                        title="Golang High-Performance Microservices Stack",
                         description="Idiomatic Go conventions, concurrency race condition detector, and PostgreSQL MCP server integration.",
-                        icon="Terminal",
+                        icon="golang",
                         badge="Go Backend Master",
                         category="backend",
                         target_stack="Antigravity / Codex / Cursor / Claude",
@@ -308,9 +308,9 @@ def seed_initial_curated_skills():
                     SkillBundle(
                         slug="nextjs-uiux-pro-stack",
                         name="Next.js 15 & UI/UX Pro Max Stack",
-                        title="⚛️ Next.js 15 App Router & UI/UX Design System",
+                        title="Next.js 15 App Router & UI/UX Design System",
                         description="Build stunning, accessible, high-performance web applications with Next.js 15 App Router, Server Actions, and WCAG design heuristics.",
-                        icon="Palette",
+                        icon="nextjs",
                         badge="Frontend Master",
                         category="frontend",
                         target_stack="Antigravity / Codex / Cursor / Windsurf",
@@ -321,9 +321,9 @@ def seed_initial_curated_skills():
                     SkillBundle(
                         slug="codex-mcp-fullstack",
                         name="OpenAI Codex & Multi-Agent MCP Stack",
-                        title="🧠 OpenAI Codex & Multi-Agent MCP Server Stack",
+                        title="OpenAI Codex & Multi-Agent MCP Server Stack",
                         description="Comprehensive setup with OpenAI Codex repository rules and Model Context Protocol servers for fullstack pair programming.",
-                        icon="Cpu",
+                        icon="openai",
                         badge="Enterprise Codex",
                         category="fullstack",
                         target_stack="OpenAI Codex / Copilot / Claude Code",
@@ -333,6 +333,32 @@ def seed_initial_curated_skills():
                     ),
                 ]
                 db.add_all(bundles)
+                db.commit()
+            else:
+                # Ensure existing bundles are updated with official icons and clean titles
+                bundle_updates = {
+                    "antigravity-data-stack": {
+                        "title": "Google Antigravity & Data Intelligence Stack",
+                        "icon": "antigravity"
+                    },
+                    "golang-microservices-stack": {
+                        "title": "Golang High-Performance Microservices Stack",
+                        "icon": "golang"
+                    },
+                    "nextjs-uiux-pro-stack": {
+                        "title": "Next.js 15 App Router & UI/UX Design System",
+                        "icon": "nextjs"
+                    },
+                    "codex-mcp-fullstack": {
+                        "title": "OpenAI Codex & Multi-Agent MCP Server Stack",
+                        "icon": "openai"
+                    }
+                }
+                for slug, data in bundle_updates.items():
+                    b = db.query(SkillBundle).filter(SkillBundle.slug == slug).first()
+                    if b:
+                        b.title = data["title"]
+                        b.icon = data["icon"]
                 db.commit()
 
             # Record collection run

@@ -127,3 +127,29 @@ def test_synthesize_tts_empty_validation():
     }
     res = client.post("/api/v1/studio/tts/synthesize", json=payload)
     assert res.status_code == 400
+
+def test_generate_scene_image():
+    payload = {
+        "prompt": "3D glowing AI Agent hologram in cyberpunk laboratory",
+        "scene_number": 1
+    }
+    res = client.post("/api/v1/studio/scene/image", json=payload)
+    assert res.status_code == 200
+    data = res.json()
+    assert "image_url" in data
+    assert "scene_number" in data
+    assert data["scene_number"] == 1
+    assert data["provider"] == "google_imagen_3"
+
+def test_synthesize_google_wavenet():
+    payload = {
+        "text": "Thử nghiệm giọng đọc Google WaveNet chất lượng cao.",
+        "voice": "vi-VN-Wavenet-A",
+        "provider": "google_tts"
+    }
+    res = client.post("/api/v1/studio/tts/synthesize", json=payload)
+    assert res.status_code == 200
+    data = res.json()
+    assert "audio_base64" in data
+    assert "subtitle_entries" in data
+

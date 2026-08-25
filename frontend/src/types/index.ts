@@ -182,11 +182,14 @@ export type AuditLog = AuditLogItem;
 export interface VoiceOption {
   id: string;
   name: string;
+  provider?: string;
+  badge?: string;
   language: string;
   gender: 'female' | 'male';
   style: string;
   description?: string;
   preview_text: string;
+  recommended_preset?: string;
 }
 
 export interface BlogPost {
@@ -204,6 +207,8 @@ export interface VideoScene {
   title: string;
   voiceover_text: string;
   visual_description: string;
+  visual_prompt?: string;
+  image_url?: string;
   duration_seconds: number;
   code_snippet?: string;
 }
@@ -250,4 +255,13 @@ export interface TTSRequest {
   voice?: string;
   rate?: string;
   pitch?: string;
+  provider?: string;
+}
+
+export interface SceneImageResponse {
+  scene_number: number;
+  image_url: string;
+  prompt: string;
+  status: string;
+  provider: string;
 }

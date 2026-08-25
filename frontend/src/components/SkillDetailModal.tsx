@@ -35,6 +35,7 @@ import { useToast } from '../context/ToastContext';
 import { useLanguage } from '../context/LanguageContext';
 import { ExportModal } from './ExportModal';
 import { SecurityBadge } from './SecurityBadge';
+import { TechLogo } from './TechLogo';
 
 interface SkillDetailModalProps {
   skill: Skill | null;
@@ -833,13 +834,14 @@ export const SkillDetailModal: React.FC<SkillDetailModalProps> = ({
                   <button
                     key={key}
                     onClick={() => setSelectedRuntimeGuide(key)}
-                    className={`px-3.5 py-2 rounded-xl sm:rounded-2xl text-xs font-semibold whitespace-nowrap transition-all shrink-0 ${
+                    className={`px-3.5 py-2 rounded-xl sm:rounded-2xl text-xs font-semibold whitespace-nowrap transition-all shrink-0 flex items-center gap-2 ${
                       selectedRuntimeGuide === key
                         ? 'bg-emerald-600 text-white shadow-md'
                         : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
                     }`}
                   >
-                    {item.title}
+                    <TechLogo name={key} className="w-4 h-4 shrink-0" />
+                    <span>{item.title.replace(/^[^\w\s\(\)\[\]\.\-]+/u, '').trim()}</span>
                   </button>
                 ))}
               </div>

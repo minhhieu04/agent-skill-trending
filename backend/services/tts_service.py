@@ -6,61 +6,117 @@ from typing import Dict, Any, List, Optional
 
 logger = logging.getLogger("TTSService")
 
-# Curated Hot AI Voices
+# Curated Hot AI Voices (Edge-TTS + Google WaveNet & Journey)
 CURATED_VOICES = [
+    # Vietnamese Voices
     {
         "id": "vi-VN-HoaiMyNeural",
-        "name": "Hoài My (Nữ)",
+        "name": "Hoài My (Nữ - Truyền Cảm)",
+        "provider": "edge_tts",
         "language": "vi-VN",
         "gender": "female",
         "style": "Viral Reviewer, TikTok Hot",
-        "description": "Giọng đọc truyền cảm, rất quen thuộc trên các kênh review phim và video công nghệ triệu view.",
-        "preview_text": "Chào các bạn! Hôm nay chúng ta sẽ cùng khám phá một công nghệ AI cực kỳ bùng nổ trong năm 2026."
+        "description": "Giọng đọc truyền cảm, giàu năng lượng, rất quen thuộc trên các kênh review công nghệ triệu view.",
+        "preview_text": "Chào các bạn! Hôm nay chúng ta sẽ cùng khám phá một công nghệ AI cực kỳ bùng nổ trong năm 2026.",
+        "recommended_preset": "hype",
+        "badge": "HOT"
     },
     {
         "id": "vi-VN-NamMinhNeural",
-        "name": "Nam Minh (Nam)",
+        "name": "Nam Minh (Nam - Trầm Ấm)",
+        "provider": "edge_tts",
         "language": "vi-VN",
         "gender": "male",
         "style": "Tech Radar, Thời Sự",
         "description": "Giọng nam trầm ấm, chuyên nghiệp, chuẩn phong cách bản tin công nghệ và podcast chuyên sâu.",
-        "preview_text": "Điểm tin công nghệ AI hôm nay: Google Antigravity và DeepMind vừa ra mắt tiêu chuẩn subagent mới."
+        "preview_text": "Điểm tin công nghệ AI hôm nay: Google Antigravity và DeepMind vừa ra mắt tiêu chuẩn subagent mới.",
+        "recommended_preset": "professional",
+        "badge": "STUDIO"
+    },
+    {
+        "id": "vi-VN-Wavenet-A",
+        "name": "Google WaveNet (Nữ - Chuẩn Studio)",
+        "provider": "google_tts",
+        "language": "vi-VN",
+        "gender": "female",
+        "style": "Google Cloud DeepMind WaveNet",
+        "description": "Giọng đọc công nghệ WaveNet độc quyền của Google với ngữ điệu tự nhiên, chuẩn âm chuẩn thanh điệu.",
+        "preview_text": "Xin chào! Đây là giọng đọc nhân tạo Google WaveNet chất lượng cao phục vụ video công nghệ.",
+        "recommended_preset": "professional",
+        "badge": "GOOGLE AI"
+    },
+    {
+        "id": "vi-VN-Wavenet-B",
+        "name": "Google WaveNet (Nam - Phát Thanh)",
+        "provider": "google_tts",
+        "language": "vi-VN",
+        "gender": "male",
+        "style": "Google Studio Broadcast",
+        "description": "Giọng nam phát thanh viên Google DeepMind rõ ràng, mạch lạc, rất thích hợp cho video hướng dẫn lập trình.",
+        "preview_text": "Google Cloud Text to Speech mang đến trải nghiệm âm thanh sống động cho ứng dụng của bạn.",
+        "recommended_preset": "professional",
+        "badge": "GOOGLE AI"
+    },
+    # English Voices
+    {
+        "id": "en-US-Journey-F",
+        "name": "Google Journey (Female - Expressive)",
+        "provider": "google_tts",
+        "language": "en-US",
+        "gender": "female",
+        "style": "DeepMind Next-Gen Journey",
+        "description": "Google's most advanced expressive voice model with human-like breathing and natural pauses.",
+        "preview_text": "Hey developers, let's explore how Google Antigravity is reshaping modern software architecture.",
+        "recommended_preset": "hype",
+        "badge": "GOOGLE AI"
     },
     {
         "id": "en-US-ChristopherNeural",
-        "name": "Christopher (Male)",
+        "name": "Christopher (Male - Keynote)",
+        "provider": "edge_tts",
         "language": "en-US",
         "gender": "male",
         "style": "Tech Podcast & Keynote",
         "description": "Clear, authoritative American tech voice suitable for developer showcases and system design walkthroughs.",
-        "preview_text": "Welcome back developers! In today's episode, we are diving deep into autonomous agent workflows."
+        "preview_text": "Welcome back developers! In today's episode, we are diving deep into autonomous agent workflows.",
+        "recommended_preset": "professional",
+        "badge": "PRO"
     },
     {
         "id": "en-US-JennyNeural",
-        "name": "Jenny (Female)",
+        "name": "Jenny (Female - Energetic)",
+        "provider": "edge_tts",
         "language": "en-US",
         "gender": "female",
         "style": "Tutorial & Explainer",
         "description": "Energetic, crisp and friendly voice ideal for quick tutorials, SaaS demos and product highlights.",
-        "preview_text": "Here is how you can boost your coding velocity by 10x with this new trending AI skill."
+        "preview_text": "Here is how you can boost your coding velocity by 10x with this new trending AI skill.",
+        "recommended_preset": "hype",
+        "badge": "HOT"
     },
     {
         "id": "en-GB-SoniaNeural",
-        "name": "Sonia (Female UK)",
+        "name": "Sonia (Female UK - Elegant)",
+        "provider": "edge_tts",
         "language": "en-GB",
         "gender": "female",
         "style": "Documentary & Story",
         "description": "Refined British accent for high-end tech documentaries and architecture deep dives.",
-        "preview_text": "Let us analyze the profound impact of Model Context Protocol on modern software engineering."
+        "preview_text": "Let us analyze the profound impact of Model Context Protocol on modern software engineering.",
+        "recommended_preset": "deep_dive",
+        "badge": "UK"
     },
     {
         "id": "ja-JP-NanamiNeural",
-        "name": "Nanami (Female JP)",
+        "name": "Nanami (Female JP - Anime)",
+        "provider": "edge_tts",
         "language": "ja-JP",
         "gender": "female",
         "style": "Anime & Tech Review",
         "description": "Expressive Japanese voice popular for developer anime recaps and Asia tech trends.",
-        "preview_text": "みなさん、こんにちは！最新のAIエージェントのトレンドを見ていきましょう。"
+        "preview_text": "みなさん、こんにちは！最新のAIエージェントのトレンドを見ていきましょう。",
+        "recommended_preset": "hype",
+        "badge": "JP"
     }
 ]
 
@@ -75,10 +131,11 @@ class TTSService:
         text: str,
         voice: str = "vi-VN-HoaiMyNeural",
         rate: str = "+0%",
-        pitch: str = "+0Hz"
+        pitch: str = "+0Hz",
+        provider: str = "edge_tts"
     ) -> Dict[str, Any]:
         """
-        Synthesizes text to speech using edge-tts.
+        Synthesizes text to speech using Google Cloud / Edge-TTS.
         Returns base64 audio and word-level subtitle timings.
         """
         clean_text = text.strip()
@@ -91,9 +148,18 @@ class TTSService:
                 "status": "empty_text"
             }
 
+        # Map Google voices to Edge equivalent if running offline or direct Edge synthesis
+        target_voice = voice
+        if voice == "vi-VN-Wavenet-A":
+            target_voice = "vi-VN-HoaiMyNeural"
+        elif voice == "vi-VN-Wavenet-B":
+            target_voice = "vi-VN-NamMinhNeural"
+        elif voice == "en-US-Journey-F":
+            target_voice = "en-US-JennyNeural"
+
         try:
             import edge_tts
-            communicate = edge_tts.Communicate(clean_text, voice, rate=rate, pitch=pitch)
+            communicate = edge_tts.Communicate(clean_text, target_voice, rate=rate, pitch=pitch)
             
             audio_chunks = []
             subtitle_entries = []

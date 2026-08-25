@@ -32,6 +32,8 @@ class VideoSceneItem(BaseModel):
     title: str
     voiceover_text: str
     visual_description: str
+    visual_prompt: Optional[str] = None
+    image_url: Optional[str] = None
     duration_seconds: int
     code_snippet: Optional[str] = None
 
@@ -52,6 +54,7 @@ class TTSRequest(BaseModel):
     voice: str = "vi-VN-HoaiMyNeural"
     rate: str = "+0%"
     pitch: str = "+0Hz"
+    provider: Optional[str] = "edge_tts"
 
 class SubtitleEntryItem(BaseModel):
     text: str
@@ -65,6 +68,17 @@ class TTSResponse(BaseModel):
     voice: str
     status: str
     message: Optional[str] = None
+
+class SceneImageRequest(BaseModel):
+    prompt: str
+    scene_number: int = 1
+
+class SceneImageResponse(BaseModel):
+    scene_number: int
+    image_url: str
+    prompt: str
+    status: str
+    provider: str
 
 @router.get("/tts/voices")
 def get_voices():
@@ -81,7 +95,17 @@ async def synthesize_tts(payload: TTSRequest):
         text=payload.text,
         voice=payload.voice,
         rate=payload.rate,
-        pitch=payload.pitch
+        pitch=payload.pitch,
+        provider=payload.provider or "edge_tts"
+    )
+    return result
+
+@router.post("/scene/image", response_model=SceneImageResponse)
+async def generate_scene_image(payload: SceneImageRequest):
+    """Generates or resolves high-res visual artwork for video scenes using Imagen 3 / Gemini."""
+    result = await BlogVideoService.generate_scene_image(
+        prompt=payload.prompt,
+        scene_number=payload.scene_number
     )
     return result
 
