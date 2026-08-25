@@ -399,68 +399,27 @@ export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({
 
     setIsExportingVideo(true);
     setExportProgress(0);
-    showToast(language === 'vi' ? '🎬 Đang ghi hình video...' : '🎬 Recording video...');
+    showToast(language === 'vi' ? '🎬 Đang ghi hình video với hiệu ứng chuyển cảnh...' : '🎬 Recording video with scene transitions...');
 
     try {
-      // Decode audio bytes
+      // Decode audio
       const byteCharacters = atob(ttsResult.audio_base64);
       const byteArray = new Uint8Array(byteCharacters.length);
       for (let i = 0; i < byteCharacters.length; i++) {
         byteArray[i] = byteCharacters.charCodeAt(i);
       }
 
-      // Build branded canvas visual
+      // Canvas setup
       const canvas = document.createElement('canvas');
-      const containerEl = videoContainerRef.current;
-      canvas.width = containerEl ? containerEl.offsetWidth || 360 : 360;
-      canvas.height = containerEl ? containerEl.offsetHeight || 640 : 640;
+      canvas.width = aspectRatio === '9:16' ? 720 : 1280;
+      canvas.height = aspectRatio === '9:16' ? 1280 : 720;
       const ctx = canvas.getContext('2d')!;
+      const W = canvas.width;
+      const H = canvas.height;
 
-      // Background
-      ctx.fillStyle = '#0f172a';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      const grad = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
-      grad.addColorStop(0, 'rgba(99,102,241,0.35)');
-      grad.addColorStop(1, 'rgba(244,63,94,0.25)');
-      ctx.fillStyle = grad;
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-      // Title text with word wrap
-      const title = blogPost?.title || customTopic || 'AI Video';
-      const fontSize = Math.round(canvas.width / 18);
-      ctx.font = `bold ${fontSize}px sans-serif`;
-      ctx.fillStyle = '#e2e8f0';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      const wordList = title.split(' ');
-      const lines: string[] = [];
-      let currentLine = '';
-      wordList.forEach(w => {
-        const test = currentLine ? currentLine + ' ' + w : w;
-        if (ctx.measureText(test).width > canvas.width * 0.8 && currentLine) {
-          lines.push(currentLine);
-          currentLine = w;
-        } else {
-          currentLine = test;
-        }
-      });
-      if (currentLine) lines.push(currentLine);
-      const lineH = fontSize * 1.4;
-      lines.forEach((l, i) => {
-        const y = canvas.height / 2 + (i - (lines.length - 1) / 2) * lineH;
-        ctx.fillText(l, canvas.width / 2, y);
-      });
-
-      // Subtitle badge at bottom
-      ctx.fillStyle = 'rgba(99,102,241,0.8)';
-      ctx.fillRect(0, canvas.height - 48, canvas.width, 48);
-      ctx.font = `${Math.round(fontSize * 0.7)}px sans-serif`;
-      ctx.fillStyle = '#fff';
-      ctx.fillText('AI Video Studio • Agent Skill Trending', canvas.width / 2, canvas.height - 24);
-
-      // Set up AudioContext + canvas stream
-      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
-      const audioCtx = new AudioContextClass();
+      // Audio setup
+      const AudioCtxClass = window.AudioContext || (window as any).webkitAudioContext;
+      const audioCtx = new AudioCtxClass();
       const audioBuffer = await audioCtx.decodeAudioData(byteArray.buffer.slice(0));
 
       const canvasStream = canvas.captureStream(30);
@@ -468,50 +427,331 @@ export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({
       const source = audioCtx.createBufferSource();
       source.buffer = audioBuffer;
       source.connect(dest);
+      source.connect(audioCtx.destination); // needed for timing
 
       const combinedStream = new MediaStream([
         ...canvasStream.getVideoTracks(),
         ...dest.stream.getAudioTracks()
       ]);
 
+      // Pick supported MIME
       const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9,opus')
         ? 'video/webm;codecs=vp9,opus'
-        : MediaRecorder.isTypeSupported('video/webm')
-          ? 'video/webm'
-          : 'video/mp4';
+        : MediaRecorder.isTypeSupported('video/webm;codecs=vp8,opus')
+          ? 'video/webm;codecs=vp8,opus'
+          : 'video/webm';
 
-      const recorder = new MediaRecorder(combinedStream, { mimeType });
+      const recorder = new MediaRecorder(combinedStream, { mimeType, videoBitsPerSecond: 2_500_000 });
       const chunks: BlobPart[] = [];
       recorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
 
       const totalMs = Math.ceil(ttsResult.duration_seconds * 1000);
+      const scenes = storyboard?.scenes || [];
+      const subtitles = ttsResult.subtitle_entries || [];
+      const title = blogPost?.title || customTopic || 'AI Video';
       const exportStart = Date.now();
-      const progressInterval = setInterval(() => {
-        setExportProgress(Math.min(95, Math.round(((Date.now() - exportStart) / totalMs) * 100)));
-      }, 400);
 
-      recorder.onstop = () => {
-        clearInterval(progressInterval);
-        setExportProgress(100);
-        const ext = mimeType.includes('mp4') ? 'mp4' : 'webm';
-        const blob = new Blob(chunks, { type: mimeType });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `ai_video_${(currentSkill?.name || 'skill').replace(/\s+/g, '_')}_${Date.now()}.${ext}`;
-        a.click();
-        URL.revokeObjectURL(url);
-        setTimeout(() => { setIsExportingVideo(false); audioCtx.close(); }, 300);
-        showToast(language === 'vi' ? '🎬 Xuất video thành công!' : '🎬 Video exported successfully!');
+      // Scene timing
+      const sceneTimings: { start: number; end: number }[] = [];
+      let acc = 0;
+      scenes.forEach(s => {
+        sceneTimings.push({ start: acc * 1000, end: (acc + s.duration_seconds) * 1000 });
+        acc += s.duration_seconds;
+      });
+
+      // Scene gradient colors
+      const sceneColors = [
+        ['#e11d48', '#6366f1', '#7c3aed'], // rose → indigo → purple
+        ['#d97706', '#dc2626', '#1e293b'], // amber → red → slate
+        ['#059669', '#0d9488', '#4f46e5'], // emerald → teal → indigo
+        ['#0284c7', '#6366f1', '#7c3aed'], // sky → indigo → purple
+        ['#6366f1', '#e11d48', '#059669'], // indigo → rose → emerald
+      ];
+
+      // Word wrap helper
+      const wrapText = (text: string, maxW: number, font: string): string[] => {
+        ctx.font = font;
+        const words = text.split(' ');
+        const result: string[] = [];
+        let line = '';
+        for (const w of words) {
+          const test = line ? line + ' ' + w : w;
+          if (ctx.measureText(test).width > maxW && line) {
+            result.push(line);
+            line = w;
+          } else {
+            line = test;
+          }
+        }
+        if (line) result.push(line);
+        return result;
       };
 
-      recorder.start(100);
+      // Animation render loop
+      let animId: number;
+      const renderFrame = () => {
+        const elapsedMs = (audioCtx.currentTime * 1000) || (Date.now() - exportStart);
+        const progress = Math.min(1, elapsedMs / totalMs);
+
+        // Determine current scene
+        let sceneIdx = 0;
+        for (let i = 0; i < sceneTimings.length; i++) {
+          if (elapsedMs >= sceneTimings[i].start && elapsedMs < sceneTimings[i].end) {
+            sceneIdx = i;
+            break;
+          }
+          if (i === sceneTimings.length - 1) sceneIdx = i;
+        }
+        const scene = scenes[sceneIdx];
+        const colors = sceneColors[sceneIdx % sceneColors.length];
+
+        // Scene-local progress (0 → 1)
+        const st = sceneTimings[sceneIdx];
+        const sceneProgress = st ? Math.min(1, (elapsedMs - st.start) / (st.end - st.start)) : 0;
+
+        // === BACKGROUND ===
+        ctx.fillStyle = '#0f172a';
+        ctx.fillRect(0, 0, W, H);
+
+        // Animated gradient
+        const angle = elapsedMs * 0.0003;
+        const gx = W / 2 + Math.cos(angle) * W * 0.4;
+        const gy = H / 2 + Math.sin(angle) * H * 0.4;
+        const grad = ctx.createRadialGradient(gx, gy, 0, W / 2, H / 2, W * 0.8);
+        grad.addColorStop(0, colors[0] + '55');
+        grad.addColorStop(0.5, colors[1] + '33');
+        grad.addColorStop(1, colors[2] + '11');
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, W, H);
+
+        // Floating particles
+        for (let p = 0; p < 12; p++) {
+          const px = (Math.sin(elapsedMs * 0.001 + p * 1.7) * 0.5 + 0.5) * W;
+          const py = (Math.cos(elapsedMs * 0.0008 + p * 2.3) * 0.5 + 0.5) * H;
+          const pr = 2 + Math.sin(elapsedMs * 0.002 + p) * 2;
+          ctx.beginPath();
+          ctx.arc(px, py, pr, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(${p % 2 === 0 ? '99,102,241' : '244,63,94'},${0.15 + Math.sin(elapsedMs * 0.003 + p) * 0.1})`;
+          ctx.fill();
+        }
+
+        // === TOP BAR ===
+        ctx.fillStyle = 'rgba(15,23,42,0.85)';
+        ctx.fillRect(0, 0, W, 56);
+        // Recording dot
+        ctx.beginPath();
+        ctx.arc(24, 28, 5 + Math.sin(elapsedMs * 0.005) * 2, 0, Math.PI * 2);
+        ctx.fillStyle = '#ef4444';
+        ctx.fill();
+        // Title
+        ctx.font = `bold ${Math.round(W / 50)}px sans-serif`;
+        ctx.fillStyle = '#e2e8f0';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('AGENT SKILLS RADAR', 42, 28);
+        // Scene badge
+        ctx.textAlign = 'right';
+        ctx.font = `bold ${Math.round(W / 55)}px monospace`;
+        ctx.fillStyle = '#818cf8';
+        ctx.fillText(`Scene ${sceneIdx + 1}/${scenes.length || 5}  •  ${(elapsedMs / 1000).toFixed(1)}s`, W - 20, 28);
+
+        // === MAIN CONTENT ===
+        const contentY = 80;
+        const contentH = H - 180;
+        ctx.textAlign = 'center';
+
+        // Scene title badge
+        if (scene?.title) {
+          const badgeFont = `bold ${Math.round(W / 38)}px sans-serif`;
+          ctx.font = badgeFont;
+          const badgeW = ctx.measureText(scene.title).width + 36;
+          const badgeX = (W - badgeW) / 2;
+          const badgeY = contentY + 20;
+          // Slide-in animation
+          const slideX = Math.min(1, sceneProgress * 4) * 0 + (1 - Math.min(1, sceneProgress * 4)) * -50;
+
+          ctx.fillStyle = colors[0] + '44';
+          ctx.beginPath();
+          ctx.roundRect(badgeX + slideX, badgeY, badgeW, 36, 18);
+          ctx.fill();
+          ctx.strokeStyle = colors[0] + '88';
+          ctx.lineWidth = 1.5;
+          ctx.stroke();
+
+          ctx.fillStyle = '#fecdd3';
+          ctx.fillText(scene.title, W / 2 + slideX, badgeY + 19);
+        }
+
+        // Main title or scene voiceover text
+        const mainText = sceneIdx === 0 ? title : (scene?.voiceover_text || '');
+        if (mainText) {
+          const mainFont = sceneIdx === 0
+            ? `900 ${Math.round(W / 16)}px sans-serif`
+            : `bold ${Math.round(W / 26)}px sans-serif`;
+          const wrappedLines = wrapText(mainText, W * 0.8, mainFont);
+          const lineHeight = sceneIdx === 0 ? Math.round(W / 14) : Math.round(W / 22);
+          const startY = contentY + contentH / 2 - (wrappedLines.length * lineHeight) / 2 + 20;
+
+          // Fade-in per line
+          wrappedLines.forEach((line, li) => {
+            const lineDelay = li * 0.08;
+            const lineAlpha = Math.min(1, Math.max(0, (sceneProgress - lineDelay) * 5));
+            const offsetY = (1 - lineAlpha) * 15;
+            ctx.globalAlpha = lineAlpha;
+            ctx.font = mainFont;
+            ctx.fillStyle = sceneIdx === 0 ? '#f1f5f9' : '#cbd5e1';
+            ctx.fillText(line, W / 2, startY + li * lineHeight + offsetY);
+          });
+          ctx.globalAlpha = 1;
+        }
+
+        // Stats badges (scene 0 only)
+        if (sceneIdx === 0 && currentSkill) {
+          const statsY = contentY + contentH / 2 + 80;
+          const stats = [
+            { icon: '⭐', text: `${currentSkill.stars?.toLocaleString() || '4,280'} Stars`, color: '#fbbf24' },
+            { icon: '🍴', text: `${currentSkill.forks?.toLocaleString() || '320'} Forks`, color: '#818cf8' },
+            { icon: '⚡', text: currentSkill.primary_language || 'TypeScript', color: '#34d399' },
+          ];
+          const badgeW = 130;
+          const totalW = stats.length * badgeW + (stats.length - 1) * 12;
+          const startX = (W - totalW) / 2;
+          stats.forEach((s, si) => {
+            const bx = startX + si * (badgeW + 12);
+            const fadeIn = Math.min(1, Math.max(0, (sceneProgress - 0.3 - si * 0.1) * 4));
+            ctx.globalAlpha = fadeIn;
+            ctx.fillStyle = 'rgba(15,23,42,0.9)';
+            ctx.beginPath();
+            ctx.roundRect(bx, statsY, badgeW, 34, 12);
+            ctx.fill();
+            ctx.font = `bold ${Math.round(W / 55)}px monospace`;
+            ctx.fillStyle = s.color;
+            ctx.textAlign = 'center';
+            ctx.fillText(`${s.icon} ${s.text}`, bx + badgeW / 2, statsY + 18);
+          });
+          ctx.globalAlpha = 1;
+        }
+
+        // === SUBTITLE BAR ===
+        const subBarY = H - 100;
+        ctx.fillStyle = 'rgba(0,0,0,0.8)';
+        ctx.beginPath();
+        ctx.roundRect(W * 0.05, subBarY, W * 0.9, 44, 12);
+        ctx.fill();
+
+        // Find current subtitle word
+        let currentSubIdx = 0;
+        for (let w = 0; w < subtitles.length; w++) {
+          if (elapsedMs >= subtitles[w].start_ms && elapsedMs <= subtitles[w].end_ms) {
+            currentSubIdx = w;
+            break;
+          }
+        }
+        // Render ±4 words
+        const subFont = `bold ${Math.round(W / 42)}px sans-serif`;
+        ctx.font = subFont;
+        ctx.textAlign = 'center';
+        const windowWords: { text: string; active: boolean }[] = [];
+        for (let w = Math.max(0, currentSubIdx - 4); w <= Math.min(subtitles.length - 1, currentSubIdx + 4); w++) {
+          windowWords.push({ text: subtitles[w].text, active: w === currentSubIdx });
+        }
+        if (windowWords.length > 0) {
+          let subX = W / 2;
+          const fullStr = windowWords.map(w => w.text).join(' ');
+          const fullW = ctx.measureText(fullStr).width;
+          subX = W / 2 - fullW / 2;
+          windowWords.forEach((w) => {
+            const ww = ctx.measureText(w.text + ' ').width;
+            if (w.active) {
+              ctx.fillStyle = '#fbbf24';
+              ctx.font = `900 ${Math.round(W / 40)}px sans-serif`;
+            } else {
+              ctx.fillStyle = 'rgba(148,163,184,0.7)';
+              ctx.font = subFont;
+            }
+            ctx.textAlign = 'left';
+            ctx.fillText(w.text, subX, subBarY + 26);
+            subX += ww;
+          });
+        }
+
+        // === PROGRESS BAR ===
+        const pbY = H - 44;
+        ctx.fillStyle = 'rgba(30,41,59,0.9)';
+        ctx.fillRect(0, pbY, W, 44);
+        // Progress track
+        ctx.fillStyle = 'rgba(51,65,85,0.8)';
+        ctx.beginPath();
+        ctx.roundRect(20, pbY + 16, W - 40, 6, 3);
+        ctx.fill();
+        // Progress fill
+        const progGrad = ctx.createLinearGradient(20, 0, 20 + (W - 40) * progress, 0);
+        progGrad.addColorStop(0, '#e11d48');
+        progGrad.addColorStop(0.5, '#6366f1');
+        progGrad.addColorStop(1, '#10b981');
+        ctx.fillStyle = progGrad;
+        ctx.beginPath();
+        ctx.roundRect(20, pbY + 16, (W - 40) * progress, 6, 3);
+        ctx.fill();
+        // Time label
+        ctx.font = `bold ${Math.round(W / 60)}px monospace`;
+        ctx.fillStyle = '#94a3b8';
+        ctx.textAlign = 'right';
+        ctx.fillText(`${(elapsedMs / 1000).toFixed(1)}s / ${(totalMs / 1000).toFixed(0)}s`, W - 20, pbY + 10);
+        // Branding
+        ctx.textAlign = 'left';
+        ctx.fillStyle = '#475569';
+        ctx.fillText('AI Video Studio • Agent Skill Trending', 20, pbY + 10);
+
+        // Continue rendering
+        if (elapsedMs < totalMs + 500) {
+          animId = requestAnimationFrame(renderFrame);
+        }
+
+        // Update export progress
+        setExportProgress(Math.min(95, Math.round(progress * 100)));
+      };
+
+      // Recording callbacks
+      recorder.onstop = () => {
+        cancelAnimationFrame(animId);
+        setExportProgress(100);
+        const blob = new Blob(chunks, { type: mimeType });
+        if (blob.size < 1000) {
+          showToast(language === 'vi' ? 'Video quá nhỏ, đang tải audio MP3...' : 'Video too small, downloading MP3...', 'error');
+          const audioBlob = new Blob([byteArray], { type: 'audio/mp3' });
+          const url = URL.createObjectURL(audioBlob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `ai_audio_${Date.now()}.mp3`;
+          a.click();
+          URL.revokeObjectURL(url);
+        } else {
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `ai_video_${(currentSkill?.name || 'skill').replace(/\s+/g, '_')}_${Date.now()}.webm`;
+          a.click();
+          URL.revokeObjectURL(url);
+          showToast(language === 'vi' ? '🎬 Xuất video thành công! (WebM — dùng CloudConvert.com để chuyển sang MP4 nếu cần)' : '🎬 Video exported! (WebM — use CloudConvert.com to convert to MP4 if needed)');
+        }
+        setTimeout(() => { setIsExportingVideo(false); audioCtx.close(); }, 300);
+      };
+
+      // Start recording + animation
+      recorder.start(200);
       source.start(0);
-      setTimeout(() => { try { recorder.stop(); } catch (_) {} }, totalMs + 800);
+      animId = requestAnimationFrame(renderFrame);
+
+      // Auto-stop after audio finishes
+      source.onended = () => {
+        setTimeout(() => {
+          try { recorder.stop(); } catch (_) {}
+        }, 500);
+      };
 
     } catch (err: any) {
       setIsExportingVideo(false);
-      // Graceful fallback: export as MP3 audio
       showToast(language === 'vi' ? 'Trình duyệt không hỗ trợ quay video, đang tải audio MP3...' : 'Video not supported, downloading MP3 audio...', 'error');
       try {
         const byteCharacters = atob(ttsResult.audio_base64);

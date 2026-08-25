@@ -22,10 +22,11 @@ class Categorizer:
     def rule_based_categorize(name: str, desc: str, tags: List[str]) -> Dict[str, Any]:
         """
         Fast, robust heuristic classifier for AI agent tools & skills.
+        Zero dependency, 100% offline uptime guarantee.
         """
         text = f"{name} {desc} {' '.join(tags)}".lower()
         
-        category = "devtools" # Default fallback
+        category = "devtools"  # Default fallback
         difficulty = "intermediate"
         
         # 1. MCP Server detection
@@ -64,14 +65,16 @@ class Categorizer:
         return {
             "category": category,
             "difficulty": difficulty,
-            "ai_summary": summary
+            "ai_summary": summary,
+            "provider": "heuristic_rule_engine"
         }
 
     @staticmethod
     async def ai_categorize(name: str, desc: str, tags: List[str], primary_language: str) -> Dict[str, Any]:
         """
         Uses Google Gemini to accurately categorize, summarize use case, and recommend runtimes.
-        Falls back to rule_based_categorize if no API key or on error.
+        Falls back to rule_based_categorize if no API key or when quota runs out.
+        Logs quota errors to AuditLog.
         """
         heuristic_res = Categorizer.rule_based_categorize(name, desc, tags)
         
@@ -112,8 +115,32 @@ class Categorizer:
                 "category": data.get("category", heuristic_res["category"]),
                 "difficulty": data.get("difficulty", heuristic_res["difficulty"]),
                 "ai_summary": data.get("ai_summary", heuristic_res["ai_summary"]),
-                "runtimes": data.get("runtimes", [])
+                "runtimes": data.get("runtimes", []),
+                "provider": "google_gemini_2.0_flash"
             }
         except Exception as e:
-            logger.warning(f"Gemini AI Categorization skipped / failed ({e}), using heuristic.")
+            err_str = str(e)
+            is_quota = any(kw in err_str.lower() for kw in ["429", "resource_exhausted", "quota", "rate limit", "too many requests"])
+            
+            # Log to AuditLog if quota error
+            if is_quota:
+                try:
+                    from database import SessionLocal
+                    from models.audit_log import AuditLog
+                    with SessionLocal() as db:
+                        audit = AuditLog(
+                            username="system_gemini",
+                            action="quota_exceeded",
+                            target_type="gemini_categorizer",
+                            detail={
+                                "source": "gemini_ai",
+                                "reason": f"Gemini Categorizer rate limited for {name}: {err_str[:200]}"
+                            }
+                        )
+                        db.add(audit)
+                        db.commit()
+                except Exception:
+                    pass
+                    
+            logger.warning(f"[GEMINI] Categorization fallback for {name}: {err_str[:150]}")
             return heuristic_res

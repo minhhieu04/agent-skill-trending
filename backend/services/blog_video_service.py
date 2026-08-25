@@ -3,10 +3,49 @@ import re
 import json
 import base64
 import logging
+from datetime import datetime
 from typing import Dict, Any, List, Optional
 from config import settings
 
 logger = logging.getLogger("BlogVideoService")
+
+def _parse_gemini_error(e: Exception) -> Dict[str, Any]:
+    """Classifies Gemini API exceptions into quota, auth, or generic errors."""
+    err_str = str(e)
+    err_lower = err_str.lower()
+    is_quota = any(kw in err_lower for kw in ["429", "resource_exhausted", "quota", "rate limit", "too many requests"])
+    is_auth = any(kw in err_lower for kw in ["401", "403", "api_key_invalid", "permission_denied", "unauthorized", "api key not valid"])
+    
+    if is_quota:
+        reason = "Gemini API Quota Exceeded (429 / Resource Exhausted). Đã kích hoạt bộ tạo nội dung chuẩn hóa Offline."
+    elif is_auth:
+        reason = "Gemini API Key không hợp lệ hoặc thiếu quyền truy cập."
+    else:
+        reason = f"Gemini API Error: {err_str[:200]}"
+        
+    return {
+        "is_quota": is_quota,
+        "is_auth": is_auth,
+        "reason": reason,
+        "raw_error": err_str
+    }
+
+def _log_gemini_audit(action: str, detail: Dict[str, Any]):
+    """Safely logs Gemini AI operations and quota failures to the AuditLog database."""
+    try:
+        from database import SessionLocal
+        from models.audit_log import AuditLog
+        with SessionLocal() as db:
+            audit = AuditLog(
+                username="system_gemini",
+                action=action,
+                target_type="gemini_ai",
+                detail=detail
+            )
+            db.add(audit)
+            db.commit()
+    except Exception as log_err:
+        logger.warning(f"Could not record Gemini audit log: {log_err}")
 
 class BlogVideoService:
     @staticmethod
@@ -20,6 +59,7 @@ class BlogVideoService:
         """
         Generates a comprehensive SEO-friendly tech blog post.
         Supports Vietnamese (vi) and English (en).
+        Automatically handles Gemini quota exhaustion with zero-downtime curated fallback.
         """
         title = topic.strip()
         skill_name = skill_data.get("name", "") if skill_data else ""
@@ -30,7 +70,6 @@ class BlogVideoService:
         
         display_title = skill_title or title or "Xu Hướng AI Agent & Kỹ Năng Lập Trình 2026"
         
-        # Tone adjustments
         tone_descriptor = {
             "hype": "năng động, cuốn hút, nhấn mạnh sự đột phá 10x năng suất",
             "casual": "gần gũi, chia sẻ kinh nghiệm thực chiến từ developer",
@@ -78,10 +117,16 @@ class BlogVideoService:
                 
                 if response and response.text:
                     content = response.text.strip()
-                    # Extract title if present in first line
                     first_line = content.split("\n")[0].replace("#", "").strip()
                     word_count = len(content.split())
                     read_time = f"{max(1, word_count // 200)} phút đọc" if language == "vi" else f"{max(1, word_count // 200)} min read"
+                    
+                    _log_gemini_audit("gemini_generation_success", {
+                        "type": "blog",
+                        "topic": display_title,
+                        "model": "gemini-2.5-flash",
+                        "word_count": word_count
+                    })
                     
                     return {
                         "title": first_line or display_title,
@@ -90,13 +135,29 @@ class BlogVideoService:
                         "word_count": word_count,
                         "estimated_read_time": read_time,
                         "language": language,
-                        "tone": tone
+                        "tone": tone,
+                        "provider": "google_gemini_2.5_flash",
+                        "fallback_used": False,
+                        "quota_status": "ok"
                     }
             except Exception as e:
-                logger.warning(f"Gemini API generation failed, falling back to curated generator: {e}")
+                err_info = _parse_gemini_error(e)
+                action_name = "quota_exceeded" if err_info["is_quota"] else "gemini_api_error"
+                _log_gemini_audit(action_name, {
+                    "source": "gemini_ai",
+                    "type": "blog_generation",
+                    "reason": err_info["reason"],
+                    "is_quota": err_info["is_quota"],
+                    "is_auth": err_info["is_auth"]
+                })
+                logger.warning(f"[GEMINI] Blog generation fallback triggered: {err_info['reason']}")
 
         # High Quality Curated Fallback Template
-        return BlogVideoService._generate_curated_blog(display_title, skill_data, tone, language)
+        fallback_res = BlogVideoService._generate_curated_blog(display_title, skill_data, tone, language)
+        fallback_res["provider"] = "curated_offline_engine"
+        fallback_res["fallback_used"] = True
+        fallback_res["quota_status"] = "quota_exceeded_or_missing_key"
+        return fallback_res
 
     @staticmethod
     def _generate_curated_blog(title: str, skill_data: Optional[Dict[str, Any]], tone: str, language: str) -> Dict[str, Any]:
@@ -183,7 +244,6 @@ export async function executeAutonomousWorkflow(config: AgentSkillConfig) {{
                 "tone": tone
             }
         else:
-            # English Curated
             content = f"""# 🚀 {title}: The Next-Gen AI Coding Paradigm in 2026
 
 In 2026, relying solely on single-prompt code completion is obsolete. The rise of **Autonomous Subagents** and **{skill_name}** represents a massive leap toward deterministic, production-grade AI software development.
@@ -247,6 +307,7 @@ Integrating **{title}** into your daily workflow transforms AI assistants from s
     ) -> Dict[str, Any]:
         """
         Breaks down blog post or skill context into timed video scenes for TikTok/Shorts or YouTube.
+        Handles Gemini quota failures with zero-downtime curated storyboard fallback.
         """
         skill_name = skill_data.get("name", "AI Agent Skill") if skill_data else "AI Agent Skill"
         skill_title = skill_data.get("title", skill_name) if skill_data else skill_name
@@ -293,11 +354,9 @@ Integrating **{title}** into your daily workflow transforms AI assistants from s
                 
                 if response and response.text:
                     cleaned_json = response.text.strip()
-                    # Remove markdown fences if model returned ```json ... ```
                     cleaned_json = re.sub(r"^```json\s*", "", cleaned_json)
                     cleaned_json = re.sub(r"\s*```$", "", cleaned_json)
                     parsed = json.loads(cleaned_json)
-                    # Inject curated image_urls for scenes that Gemini didn't provide
                     _fallback_images = [
                         "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=1200&auto=format&fit=crop&q=80",
                         "https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=1200&auto=format&fit=crop&q=80",
@@ -310,12 +369,26 @@ Integrating **{title}** into your daily workflow transforms AI assistants from s
                             _scene["image_url"] = _fallback_images[_i % len(_fallback_images)]
                         if not _scene.get("visual_prompt"):
                             _scene["visual_prompt"] = _scene.get("visual_description", "")
+                    
+                    parsed["provider"] = "google_gemini_2.5_flash"
+                    parsed["fallback_used"] = False
                     return parsed
             except Exception as e:
-                logger.warning(f"Gemini storyboard generation failed, using curated storyboard: {e}")
+                err_info = _parse_gemini_error(e)
+                action_name = "quota_exceeded" if err_info["is_quota"] else "gemini_api_error"
+                _log_gemini_audit(action_name, {
+                    "source": "gemini_ai",
+                    "type": "storyboard_generation",
+                    "reason": err_info["reason"],
+                    "is_quota": err_info["is_quota"]
+                })
+                logger.warning(f"[GEMINI] Storyboard fallback triggered: {err_info['reason']}")
 
         # Curated Default Storyboard
-        return BlogVideoService._generate_curated_storyboard(skill_title, target_duration, aspect_ratio, language)
+        fallback_sb = BlogVideoService._generate_curated_storyboard(skill_title, target_duration, aspect_ratio, language)
+        fallback_sb["provider"] = "curated_offline_engine"
+        fallback_sb["fallback_used"] = True
+        return fallback_sb
 
     @staticmethod
     def _generate_curated_storyboard(title: str, target_duration: int, aspect_ratio: str, language: str) -> Dict[str, Any]:
@@ -429,7 +502,7 @@ Integrating **{title}** into your daily workflow transforms AI assistants from s
         """
         Generates high-res visual artwork for video scenes.
         Tries Gemini Imagen 3 if GEMINI_API_KEY is configured.
-        Falls back to curated Unsplash images if unavailable.
+        Falls back to curated Unsplash images if unavailable or on quota limit.
         """
         fallback_images = [
             "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=1200&auto=format&fit=crop&q=80",
@@ -462,10 +535,19 @@ Integrating **{title}** into your daily workflow transforms AI assistants from s
                         "image_url": image_url,
                         "prompt": prompt,
                         "status": "success",
-                        "provider": "google_imagen_3"
+                        "provider": "google_imagen_3",
+                        "fallback_used": False
                     }
             except Exception as e:
-                logger.warning(f"Imagen 3 generation failed, using curated image: {e}")
+                err_info = _parse_gemini_error(e)
+                action_name = "quota_exceeded" if err_info["is_quota"] else "gemini_api_error"
+                _log_gemini_audit(action_name, {
+                    "source": "gemini_imagen_3",
+                    "type": "image_generation",
+                    "reason": err_info["reason"],
+                    "is_quota": err_info["is_quota"]
+                })
+                logger.warning(f"[IMAGEN] Image generation fallback triggered: {err_info['reason']}")
 
         idx = max(0, min(scene_number - 1, len(fallback_images) - 1))
         return {
@@ -473,7 +555,6 @@ Integrating **{title}** into your daily workflow transforms AI assistants from s
             "image_url": fallback_images[idx],
             "prompt": prompt,
             "status": "success",
-            "provider": "unsplash_curated"
+            "provider": "unsplash_curated",
+            "fallback_used": True
         }
-
-
