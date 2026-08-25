@@ -4,21 +4,40 @@ __pycache__/
 *$py.class
 .venv/
 env/
+venv/
 *.db
 *.sqlite3
 .pytest_cache/
+*.egg-info/
+htmlcov/
+.coverage
 
 # Node
 node_modules/
 dist/
 .vite/
 npm-debug.log*
+yarn-error.log*
 
-# Environment
+# Environment & Secrets
 .env
 .env.local
+.env.production
+.env.*.local
 
 # IDE
 .vscode/
 .idea/
+*.swp
+*.swo
+*~
+
+# OS
 .DS_Store
+Thumbs.db
+
+# Logs
+*.log
+backend/backend.log
+frontend/frontend.log
+

@@ -7,14 +7,14 @@ services:
     ports:
       - "5433:5432"
     environment:
-      POSTGRES_DB: agent_skills
-      POSTGRES_USER: agent_admin
-      POSTGRES_PASSWORD: agent_secure_2026
+      POSTGRES_DB: ${POSTGRES_DB:-agent_skills}
+      POSTGRES_USER: ${POSTGRES_USER:-agent_admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-agent_secure_2026}
     volumes:
       - pg_data:/var/lib/postgresql/data
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U agent_admin -d agent_skills"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-agent_admin} -d ${POSTGRES_DB:-agent_skills}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -27,7 +27,9 @@ services:
     ports:
       - "8899:8899"
     environment:
-      - DATABASE_URL=postgresql://agent_admin:agent_secure_2026@db:5432/agent_skills
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-agent_admin}:${POSTGRES_PASSWORD:-agent_secure_2026}@db:5432/${POSTGRES_DB:-agent_skills}
+      - SECRET_KEY=${SECRET_KEY:-}
+      - CORS_ORIGINS=${CORS_ORIGINS:-*}
       - GITHUB_TOKEN=${GITHUB_TOKEN:-}
       - GEMINI_API_KEY=${GEMINI_API_KEY:-}
       - REDDIT_CLIENT_ID=${REDDIT_CLIENT_ID:-}

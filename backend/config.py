@@ -1,4 +1,5 @@
 import os
+import secrets
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import Optional
 
@@ -7,16 +8,16 @@ class Settings(BaseSettings):
     API_V1_STR: str = "/api/v1"
     PORT: int = 8899
     
-    # Database: Default PostgreSQL, fallback to SQLite if needed
-    DATABASE_URL: str = os.getenv(
-        "DATABASE_URL", 
-        "postgresql://agent_admin:agent_secure_2026@localhost:5433/agent_skills"
-    )
+    # Database: Default SQLite for local dev, override via env for production
+    DATABASE_URL: str = os.getenv("DATABASE_URL", "sqlite:///./agent_skills.db")
     
-    # Auth & Security
-    JWT_SECRET_KEY: str = "agent-trending-super-secret-jwt-key-2026-hieu"
+    # Auth & Security — MUST be overridden via env in production
+    JWT_SECRET_KEY: str = os.getenv("SECRET_KEY", secrets.token_urlsafe(64))
     JWT_ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7 # 7 days
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7  # 7 days
+    
+    # CORS — comma-separated origins via env, defaults to permissive for local dev
+    CORS_ORIGINS: str = os.getenv("CORS_ORIGINS", "*")
     
     # API Keys & Credentials
     GITHUB_TOKEN: Optional[str] = None
