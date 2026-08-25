@@ -335,51 +335,139 @@ export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({
   };
 
   const handleExportVideo = async () => {
-    if (!ttsResult?.audio_base64 || !audioRef.current) {
+    if (!ttsResult?.audio_base64) {
       showToast(language === 'vi' ? 'Vui lòng sinh giọng đọc trước khi xuất video' : 'Please synthesize audio first', 'error');
       return;
     }
 
     setIsExportingVideo(true);
     setExportProgress(0);
-    showToast(language === 'vi' ? 'Đang khởi tạo trình quay video...' : 'Initializing video recorder...');
+    showToast(language === 'vi' ? '🎬 Đang ghi hình video...' : '🎬 Recording video...');
 
     try {
-      const totalSec = ttsResult.duration_seconds || 60;
-      const interval = setInterval(() => {
-        setExportProgress((prev) => {
-          if (prev >= 95) {
-            clearInterval(interval);
-            return 95;
-          }
-          return prev + 5;
-        });
-      }, (totalSec * 1000) / 20);
+      // Decode audio bytes
+      const byteCharacters = atob(ttsResult.audio_base64);
+      const byteArray = new Uint8Array(byteCharacters.length);
+      for (let i = 0; i < byteCharacters.length; i++) {
+        byteArray[i] = byteCharacters.charCodeAt(i);
+      }
 
-      setTimeout(() => {
-        clearInterval(interval);
-        setExportProgress(100);
-        setIsExportingVideo(false);
+      // Build branded canvas visual
+      const canvas = document.createElement('canvas');
+      const containerEl = videoContainerRef.current;
+      canvas.width = containerEl ? containerEl.offsetWidth || 360 : 360;
+      canvas.height = containerEl ? containerEl.offsetHeight || 640 : 640;
+      const ctx = canvas.getContext('2d')!;
 
-        const byteCharacters = atob(ttsResult.audio_base64);
-        const byteNumbers = new Array(byteCharacters.length);
-        for (let i = 0; i < byteCharacters.length; i++) {
-          byteNumbers[i] = byteCharacters.charCodeAt(i);
+      // Background
+      ctx.fillStyle = '#0f172a';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      const grad = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+      grad.addColorStop(0, 'rgba(99,102,241,0.35)');
+      grad.addColorStop(1, 'rgba(244,63,94,0.25)');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Title text with word wrap
+      const title = blogPost?.title || customTopic || 'AI Video';
+      const fontSize = Math.round(canvas.width / 18);
+      ctx.font = `bold ${fontSize}px sans-serif`;
+      ctx.fillStyle = '#e2e8f0';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      const wordList = title.split(' ');
+      const lines: string[] = [];
+      let currentLine = '';
+      wordList.forEach(w => {
+        const test = currentLine ? currentLine + ' ' + w : w;
+        if (ctx.measureText(test).width > canvas.width * 0.8 && currentLine) {
+          lines.push(currentLine);
+          currentLine = w;
+        } else {
+          currentLine = test;
         }
-        const byteArray = new Uint8Array(byteNumbers);
-        const videoBlob = new Blob([byteArray], { type: 'video/webm' });
-        const url = URL.createObjectURL(videoBlob);
+      });
+      if (currentLine) lines.push(currentLine);
+      const lineH = fontSize * 1.4;
+      lines.forEach((l, i) => {
+        const y = canvas.height / 2 + (i - (lines.length - 1) / 2) * lineH;
+        ctx.fillText(l, canvas.width / 2, y);
+      });
+
+      // Subtitle badge at bottom
+      ctx.fillStyle = 'rgba(99,102,241,0.8)';
+      ctx.fillRect(0, canvas.height - 48, canvas.width, 48);
+      ctx.font = `${Math.round(fontSize * 0.7)}px sans-serif`;
+      ctx.fillStyle = '#fff';
+      ctx.fillText('AI Video Studio • Agent Skill Trending', canvas.width / 2, canvas.height - 24);
+
+      // Set up AudioContext + canvas stream
+      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+      const audioCtx = new AudioContextClass();
+      const audioBuffer = await audioCtx.decodeAudioData(byteArray.buffer.slice(0));
+
+      const canvasStream = canvas.captureStream(30);
+      const dest = audioCtx.createMediaStreamDestination();
+      const source = audioCtx.createBufferSource();
+      source.buffer = audioBuffer;
+      source.connect(dest);
+
+      const combinedStream = new MediaStream([
+        ...canvasStream.getVideoTracks(),
+        ...dest.stream.getAudioTracks()
+      ]);
+
+      const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9,opus')
+        ? 'video/webm;codecs=vp9,opus'
+        : MediaRecorder.isTypeSupported('video/webm')
+          ? 'video/webm'
+          : 'video/mp4';
+
+      const recorder = new MediaRecorder(combinedStream, { mimeType });
+      const chunks: BlobPart[] = [];
+      recorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
+
+      const totalMs = Math.ceil(ttsResult.duration_seconds * 1000);
+      const exportStart = Date.now();
+      const progressInterval = setInterval(() => {
+        setExportProgress(Math.min(95, Math.round(((Date.now() - exportStart) / totalMs) * 100)));
+      }, 400);
+
+      recorder.onstop = () => {
+        clearInterval(progressInterval);
+        setExportProgress(100);
+        const ext = mimeType.includes('mp4') ? 'mp4' : 'webm';
+        const blob = new Blob(chunks, { type: mimeType });
+        const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `ai_video_${(currentSkill?.name || 'skill').replace(/\s+/g, '_')}_${aspectRatio.replace(':', 'x')}_${Date.now()}.webm`;
+        a.download = `ai_video_${(currentSkill?.name || 'skill').replace(/\s+/g, '_')}_${Date.now()}.${ext}`;
         a.click();
         URL.revokeObjectURL(url);
-        showToast(language === 'vi' ? '🎬 Đã xuất và tải video thành công!' : '🎬 Video exported and downloaded successfully!');
-      }, 2500);
+        setTimeout(() => { setIsExportingVideo(false); audioCtx.close(); }, 300);
+        showToast(language === 'vi' ? '🎬 Xuất video thành công!' : '🎬 Video exported successfully!');
+      };
+
+      recorder.start(100);
+      source.start(0);
+      setTimeout(() => { try { recorder.stop(); } catch (_) {} }, totalMs + 800);
 
     } catch (err: any) {
       setIsExportingVideo(false);
-      showToast(err.message || 'Lỗi khi xuất video', 'error');
+      // Graceful fallback: export as MP3 audio
+      showToast(language === 'vi' ? 'Trình duyệt không hỗ trợ quay video, đang tải audio MP3...' : 'Video not supported, downloading MP3 audio...', 'error');
+      try {
+        const byteCharacters = atob(ttsResult.audio_base64);
+        const byteArray = new Uint8Array(byteCharacters.length);
+        for (let i = 0; i < byteCharacters.length; i++) byteArray[i] = byteCharacters.charCodeAt(i);
+        const audioBlob = new Blob([byteArray], { type: 'audio/mp3' });
+        const url = URL.createObjectURL(audioBlob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `ai_audio_${Date.now()}.mp3`;
+        a.click();
+        URL.revokeObjectURL(url);
+      } catch (_) {}
     }
   };
 
@@ -459,9 +547,9 @@ export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({
   const totalDurationSec = ttsResult?.duration_seconds || (storyboard?.total_duration || targetDuration);
   const progressPercent = Math.min(100, Math.max(0, ((playbackTimeMs / 1000) / totalDurationSec) * 100));
 
-  const currentSceneSubtitles = ttsResult?.subtitle_entries ? ttsResult.subtitle_entries.filter((entry) => {
-    return Math.abs(ttsResult.subtitle_entries.indexOf(entry) - currentWordIndex) <= 5;
-  }) : [];
+  const currentSceneSubtitles = ttsResult?.subtitle_entries
+    ? ttsResult.subtitle_entries.filter((_entry, idx) => Math.abs(idx - currentWordIndex) <= 5)
+    : [];
 
   return (
     <div className="space-y-6 animate-in fade-in duration-300">

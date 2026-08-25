@@ -139,7 +139,7 @@ def test_generate_scene_image():
     assert "image_url" in data
     assert "scene_number" in data
     assert data["scene_number"] == 1
-    assert data["provider"] == "google_imagen_3"
+    assert data["provider"] in ("google_imagen_3", "unsplash_curated")
 
 def test_synthesize_google_wavenet():
     payload = {

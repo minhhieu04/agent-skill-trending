@@ -1,6 +1,7 @@
 import os
 import re
 import json
+import base64
 import logging
 from typing import Dict, Any, List, Optional
 from config import settings
@@ -296,6 +297,19 @@ Integrating **{title}** into your daily workflow transforms AI assistants from s
                     cleaned_json = re.sub(r"^```json\s*", "", cleaned_json)
                     cleaned_json = re.sub(r"\s*```$", "", cleaned_json)
                     parsed = json.loads(cleaned_json)
+                    # Inject curated image_urls for scenes that Gemini didn't provide
+                    _fallback_images = [
+                        "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=1200&auto=format&fit=crop&q=80",
+                        "https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=1200&auto=format&fit=crop&q=80",
+                        "https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=1200&auto=format&fit=crop&q=80",
+                        "https://images.unsplash.com/photo-1509228468518-180dd4864904?w=1200&auto=format&fit=crop&q=80",
+                        "https://images.unsplash.com/photo-1518770660439-4636190af475?w=1200&auto=format&fit=crop&q=80",
+                    ]
+                    for _i, _scene in enumerate(parsed.get("scenes", [])):
+                        if not _scene.get("image_url"):
+                            _scene["image_url"] = _fallback_images[_i % len(_fallback_images)]
+                        if not _scene.get("visual_prompt"):
+                            _scene["visual_prompt"] = _scene.get("visual_description", "")
                     return parsed
             except Exception as e:
                 logger.warning(f"Gemini storyboard generation failed, using curated storyboard: {e}")
@@ -413,7 +427,9 @@ Integrating **{title}** into your daily workflow transforms AI assistants from s
     @staticmethod
     async def generate_scene_image(prompt: str, scene_number: int = 1) -> Dict[str, Any]:
         """
-        Generates or resolves high-res visual artwork for video scenes using Imagen 3 / Gemini.
+        Generates high-res visual artwork for video scenes.
+        Tries Gemini Imagen 3 if GEMINI_API_KEY is configured.
+        Falls back to curated Unsplash images if unavailable.
         """
         fallback_images = [
             "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=1200&auto=format&fit=crop&q=80",
@@ -422,15 +438,42 @@ Integrating **{title}** into your daily workflow transforms AI assistants from s
             "https://images.unsplash.com/photo-1509228468518-180dd4864904?w=1200&auto=format&fit=crop&q=80",
             "https://images.unsplash.com/photo-1518770660439-4636190af475?w=1200&auto=format&fit=crop&q=80"
         ]
-        
+
+        if settings.GEMINI_API_KEY:
+            try:
+                from google import genai
+                from google.genai import types as genai_types
+                client = genai.Client(api_key=settings.GEMINI_API_KEY)
+                response = client.models.generate_images(
+                    model="imagen-3.0-generate-002",
+                    prompt=prompt,
+                    config=genai_types.GenerateImagesConfig(
+                        number_of_images=1,
+                        aspect_ratio="16:9",
+                        safety_filter_level="block_low_and_above",
+                    ),
+                )
+                if response.generated_images:
+                    img_bytes = response.generated_images[0].image.image_bytes
+                    img_b64 = base64.b64encode(img_bytes).decode("utf-8")
+                    image_url = f"data:image/png;base64,{img_b64}"
+                    return {
+                        "scene_number": scene_number,
+                        "image_url": image_url,
+                        "prompt": prompt,
+                        "status": "success",
+                        "provider": "google_imagen_3"
+                    }
+            except Exception as e:
+                logger.warning(f"Imagen 3 generation failed, using curated image: {e}")
+
         idx = max(0, min(scene_number - 1, len(fallback_images) - 1))
-        resolved_url = fallback_images[idx]
-        
         return {
             "scene_number": scene_number,
-            "image_url": resolved_url,
+            "image_url": fallback_images[idx],
             "prompt": prompt,
             "status": "success",
-            "provider": "google_imagen_3"
+            "provider": "unsplash_curated"
         }
+
 

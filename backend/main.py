@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from datetime import datetime
 
 from config import settings
-from database import engine, Base, SessionLocal
+from database import engine, Base, SessionLocal, auto_migrate_schema
 from api import (
     skills_router,
     collect_router,
@@ -61,7 +61,7 @@ MATRIX_BUDDHA_BINARY = """
 
 def seed_initial_curated_skills():
     """Seeds default users, preferences, rich curated skills, and tech stack bundles if empty."""
-    Base.metadata.create_all(bind=engine)
+    auto_migrate_schema(engine)
     db = SessionLocal()
     try:
         if db.query(User).count() == 0:

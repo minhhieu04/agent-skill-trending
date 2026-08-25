@@ -245,6 +245,8 @@ const AppContent: React.FC = () => {
                   onToggleBookmark={(id) => bookmarkMutation.mutate(id)}
                   onSelectSkill={(skill) => setSelectedSkill(skill)}
                   onGoToCompare={() => handleTabChange('compare')}
+                  searchTerm={searchTerm}
+                  setSearchTerm={setSearchTerm}
                 />
               )}
 

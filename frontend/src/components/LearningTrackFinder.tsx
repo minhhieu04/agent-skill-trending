@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Compass, 
   ArrowRight
@@ -19,6 +19,12 @@ export const LearningTrackFinder: React.FC<LearningTrackFinderProps> = ({
 }) => {
   const { t } = useLanguage();
   const [customGoal, setCustomGoal] = useState('');
+
+  useEffect(() => {
+    if (!activeQuery) {
+      setCustomGoal('');
+    }
+  }, [activeQuery]);
 
   const tracks = [
     {
@@ -92,7 +98,7 @@ export const LearningTrackFinder: React.FC<LearningTrackFinderProps> = ({
   const handleCustomSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!customGoal.trim()) return;
-    onSelectTrack(customGoal.trim());
+    onSelectTrack(customGoal.trim(), 'all', 'all');
   };
 
   return (
@@ -181,7 +187,10 @@ export const LearningTrackFinder: React.FC<LearningTrackFinderProps> = ({
         <div className="flex items-center justify-between pt-1 text-xs text-slate-600 dark:text-slate-400">
           <span>{t('track_filtering_by')} <strong className="text-emerald-600 dark:text-emerald-400 font-mono">"{activeQuery}"</strong></span>
           <button
-            onClick={onClearTrack}
+            onClick={() => {
+              setCustomGoal('');
+              onClearTrack();
+            }}
             className="text-xs font-bold text-rose-500 hover:underline"
           >
             {t('track_clear_filter')}

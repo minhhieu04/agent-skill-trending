@@ -31,6 +31,8 @@ interface TrendingFeedProps {
   onToggleBookmark: (id: number) => void;
   onSelectSkill: (skill: Skill) => void;
   onGoToCompare: () => void;
+  searchTerm?: string;
+  setSearchTerm?: (term: string) => void;
 }
 
 export const TrendingFeed: React.FC<TrendingFeedProps> = ({
@@ -51,20 +53,32 @@ export const TrendingFeed: React.FC<TrendingFeedProps> = ({
   onToggleBookmark,
   onSelectSkill,
   onGoToCompare,
+  searchTerm = '',
+  setSearchTerm,
 }) => {
   const { t } = useLanguage();
   const languages = ["all", "Python", "TypeScript", "JavaScript", "Go", "Rust", "Markdown"];
 
-  const handleSelectLearningTrack = (_trackQuery: string, lang?: string, cat?: string) => {
+  const handleSelectLearningTrack = (trackQuery: string, lang?: string, cat?: string) => {
+    if (setSearchTerm) {
+      setSearchTerm(trackQuery);
+    }
     if (lang && lang !== 'all') {
       setSelectedLanguage(lang);
+    } else if (lang === 'all') {
+      setSelectedLanguage('all');
     }
     if (cat && cat !== 'all') {
       setSelectedCategory(cat);
+    } else if (cat === 'all') {
+      setSelectedCategory('all');
     }
   };
 
   const handleClearLearningTrack = () => {
+    if (setSearchTerm) {
+      setSearchTerm('');
+    }
     setSelectedLanguage('all');
     setSelectedCategory('all');
     setSelectedRuntime('all');
@@ -75,7 +89,7 @@ export const TrendingFeed: React.FC<TrendingFeedProps> = ({
       {/* Learning Goals & Skills Track Finder Widget */}
       <LearningTrackFinder
         onSelectTrack={handleSelectLearningTrack}
-        activeQuery={selectedLanguage !== 'all' ? selectedLanguage : undefined}
+        activeQuery={searchTerm || (selectedLanguage !== 'all' ? selectedLanguage : (selectedCategory !== 'all' ? selectedCategory : undefined))}
         onClearTrack={handleClearLearningTrack}
       />
 
