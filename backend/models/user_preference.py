@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, JSON, Boolean, DateTime
+from sqlalchemy import Column, Integer, String, JSON, DateTime, ForeignKey
 from datetime import datetime
 from database import Base
 
@@ -6,7 +6,8 @@ class UserPreference(Base):
     __tablename__ = "user_preferences"
 
     id = Column(Integer, primary_key=True, index=True)
-    user_name = Column(String(64), default="default_user")
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=True)
+    user_name = Column(String(64), default="Hiếu")
     
     # Filtering & Personalization Preferences
     preferred_categories = Column(JSON, default=lambda: ["coding-agent", "mcp-server", "skill-file", "prompt-engineering", "workflow-automation"])
@@ -16,7 +17,7 @@ class UserPreference(Base):
     
     min_stars = Column(Integer, default=50)
     min_trending_score = Column(Integer, default=20)
-    only_recent_activity_days = Column(Integer, default=90) # Only show repos with updates in last 90 days
+    only_recent_activity_days = Column(Integer, default=90)
     
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

@@ -1,3 +1,13 @@
+export interface User {
+  id: number;
+  username: string;
+  display_name: string;
+  avatar_color: string;
+  is_admin: boolean;
+  created_at: string;
+  last_login_at: string;
+}
+
 export interface Skill {
   id: number;
   name: string;
@@ -6,6 +16,11 @@ export interface Skill {
   author?: string;
   description?: string;
   ai_summary?: string;
+  use_cases?: string[];
+  comparison_notes?: string;
+  target_audience?: string;
+  readme_preview?: string;
+  demo_url?: string;
   category: string;
   tags: string[];
   runtimes: string[];
@@ -20,11 +35,76 @@ export interface Skill {
   quality_score: number;
   trending_score: number;
   relevance_score: number;
+  security_rating?: 'safe' | 'moderate' | 'caution';
+  security_score?: number;
+  security_flags?: Array<{ pattern: string; description: string; severity: string }>;
+  permission_level?: string;
   is_featured: boolean;
   is_bookmarked: boolean;
   source_type: string;
   created_at: string;
   updated_at: string;
+}
+
+export interface ExportConfig {
+  ide: string;
+  file_path: string;
+  file_name: string;
+  syntax: string;
+  content: string;
+  cli_command: string;
+}
+
+export interface SecurityReport {
+  skill_id: number;
+  skill_name: string;
+  security_rating: 'safe' | 'moderate' | 'caution';
+  security_score: number;
+  badge_text: string;
+  badge_color: string;
+  permission_level: string;
+  flags_count: number;
+  flags: Array<{ pattern: string; description: string; severity: string }>;
+  sandbox_compliant: boolean;
+  audit_passed: boolean;
+  recommendation: string;
+}
+
+export interface SkillBundle {
+  id: number;
+  slug: string;
+  name: string;
+  title: string;
+  description: string;
+  icon: string;
+  badge: string;
+  category: string;
+  target_stack: string;
+  tags: string[];
+  skill_ids: number[];
+  stars_total: number;
+  created_at: string;
+  skills: Array<{
+    id: number;
+    name: string;
+    title: string;
+    category: string;
+    stars: number;
+    trending_score: number;
+    primary_language?: string;
+  }>;
+}
+
+export interface PlaygroundSimResult {
+  skill_name: string;
+  target_ide: string;
+  prompt: string;
+  before_code: string;
+  after_code: string;
+  applied_rules: string[];
+  improvements: string[];
+  security_verdict: SecurityReport | Record<string, any>;
+  latency_ms: number;
 }
 
 export interface CategoryInfo {
@@ -37,6 +117,7 @@ export interface CategoryInfo {
 
 export interface RuntimeInfo {
   name: string;
+  description?: string;
   count: number;
 }
 
@@ -68,3 +149,31 @@ export interface DataSourceStatus {
   last_fetched_at?: string;
   items_collected_count: number;
 }
+
+export interface CollectionRun {
+  id: number;
+  triggered_by: string;
+  started_at: string;
+  finished_at?: string;
+  status: string;
+  total_new_skills: number;
+  total_updated_skills: number;
+  total_sources_scanned: number;
+  sources_summary: Record<string, any>;
+  summary?: string;
+  error_detail?: string;
+}
+
+export interface AuditLogItem {
+  id: number;
+  user_id?: number;
+  username: string;
+  action: string;
+  target_type: string;
+  target_id?: number;
+  detail: Record<string, any>;
+  ip_address?: string;
+  created_at: string;
+}
+
+export type AuditLog = AuditLogItem;

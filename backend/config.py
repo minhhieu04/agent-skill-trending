@@ -5,7 +5,18 @@ from typing import Optional
 class Settings(BaseSettings):
     PROJECT_NAME: str = "Agent Skill Trending"
     API_V1_STR: str = "/api/v1"
-    DATABASE_URL: str = "sqlite:///./agent_skills.db"
+    PORT: int = 8899
+    
+    # Database: Default PostgreSQL, fallback to SQLite if needed
+    DATABASE_URL: str = os.getenv(
+        "DATABASE_URL", 
+        "postgresql://agent_admin:agent_secure_2026@localhost:5433/agent_skills"
+    )
+    
+    # Auth & Security
+    JWT_SECRET_KEY: str = "agent-trending-super-secret-jwt-key-2026-hieu"
+    JWT_ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7 # 7 days
     
     # API Keys & Credentials
     GITHUB_TOKEN: Optional[str] = None

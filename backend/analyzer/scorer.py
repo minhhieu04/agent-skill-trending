@@ -79,7 +79,7 @@ class Scorer:
             community_score = max(community_score, 60.0)
 
         # 3. Recency factor (0-100)
-        recency_score = 70.0 # Default assuming recent push
+        recency_score = 70.0  # Default assuming recent push
         last_pushed = item.get("last_pushed_at")
         if last_pushed:
             try:
@@ -87,16 +87,20 @@ class Scorer:
                     pushed_dt = datetime.fromisoformat(last_pushed.replace("Z", "+00:00"))
                 else:
                     pushed_dt = last_pushed
-                days_ago = (datetime.now(timezone.utc) - pushed_dt).days
-                if days_ago <= 7:
-                    recency_score = 95.0
-                elif days_ago <= 30:
-                    recency_score = 85.0
-                elif days_ago <= 90:
-                    recency_score = 65.0
-                else:
-                    recency_score = max(20.0, 100.0 - days_ago * 0.5)
-            except:
+                
+                if isinstance(pushed_dt, datetime):
+                    if pushed_dt.tzinfo is None:
+                        pushed_dt = pushed_dt.replace(tzinfo=timezone.utc)
+                    days_ago = max(0, (datetime.now(timezone.utc) - pushed_dt).days)
+                    if days_ago <= 7:
+                        recency_score = 95.0
+                    elif days_ago <= 30:
+                        recency_score = 85.0
+                    elif days_ago <= 90:
+                        recency_score = 65.0
+                    else:
+                        recency_score = max(20.0, 100.0 - days_ago * 0.5)
+            except Exception:
                 recency_score = 70.0
 
         # 4. Fork ratio (0-100)

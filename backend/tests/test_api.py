@@ -22,7 +22,7 @@ def test_get_trending_skills():
 
 def test_get_categories():
     with TestClient(app) as client:
-        response = client.get("/api/v1/categories")
+        response = client.get("/api/v1/skills/categories")
         assert response.status_code == 200
         data = response.json()
         assert isinstance(data, list)

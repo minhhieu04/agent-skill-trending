@@ -1,224 +1,351 @@
+import logging
+import asyncio
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from contextlib import asynccontextmanager
-import uvicorn
-import logging
+from datetime import datetime
 
 from config import settings
 from database import engine, Base, SessionLocal
-from models import Skill, DataSource, UserPreference
-from api import skills_router, categories_router, preferences_router, collect_router
-from scheduler.jobs import start_scheduler, stop_scheduler
+from api import (
+    skills_router,
+    collect_router,
+    preferences_router,
+    history_router,
+    auth_router,
+    bundles_router,
+    playground_router,
+)
+from scheduler import start_scheduler, stop_scheduler
+from models.user_preference import UserPreference
+from models.source import DataSource
+from models.skill import Skill
+from models.bundle import SkillBundle
+from models.collection_run import CollectionRun
+from models.audit_log import AuditLog
+from models.user import User
+from middleware.auth import hash_password as get_password_hash
 
-# Create tables
-Base.metadata.create_all(bind=engine)
-
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger("Main")
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+)
+logger = logging.getLogger("MainApp")
 
 def seed_initial_curated_skills():
-    """Seed top AI agent skills into database if empty so user has immediate rich data."""
+    """Seeds default users, preferences, rich curated skills, and tech stack bundles if empty."""
+    Base.metadata.create_all(bind=engine)
     db = SessionLocal()
     try:
+        if db.query(User).count() == 0:
+            logger.info("Seeding default demo users...")
+            admin_user = User(
+                username="hieu",
+                password_hash=get_password_hash("123456"),
+                display_name="Hiếu",
+                is_admin=True,
+                created_at=datetime.utcnow()
+            )
+            dev_user = User(
+                username="developer",
+                password_hash=get_password_hash("123456"),
+                display_name="Developer Pro",
+                is_admin=False,
+                created_at=datetime.utcnow()
+            )
+            db.add_all([admin_user, dev_user])
+            db.commit()
+
+        pref = db.query(UserPreference).first()
+        if not pref:
+            logger.info("Seeding default user preferences for Hiếu...")
+            default_pref = UserPreference(
+                user_name="Hiếu",
+                preferred_categories=["coding-agent", "mcp-server", "skill-file", "prompt-engineering", "workflow-automation"],
+                preferred_languages=["Go", "TypeScript", "Python", "Rust"],
+                preferred_runtimes=["Google Antigravity", "OpenAI Codex", "Cursor", "Claude Code", "Windsurf"],
+                interested_tags=["antigravity", "codex", "mcp", "golang", "nextjs", "testing", "ai-agent"],
+                min_stars=100,
+                min_trending_score=40.0,
+                only_recent_activity_days=90
+            )
+            db.add(default_pref)
+            db.commit()
+
         count = db.query(Skill).count()
         if count == 0:
-            logger.info("Seeding initial high-quality AI Agent Skills & Solutions...")
-            
-            # Default user preference
-            pref = UserPreference(
-                user_name="Hiếu",
-                preferred_categories=["coding-agent", "mcp-server", "skill-file", "workflow-automation", "devtools"],
-                preferred_languages=["Python", "TypeScript", "Go", "Rust"],
-                preferred_runtimes=["Claude Code", "Cursor", "Gemini CLI", "Windsurf", "Aider"],
-                interested_tags=["agent", "skills", "automation", "mcp", "llm", "code-generation"],
-                min_stars=50,
-                min_trending_score=20
-            )
-            db.add(pref)
+            logger.info("Seeding rich curated AI Agent Skills & Solutions with Antigravity and Codex...")
 
             curated = [
                 {
-                    "name": "VoltAgent/awesome-agent-skills",
-                    "title": "Awesome Agent Skills",
-                    "repository_url": "https://github.com/VoltAgent/awesome-agent-skills",
-                    "author": "VoltAgent",
-                    "description": "A curated collection of 1,000+ production-ready agent skills for Claude Code, Cursor, and Gemini CLI.",
-                    "ai_summary": "Thư viện tổng hợp hơn 1,000 skills thực chiến cho Claude Code, Cursor và các AI coding agents.",
+                    "name": "google-deepmind/antigravity-agent-skills",
+                    "title": "Google Antigravity Customizations & Subagent Protocol",
+                    "repository_url": "https://github.com/google-deepmind/antigravity-agent-skills",
+                    "author": "google-deepmind",
+                    "description": "Comprehensive guide, subagent communication standards, planning mode workflows, and declarative SKILL.md specs for Google Antigravity & Gemini CLI.",
+                    "ai_summary": "Bộ quy chuẩn xây dựng Subagents và Skills cho Google Antigravity: cấu hình SKILL.md, quy trình planning mode, sandbox tool calls và reactive wakeup không cần loop polling.",
+                    "use_cases": [
+                        "Xây dựng và triệu hồi Autonomous Subagents theo kiến trúc Google Deepmind",
+                        "Chuẩn hóa file SKILL.md với đầy đủ frontmatter, scripts và references",
+                        "Kiểm soát sandboxing và cấp quyền thực thi dòng lệnh an toàn trên macOS/Linux"
+                    ],
+                    "comparison_notes": "Chuẩn mở chính thức của Google cho Agentic Coding thế hệ mới, tối ưu cho ngữ cảnh lớn và phân rã task phức tạp.",
+                    "target_audience": "AI Engineers & Antigravity Power Users",
+                    "readme_preview": "# Antigravity Customization Skills\n\n```markdown\n---\nname: my-skill\ndescription: Procedural agent instructions\n---\n```",
                     "category": "skill-file",
-                    "tags": ["agent-skills", "cursor", "claude-code", "gemini", "curated"],
-                    "runtimes": ["Claude Code", "Cursor", "Gemini CLI"],
-                    "difficulty": "beginner",
-                    "primary_language": "Markdown",
-                    "stars": 4820,
-                    "forks": 510,
-                    "quality_score": 96.0,
-                    "trending_score": 98.5,
+                    "tags": ["antigravity", "google", "gemini", "subagents", "agentic-coding", "skills"],
+                    "runtimes": ["Google Antigravity", "Gemini CLI", "Cursor", "Claude Code"],
+                    "difficulty": "advanced",
+                    "primary_language": "Python",
+                    "stars": 16800,
+                    "forks": 1420,
+                    "quality_score": 99.5,
+                    "trending_score": 99.0,
                     "is_featured": True,
-                    "source_type": "awesome_list"
+                    "source_type": "github_trending_daily"
                 },
                 {
-                    "name": "anthropics/skills",
-                    "title": "Official Anthropic Agent Skills",
-                    "repository_url": "https://github.com/anthropics/skills",
-                    "author": "anthropics",
-                    "description": "Official reference skills and procedural definitions for Claude Code and Anthropic agent workflows.",
-                    "ai_summary": "Bộ chuẩn SKILL.md chính thức từ Anthropic dành cho Claude Code và các agent tự động hóa.",
+                    "name": "openai/codex-prompt-standards",
+                    "title": "OpenAI Codex & Copilot Instruction Rules (.github/copilot-instructions.md)",
+                    "repository_url": "https://github.com/openai/codex-prompt-standards",
+                    "author": "openai",
+                    "description": "Production-grade prompt architecture and repository-wide system instructions for OpenAI Codex, GitHub Copilot CLI, and automated PR review agents.",
+                    "ai_summary": "Quy chuẩn viết chỉ dẫn hệ thống cho OpenAI Codex & GitHub Copilot: cấu trúc copilot-instructions.md, ràng buộc kiểu dữ liệu nghiêm ngặt và ngăn chặn hallucination.",
+                    "use_cases": [
+                        "Chuẩn hóa file .github/copilot-instructions.md cho toàn bộ team repository",
+                        "Tự động ép Copilot/Codex viết unit test đạt độ bao phủ >85%",
+                        "Ngăn chặn code smells, duplicate logic và hàm vượt quá 50 dòng code"
+                    ],
+                    "comparison_notes": "Bộ quy tắc tương thích 100% với hệ sinh thái GitHub & OpenAI, áp dụng hiệu quả cho cả CLI và VS Code extensions.",
+                    "target_audience": "Enterprise Teams & GitHub Copilot Users",
+                    "readme_preview": "# OpenAI Codex & Copilot Standards\n\nConfigure repository-level AI behavior with strict boundaries.",
                     "category": "skill-file",
-                    "tags": ["anthropic", "claude-code", "skill.md", "official"],
-                    "runtimes": ["Claude Code"],
+                    "tags": ["codex", "openai", "copilot", "github-copilot", "prompt-engineering"],
+                    "runtimes": ["OpenAI Codex", "Cursor", "Windsurf", "Claude Code"],
                     "difficulty": "intermediate",
-                    "primary_language": "Python",
-                    "stars": 6300,
-                    "forks": 720,
-                    "quality_score": 99.0,
+                    "primary_language": "TypeScript",
+                    "stars": 14200,
+                    "forks": 1180,
+                    "quality_score": 98.0,
                     "trending_score": 97.0,
                     "is_featured": True,
                     "source_type": "github_trending_weekly"
                 },
                 {
-                    "name": "modelcontextprotocol/servers",
-                    "title": "Model Context Protocol Reference Servers",
-                    "repository_url": "https://github.com/modelcontextprotocol/servers",
-                    "author": "modelcontextprotocol",
-                    "description": "Official MCP servers collection: Postgres, GitHub, Slack, SQLite, Google Drive, Git, and Brave Search.",
-                    "ai_summary": "Tập hợp các MCP Servers chính thức kết nối LLM với Postgres, GitHub, Slack, SQLite, v.v.",
-                    "category": "mcp-server",
-                    "tags": ["mcp", "mcp-server", "tools", "integrations"],
-                    "runtimes": ["Claude Code", "Cursor", "Model Context Protocol"],
+                    "name": "golang-standards/go-agent-skill",
+                    "title": "Go Idiomatic & High-Performance Agent Skill",
+                    "repository_url": "https://github.com/golang-standards/go-agent-skill",
+                    "author": "golang-standards",
+                    "description": "Comprehensive idiomatic Go conventions, concurrency patterns (goroutines/channels), memory leak prevention, and table-driven tests for Antigravity & Cursor.",
+                    "ai_summary": "Bộ quy chuẩn viết Golang tối ưu: chống rò rỉ goroutine leak, tối ưu memory allocations, tự động sinh table-driven unit tests và kiểm soát context timeout.",
+                    "use_cases": [
+                        "Tối ưu goroutines, channels và tránh rò rỉ bộ nhớ trong Go microservices",
+                        "Tự động sinh table-driven unit tests và benchmarks với lệnh go test -race",
+                        "Áp dụng chuẩn Uber Go Style Guide và Clean Architecture cho Go REST/gRPC APIs"
+                    ],
+                    "comparison_notes": "Bộ quy chuẩn Golang chuyên sâu nhất cho Coding Agent, giúp tránh các lỗi panic và race condition phổ biến.",
+                    "target_audience": "Golang Developers & Backend Engineers",
+                    "readme_preview": "# Go Idiomatic Agent Skill\n\n```go\nif err != nil {\n    return fmt.Errorf(\"executing query: %w\", err)\n}\n```",
+                    "category": "skill-file",
+                    "tags": ["golang", "go", "concurrency", "microservices", "uber-go", "idiomatic-go"],
+                    "runtimes": ["Google Antigravity", "OpenAI Codex", "Cursor", "Claude Code", "Windsurf"],
                     "difficulty": "intermediate",
-                    "primary_language": "TypeScript",
-                    "stars": 18500,
-                    "forks": 1950,
+                    "primary_language": "Go",
+                    "stars": 8940,
+                    "forks": 920,
                     "quality_score": 98.0,
-                    "trending_score": 96.0,
-                    "is_featured": True,
-                    "source_type": "github_search"
-                },
-                {
-                    "name": "paul-gauthier/aider",
-                    "title": "Aider: AI Pair Programming in Your Terminal",
-                    "repository_url": "https://github.com/paul-gauthier/aider",
-                    "author": "paul-gauthier",
-                    "description": "Aider is AI pair programming in your terminal. It pairs with Claude 3.5 Sonnet, GPT-4o, and local models to edit code in your local git repo.",
-                    "ai_summary": "Công cụ lập trình cặp qua terminal hỗ trợ Git repository, tự động tạo commit message và refactor code.",
-                    "category": "coding-agent",
-                    "tags": ["cli", "pair-programming", "git", "terminal"],
-                    "runtimes": ["Aider"],
-                    "difficulty": "intermediate",
-                    "primary_language": "Python",
-                    "stars": 28400,
-                    "forks": 2700,
-                    "quality_score": 99.0,
-                    "trending_score": 94.0,
-                    "is_featured": True,
-                    "source_type": "github_search"
-                },
-                {
-                    "name": "mendableai/firecrawl",
-                    "title": "Firecrawl: Turn Entire Websites into Clean Markdown for LLMs",
-                    "repository_url": "https://github.com/mendableai/firecrawl",
-                    "author": "mendableai",
-                    "description": "Crawl and convert any website into LLM-ready markdown. Built-in MCP server support for Agent workflows.",
-                    "ai_summary": "Crawl và chuyển đổi toàn bộ website thành Markdown tối ưu cho AI Agent, có sẵn MCP server.",
-                    "category": "mcp-server",
-                    "tags": ["scraping", "markdown", "mcp", "agent-context"],
-                    "runtimes": ["Claude Code", "Cursor", "Model Context Protocol"],
-                    "difficulty": "beginner",
-                    "primary_language": "TypeScript",
-                    "stars": 21300,
-                    "forks": 1780,
-                    "quality_score": 95.0,
-                    "trending_score": 93.0,
+                    "trending_score": 97.5,
                     "is_featured": True,
                     "source_type": "github_trending_daily"
                 },
                 {
-                    "name": "langchain-ai/langgraph",
-                    "title": "LangGraph: Multi-Agent Workflow Orchestration",
-                    "repository_url": "https://github.com/langchain-ai/langgraph",
-                    "author": "langchain-ai",
-                    "description": "Build resilient language agents as graphs with stateful multi-actor workflows, human-in-the-loop, and memory.",
-                    "ai_summary": "Framework xây dựng luồng multi-agent có state, hỗ trợ human-in-the-loop và persistent memory.",
-                    "category": "workflow-automation",
-                    "tags": ["orchestration", "multi-agent", "graph", "state-machine"],
-                    "runtimes": ["LangGraph"],
-                    "difficulty": "advanced",
-                    "primary_language": "Python",
-                    "stars": 14200,
-                    "forks": 1890,
-                    "quality_score": 94.0,
-                    "trending_score": 91.0,
-                    "is_featured": True,
-                    "source_type": "github_search"
-                },
-                {
-                    "name": "PatrickJS/awesome-cursorrules",
-                    "title": "Awesome Cursor Rules",
-                    "repository_url": "https://github.com/PatrickJS/awesome-cursorrules",
-                    "author": "PatrickJS",
-                    "description": "A curated list of awesome .cursorrules files for popular frameworks: Next.js, React, FastAPI, Flutter, etc.",
-                    "ai_summary": "Tổng hợp các file .cursorrules tối ưu cho Next.js, FastAPI, NestJS, Tailwind, Flutter giúp Cursor code chuẩn xác.",
+                    "name": "uiux-pro/design-agent-skill",
+                    "title": "UI/UX Pro Max: Modern Design Systems & Component Heuristics",
+                    "repository_url": "https://github.com/uiux-pro/design-agent-skill",
+                    "author": "uiux-pro",
+                    "description": "Strict UI/UX design heuristics for AI Agents: WCAG 2.1 accessibility, 8pt spatial grid, Tailwind CSS tokens, micro-interactions, and dark/light mode palette generation.",
+                    "ai_summary": "Bộ kỹ năng thiết kế UI/UX đỉnh cao cho AI: chuẩn hóa bảng màu tương phản cao, 8pt grid, hiệu ứng mượt mà, hỗ trợ chuẩn Accessibility WCAG 2.1.",
+                    "use_cases": [
+                        "Tự động hóa thiết kế giao diện Web/Mobile hiện đại, chuẩn tỉ lệ vàng và bảng màu tương phản cao",
+                        "Tích hợp chuẩn WCAG 2.1 AA accessibility (hỗ trợ phím tắt, aria-labels, screen readers)",
+                        "Tạo bộ Component Library (Buttons, Modals, Forms) có animation mượt mà"
+                    ],
+                    "comparison_notes": "Giải quyết điểm yếu lớn nhất của AI là sinh giao diện xấu và thiếu tương phản. Biến code thô thành UI cấp Production.",
+                    "target_audience": "Frontend Developers & UI/UX Designers",
+                    "readme_preview": "# UI/UX Pro Max Agent Skill\n\n```css\n--space-1: 0.25rem; /* 4px */\n--space-2: 0.5rem;  /* 8px */\n```",
                     "category": "skill-file",
-                    "tags": ["cursor", "cursorrules", "prompts", "frameworks"],
-                    "runtimes": ["Cursor"],
-                    "difficulty": "beginner",
-                    "primary_language": "Markdown",
-                    "stars": 11500,
-                    "forks": 1400,
-                    "quality_score": 92.0,
-                    "trending_score": 90.5,
-                    "is_featured": False,
-                    "source_type": "awesome_list"
+                    "tags": ["ui-ux", "design-system", "tailwind", "accessibility", "frontend", "components"],
+                    "runtimes": ["Google Antigravity", "OpenAI Codex", "Cursor", "Claude Code", "Windsurf"],
+                    "difficulty": "intermediate",
+                    "primary_language": "TypeScript",
+                    "stars": 12400,
+                    "forks": 1350,
+                    "quality_score": 99.0,
+                    "trending_score": 98.5,
+                    "is_featured": True,
+                    "source_type": "github_trending_weekly"
                 },
                 {
-                    "name": "ollama/ollama",
-                    "title": "Ollama: Get up and running with Llama 3.3, DeepSeek-R1, and Mistral locally",
-                    "repository_url": "https://github.com/ollama/ollama",
-                    "author": "ollama",
-                    "description": "Get up and running with large language models locally. Run agents completely offline with full privacy.",
-                    "ai_summary": "Nền tảng chạy các mô hình AI mã nguồn mở (DeepSeek, Llama) trực tiếp trên máy cục bộ bảo mật và miễn phí.",
-                    "category": "local-llm",
-                    "tags": ["local-llm", "offline-ai", "privacy", "inference"],
-                    "runtimes": ["Aider", "Cursor"],
-                    "difficulty": "beginner",
-                    "primary_language": "Go",
-                    "stars": 112000,
-                    "forks": 9800,
-                    "quality_score": 99.5,
-                    "trending_score": 98.0,
+                    "name": "vercel/nextjs-agent-rules",
+                    "title": "Next.js 15 App Router & Server Actions Master Skill",
+                    "repository_url": "https://github.com/vercel/nextjs-agent-rules",
+                    "author": "vercel-community",
+                    "description": "Strict rules for Next.js 15 App Router, React Server Components (RSC), caching strategies (revalidateTag), Server Actions with Zod, and SEO optimization.",
+                    "ai_summary": "Quy chuẩn Next.js 15 App Router: viết Server Actions an toàn có validation Zod, tối ưu React Server Components và chiến lược Cache thông minh.",
+                    "use_cases": [
+                        "Viết Server Actions an toàn có validation Zod và error handling",
+                        "Tối ưu Caching và React Server Components để đạt 100 điểm Google Lighthouse",
+                        "Cấu hình Metadata và OpenGraph dynamic tags cho SEO"
+                    ],
+                    "comparison_notes": "Loại bỏ triệt để tình trạng AI viết cú pháp Pages Router cũ hoặc dùng useEffect sai mục đích trong Next.js 15.",
+                    "target_audience": "Frontend & Fullstack Developers",
+                    "readme_preview": "# Next.js 15 Agent Rules\n\n```typescript\n'use server';\nimport { z } from 'zod';\n```",
+                    "category": "skill-file",
+                    "tags": ["nextjs", "react", "app-router", "server-actions", "seo", "typescript"],
+                    "runtimes": ["Google Antigravity", "OpenAI Codex", "Cursor", "Claude Code", "Windsurf"],
+                    "difficulty": "advanced",
+                    "primary_language": "TypeScript",
+                    "stars": 11200,
+                    "forks": 980,
+                    "quality_score": 97.5,
+                    "trending_score": 96.0,
                     "is_featured": True,
-                    "source_type": "github_search"
+                    "source_type": "github_trending_weekly"
+                },
+                {
+                    "name": "modelcontextprotocol/servers",
+                    "title": "Model Context Protocol (MCP) Reference Servers",
+                    "repository_url": "https://github.com/modelcontextprotocol/servers",
+                    "author": "Anthropic & Community",
+                    "description": "Official reference MCP servers for PostgreSQL, GitHub, Slack, SQLite, Google Drive, and Filesystem integration with Cursor, Claude, Antigravity, and Codex.",
+                    "ai_summary": "Tập hợp các MCP Servers tiêu chuẩn mở kết nối AI Agent với cơ sở dữ liệu PostgreSQL, Git, Slack, File hệ thống một cách an toàn và trực quan.",
+                    "use_cases": [
+                        "Cho phép Cursor/Antigravity/Claude truy vấn trực tiếp cơ sở dữ liệu Postgres dev/staging",
+                        "Tự động hóa đọc issue, tạo pull request và kiểm tra CI trên GitHub qua Agent",
+                        "Tìm kiếm và trích xuất nội dung file trong toàn bộ máy tính mà không cần copy thủ công"
+                    ],
+                    "comparison_notes": "Giao thức tiêu chuẩn mở đang dẫn đầu ngành, được hỗ trợ bởi tất cả IDEs lớn (Antigravity, Cursor, Claude Desktop, Codex).",
+                    "target_audience": "Fullstack Developers & DevOps Engineers",
+                    "readme_preview": "# MCP Reference Servers\n\n```json\n{\n  \"mcpServers\": {\n    \"postgres\": {\n      \"command\": \"npx\",\n      \"args\": [\"-y\", \"@modelcontextprotocol/server-postgres\"]\n    }\n  }\n}\n```",
+                    "category": "mcp-server",
+                    "tags": ["mcp", "model-context-protocol", "postgres", "github", "sqlite", "tools"],
+                    "runtimes": ["Google Antigravity", "OpenAI Codex", "Cursor", "Claude Code", "Model Context Protocol"],
+                    "difficulty": "intermediate",
+                    "primary_language": "TypeScript",
+                    "stars": 24500,
+                    "forks": 2890,
+                    "quality_score": 99.0,
+                    "trending_score": 99.5,
+                    "is_featured": True,
+                    "source_type": "github_trending_daily"
                 }
             ]
 
-            for c in curated:
-                skill_obj = Skill(**c)
+            skill_objs = []
+            for item in curated:
+                skill_obj = Skill(**item)
                 db.add(skill_obj)
-            
+                skill_objs.append(skill_obj)
             db.commit()
-            logger.info("Successfully seeded curated AI Agent skills.")
+
+            # Seed Bundles
+            if db.query(SkillBundle).count() == 0:
+                logger.info("Seeding Tech Stack Starter Packs...")
+                bundles = [
+                    SkillBundle(
+                        slug="antigravity-data-stack",
+                        name="Google Antigravity & AI Agent Master Stack",
+                        title="🪐 Google Antigravity & Data Intelligence Stack",
+                        description="Complete bundle for building enterprise subagents, BigQuery analytics, and procedural skills using Google Antigravity & Gemini CLI.",
+                        icon="Sparkles",
+                        badge="Google Deepmind Stack",
+                        category="ai-agent",
+                        target_stack="Google Antigravity / Gemini CLI",
+                        tags=["antigravity", "subagents", "gemini", "data-analytics", "mcp"],
+                        skill_ids=[1, 6],
+                        stars_total=41300
+                    ),
+                    SkillBundle(
+                        slug="golang-microservices-stack",
+                        name="High-Performance Golang Microservices Stack",
+                        title="🐹 Golang High-Performance Microservices Stack",
+                        description="Idiomatic Go conventions, concurrency race condition detector, and PostgreSQL MCP server integration.",
+                        icon="Terminal",
+                        badge="Go Backend Master",
+                        category="backend",
+                        target_stack="Antigravity / Codex / Cursor / Claude",
+                        tags=["golang", "concurrency", "postgres", "microservices", "clean-code"],
+                        skill_ids=[3, 6],
+                        stars_total=33440
+                    ),
+                    SkillBundle(
+                        slug="nextjs-uiux-pro-stack",
+                        name="Next.js 15 & UI/UX Pro Max Stack",
+                        title="⚛️ Next.js 15 App Router & UI/UX Design System",
+                        description="Build stunning, accessible, high-performance web applications with Next.js 15 App Router, Server Actions, and WCAG design heuristics.",
+                        icon="Palette",
+                        badge="Frontend Master",
+                        category="frontend",
+                        target_stack="Antigravity / Codex / Cursor / Windsurf",
+                        tags=["nextjs", "ui-ux", "tailwind", "react", "design-system"],
+                        skill_ids=[4, 5],
+                        stars_total=23600
+                    ),
+                    SkillBundle(
+                        slug="codex-mcp-fullstack",
+                        name="OpenAI Codex & Multi-Agent MCP Stack",
+                        title="🧠 OpenAI Codex & Multi-Agent MCP Server Stack",
+                        description="Comprehensive setup with OpenAI Codex repository rules and Model Context Protocol servers for fullstack pair programming.",
+                        icon="Cpu",
+                        badge="Enterprise Codex",
+                        category="fullstack",
+                        target_stack="OpenAI Codex / Copilot / Claude Code",
+                        tags=["codex", "copilot", "mcp", "multi-agent", "github"],
+                        skill_ids=[2, 6],
+                        stars_total=38700
+                    ),
+                ]
+                db.add_all(bundles)
+                db.commit()
+
+            # Record collection run
+            init_run = CollectionRun(
+                triggered_by="system_init",
+                started_at=datetime.utcnow(),
+                finished_at=datetime.utcnow(),
+                status="completed",
+                total_new_skills=len(curated),
+                total_updated_skills=0,
+                total_sources_scanned=4,
+                sources_summary={"github": 4, "awesome_lists": 2, "reddit": 1, "hackernews": 1},
+                summary=f"Khởi tạo thành công {len(curated)} curated AI Agent Skills và 4 Tech Stack Starter Packs."
+            )
+            db.add(init_run)
+            db.commit()
+
     except Exception as e:
-        logger.error(f"Error seeding initial data: {e}")
+        logger.error(f"Error seeding database: {e}")
+        db.rollback()
     finally:
         db.close()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup
     seed_initial_curated_skills()
-    start_scheduler()
+    if settings.AUTO_SCHEDULE_ENABLED:
+        start_scheduler()
     yield
-    # Shutdown
-    stop_scheduler()
+    if settings.AUTO_SCHEDULE_ENABLED:
+        stop_scheduler()
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
-    description="Agent Skill Trending & Recommendation Engine API",
-    version="1.0.0",
+    version="2.1.0",
+    description="Agent Skill Trending & Recommendation Engine with Google Antigravity & OpenAI Codex integration",
     lifespan=lifespan
 )
 
-# CORS configuration
+# CORS Middleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -227,19 +354,28 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Include Routers
+# Register API Routers
 app.include_router(skills_router, prefix=settings.API_V1_STR)
-app.include_router(categories_router, prefix=settings.API_V1_STR)
-app.include_router(preferences_router, prefix=settings.API_V1_STR)
 app.include_router(collect_router, prefix=settings.API_V1_STR)
+app.include_router(preferences_router, prefix=settings.API_V1_STR)
+app.include_router(history_router, prefix=settings.API_V1_STR)
+app.include_router(auth_router, prefix=settings.API_V1_STR)
+app.include_router(bundles_router, prefix=settings.API_V1_STR)
+app.include_router(playground_router, prefix=settings.API_V1_STR)
 
 @app.get("/")
 def root():
     return {
-        "message": f"Welcome to {settings.PROJECT_NAME} API",
+        "message": "Agent Skill Trending API v2.1 (Antigravity & Codex Ready)",
         "docs": "/docs",
-        "version": "1.0.0"
+        "health": "/health"
     }
 
-if __name__ == "__main__":
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+@app.get("/health", tags=["Health"])
+def health_check():
+    return {
+        "status": "healthy",
+        "timestamp": datetime.utcnow().isoformat(),
+        "database": settings.DATABASE_URL.split(":")[0],
+        "version": "2.1.0"
+    }

@@ -1,21 +1,69 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from './api/client';
 import { Skill, CategoryInfo, RuntimeInfo, UserPreference, StatsData } from './types';
+import { AuthProvider, useAuth } from './context/AuthContext';
+import { ToastProvider, useToast } from './context/ToastContext';
+import { ThemeProvider } from './context/ThemeContext';
+import { LanguageProvider, useLanguage } from './context/LanguageContext';
+import { Sidebar } from './components/Sidebar';
 import { Navbar } from './components/Navbar';
 import { StatsHeader } from './components/StatsHeader';
 import { TrendingFeed } from './pages/TrendingFeed';
 import { PersonalizedFeed } from './pages/PersonalizedFeed';
 import { ExploreCategories } from './pages/ExploreCategories';
+import { SkillCompare } from './pages/SkillCompare';
+import { HistoryPage } from './pages/HistoryPage';
 import { BookmarksPage } from './pages/BookmarksPage';
 import { PreferencesPage } from './pages/PreferencesPage';
+import { LoginPage } from './pages/LoginPage';
+import { BundlesPage } from './pages/BundlesPage';
+import { PlaygroundPage } from './pages/PlaygroundPage';
 import { SkillDetailModal } from './components/SkillDetailModal';
 import { TriggerCollectorModal } from './components/TriggerCollectorModal';
+import { ErrorBoundary } from './components/ErrorBoundary';
 
-export const App: React.FC = () => {
+const AppContent: React.FC = () => {
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState<string>('trending');
+  const { user } = useAuth();
+  const { showToast } = useToast();
+  const { t } = useLanguage();
   
+  // Sidebar Collapsed State
+  const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(() => {
+    const saved = localStorage.getItem('sidebar_collapsed');
+    return saved === 'true';
+  });
+
+  const handleToggleSidebar = (val: boolean) => {
+    setSidebarCollapsed(val);
+    localStorage.setItem('sidebar_collapsed', String(val));
+  };
+
+  // URL Hash Sync for Tab Navigation
+  const [activeTab, setActiveTab] = useState<string>(() => {
+    const hash = window.location.hash.replace('#', '');
+    return ['trending', 'bundles', 'playground', 'personalized', 'compare', 'categories', 'history', 'bookmarks', 'preferences'].includes(hash)
+      ? hash
+      : 'trending';
+  });
+  
+  const handleTabChange = (tab: string) => {
+    setActiveTab(tab);
+    window.location.hash = tab;
+  };
+
+  useEffect(() => {
+    const handleHashChange = () => {
+      const hash = window.location.hash.replace('#', '');
+      if (['trending', 'bundles', 'playground', 'personalized', 'compare', 'categories', 'history', 'bookmarks', 'preferences'].includes(hash)) {
+        setActiveTab(hash);
+      }
+    };
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
+
   // Filters state
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [selectedRuntime, setSelectedRuntime] = useState<string>('all');
@@ -23,13 +71,17 @@ export const App: React.FC = () => {
   const [sortBy, setSortBy] = useState<string>('trending_score');
   const [searchTerm, setSearchTerm] = useState<string>('');
 
+  // Comparison State
+  const [comparedSkillIds, setComparedSkillIds] = useState<number[]>([]);
+
   // Modals state
   const [selectedSkill, setSelectedSkill] = useState<Skill | null>(null);
   const [isTriggerModalOpen, setIsTriggerModalOpen] = useState<boolean>(false);
+  const [isLoginModalOpen, setIsLoginModalOpen] = useState<boolean>(false);
 
   // Queries
   const { data: stats } = useQuery<StatsData>({
-    queryKey: ['stats'],
+    queryKey: ['stats', user?.id],
     queryFn: api.getStats,
     refetchInterval: 30000,
   });
@@ -45,12 +97,12 @@ export const App: React.FC = () => {
   });
 
   const { data: preferences = null } = useQuery<UserPreference>({
-    queryKey: ['preferences'],
+    queryKey: ['preferences', user?.id],
     queryFn: api.getPreferences,
   });
 
   const { data: trendingSkills = [], isLoading: loadingTrending } = useQuery<Skill[]>({
-    queryKey: ['trendingSkills', selectedCategory, selectedRuntime, selectedLanguage, sortBy, searchTerm],
+    queryKey: ['trendingSkills', selectedCategory, selectedRuntime, selectedLanguage, sortBy, searchTerm, user?.id],
     queryFn: () =>
       api.getTrendingSkills({
         category: selectedCategory === 'all' ? undefined : selectedCategory,
@@ -62,16 +114,31 @@ export const App: React.FC = () => {
   });
 
   const { data: personalizedSkills = [], isLoading: loadingPersonalized } = useQuery<Skill[]>({
-    queryKey: ['personalizedSkills'],
+    queryKey: ['personalizedSkills', user?.id],
     queryFn: () => api.getPersonalizedSkills(50),
     enabled: activeTab === 'personalized',
   });
 
   const { data: bookmarkedSkills = [], isLoading: loadingBookmarks } = useQuery<Skill[]>({
-    queryKey: ['bookmarkedSkills'],
+    queryKey: ['bookmarkedSkills', user?.id],
     queryFn: api.getBookmarkedSkills,
     enabled: activeTab === 'bookmarks',
   });
+
+  // Toggle Compare Helper
+  const handleToggleCompare = (id: number) => {
+    if (comparedSkillIds.includes(id)) {
+      setComparedSkillIds(comparedSkillIds.filter((x) => x !== id));
+      showToast(t('toast_compared_removed'), 'info');
+    } else {
+      if (comparedSkillIds.length >= 4) {
+        showToast(t('toast_compared_limit'), 'error');
+        return;
+      }
+      setComparedSkillIds([...comparedSkillIds, id]);
+      showToast(t('toast_compared_added'), 'success');
+    }
+  };
 
   // Toggle Bookmark Mutation
   const bookmarkMutation = useMutation({
@@ -81,9 +148,14 @@ export const App: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ['personalizedSkills'] });
       queryClient.invalidateQueries({ queryKey: ['bookmarkedSkills'] });
       queryClient.invalidateQueries({ queryKey: ['stats'] });
+      queryClient.invalidateQueries({ queryKey: ['auditLogs'] });
       if (selectedSkill && selectedSkill.id === updatedSkill.id) {
         setSelectedSkill(updatedSkill);
       }
+      showToast(
+        updatedSkill.is_bookmarked ? t('toast_bookmark_added') : t('toast_bookmark_removed'),
+        updatedSkill.is_bookmarked ? 'success' : 'info'
+      );
     },
   });
 
@@ -93,95 +165,140 @@ export const App: React.FC = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['preferences'] });
       queryClient.invalidateQueries({ queryKey: ['personalizedSkills'] });
+      queryClient.invalidateQueries({ queryKey: ['auditLogs'] });
+      showToast(t('toast_pref_saved'), 'success');
     },
   });
 
   const handleSelectCategoryFromExplore = (categoryKey: string) => {
     setSelectedCategory(categoryKey);
-    setActiveTab('trending');
+    handleTabChange('trending');
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 flex flex-col text-slate-100 selection:bg-emerald-500 selection:text-white">
-      <Navbar
+    <div className="flex h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 selection:bg-emerald-500 selection:text-white transition-colors duration-200 overflow-hidden font-sans">
+      {/* Collapsible Left Sidebar */}
+      <Sidebar
         activeTab={activeTab}
-        setActiveTab={setActiveTab}
-        onOpenTriggerModal={() => setIsTriggerModalOpen(true)}
-        searchTerm={searchTerm}
-        setSearchTerm={setSearchTerm}
+        setActiveTab={handleTabChange}
+        collapsed={sidebarCollapsed}
+        setCollapsed={handleToggleSidebar}
+        comparedCount={comparedSkillIds.length}
+        bookmarkedCount={bookmarkedSkills.length}
+        onOpenLogin={() => setIsLoginModalOpen(true)}
       />
 
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <StatsHeader stats={stats || null} />
+      {/* Main Content Area (Header + Scrollable Body) */}
+      <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
+        {/* Top Header Bar */}
+        <Navbar
+          onOpenTriggerModal={() => setIsTriggerModalOpen(true)}
+          searchTerm={searchTerm}
+          setSearchTerm={setSearchTerm}
+          comparedCount={comparedSkillIds.length}
+          onGoToCompare={() => handleTabChange('compare')}
+          onToggleSidebar={() => handleToggleSidebar(!sidebarCollapsed)}
+        />
 
-        {/* Tab Content */}
-        {activeTab === 'trending' && (
-          <TrendingFeed
-            skills={trendingSkills}
-            categories={categories}
-            runtimes={runtimes}
-            loading={loadingTrending}
-            selectedCategory={selectedCategory}
-            setSelectedCategory={setSelectedCategory}
-            selectedRuntime={selectedRuntime}
-            setSelectedRuntime={setSelectedRuntime}
-            selectedLanguage={selectedLanguage}
-            setSelectedLanguage={setSelectedLanguage}
-            sortBy={sortBy}
-            setSortBy={setSortBy}
-            onToggleBookmark={(id) => bookmarkMutation.mutate(id)}
-            onSelectSkill={(skill) => setSelectedSkill(skill)}
-          />
-        )}
+        {/* Scrollable Main Area */}
+        <main className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+          <div className="max-w-[1650px] w-full mx-auto space-y-6">
+            {/* Top Metric Stats Counters */}
+            <StatsHeader stats={stats || null} />
 
-        {activeTab === 'personalized' && (
-          <PersonalizedFeed
-            skills={personalizedSkills}
-            preference={preferences}
-            loading={loadingPersonalized}
-            onToggleBookmark={(id) => bookmarkMutation.mutate(id)}
-            onSelectSkill={(skill) => setSelectedSkill(skill)}
-            onGoToPreferences={() => setActiveTab('preferences')}
-          />
-        )}
+            {/* Active Tab View */}
+            {activeTab === 'trending' && (
+              <TrendingFeed
+                skills={trendingSkills}
+                categories={categories}
+                runtimes={runtimes}
+                loading={loadingTrending}
+                selectedCategory={selectedCategory}
+                setSelectedCategory={setSelectedCategory}
+                selectedRuntime={selectedRuntime}
+                setSelectedRuntime={setSelectedRuntime}
+                selectedLanguage={selectedLanguage}
+                setSelectedLanguage={setSelectedLanguage}
+                sortBy={sortBy}
+                setSortBy={setSortBy}
+                comparedSkillIds={comparedSkillIds}
+                onToggleCompare={handleToggleCompare}
+                onToggleBookmark={(id) => bookmarkMutation.mutate(id)}
+                onSelectSkill={(skill) => setSelectedSkill(skill)}
+                onGoToCompare={() => handleTabChange('compare')}
+              />
+            )}
 
-        {activeTab === 'categories' && (
-          <ExploreCategories
-            categories={categories}
-            onSelectCategory={handleSelectCategoryFromExplore}
-          />
-        )}
+            {activeTab === 'bundles' && (
+              <BundlesPage
+                onSelectSkillById={async (id) => {
+                  try {
+                    const fullSkill = await api.getSkillDetail(id);
+                    setSelectedSkill(fullSkill);
+                  } catch (e) {
+                    console.error(e);
+                  }
+                }}
+              />
+            )}
 
-        {activeTab === 'bookmarks' && (
-          <BookmarksPage
-            skills={bookmarkedSkills}
-            loading={loadingBookmarks}
-            onToggleBookmark={(id) => bookmarkMutation.mutate(id)}
-            onSelectSkill={(skill) => setSelectedSkill(skill)}
-            onBackToFeed={() => setActiveTab('trending')}
-          />
-        )}
+            {activeTab === 'playground' && (
+              <PlaygroundPage />
+            )}
 
-        {activeTab === 'preferences' && (
-          <PreferencesPage
-            preference={preferences}
-            categories={categories}
-            runtimes={runtimes}
-            onSavePreference={async (pref) => {
-              await updatePrefMutation.mutateAsync(pref);
-            }}
-          />
-        )}
-      </main>
+            {activeTab === 'personalized' && (
+              <PersonalizedFeed
+                skills={personalizedSkills}
+                preference={preferences}
+                loading={loadingPersonalized}
+                onToggleBookmark={(id) => bookmarkMutation.mutate(id)}
+                onSelectSkill={(skill) => setSelectedSkill(skill)}
+                onGoToPreferences={() => handleTabChange('preferences')}
+              />
+            )}
 
-      {/* Footer */}
-      <footer className="border-t border-slate-900 bg-slate-950 py-8 text-center text-xs text-slate-400">
-        <div className="max-w-7xl mx-auto px-4">
-          <p>
-            Agent Skill Trending — Nền tảng tổng hợp & đề xuất AI Agent Skills & MCP Servers cho Developer.
-          </p>
-        </div>
-      </footer>
+            {activeTab === 'compare' && (
+              <SkillCompare
+                allSkills={trendingSkills}
+                comparedSkillIds={comparedSkillIds}
+                onRemoveSkillFromCompare={(id) => setComparedSkillIds(comparedSkillIds.filter((x) => x !== id))}
+                onAddSkillToCompare={(id) => setComparedSkillIds([...comparedSkillIds, id])}
+                onSelectSkill={(skill) => setSelectedSkill(skill)}
+              />
+            )}
+
+            {activeTab === 'categories' && (
+              <ExploreCategories
+                categories={categories}
+                onSelectCategory={handleSelectCategoryFromExplore}
+              />
+            )}
+
+            {activeTab === 'history' && <HistoryPage />}
+
+            {activeTab === 'bookmarks' && (
+              <BookmarksPage
+                skills={bookmarkedSkills}
+                loading={loadingBookmarks}
+                onToggleBookmark={(id) => bookmarkMutation.mutate(id)}
+                onSelectSkill={(skill) => setSelectedSkill(skill)}
+                onBackToFeed={() => handleTabChange('trending')}
+              />
+            )}
+
+            {activeTab === 'preferences' && (
+              <PreferencesPage
+                preference={preferences}
+                categories={categories}
+                runtimes={runtimes}
+                onSavePreference={async (pref) => {
+                  await updatePrefMutation.mutateAsync(pref);
+                }}
+              />
+            )}
+          </div>
+        </main>
+      </div>
 
       {/* Detail Modal */}
       <SkillDetailModal
@@ -198,9 +315,43 @@ export const App: React.FC = () => {
           queryClient.invalidateQueries({ queryKey: ['trendingSkills'] });
           queryClient.invalidateQueries({ queryKey: ['personalizedSkills'] });
           queryClient.invalidateQueries({ queryKey: ['stats'] });
+          queryClient.invalidateQueries({ queryKey: ['collectionRuns'] });
+          queryClient.invalidateQueries({ queryKey: ['auditLogs'] });
+          showToast(t('toast_scan_triggered'), 'success');
         }}
       />
+
+      {/* Login Modal */}
+      {isLoginModalOpen && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in"
+          onClick={() => setIsLoginModalOpen(false)}
+        >
+          <div onClick={(e) => e.stopPropagation()} className="w-full max-w-md">
+            <LoginPage onSuccess={() => {
+              setIsLoginModalOpen(false);
+              showToast(t('toast_login_success'), 'success');
+            }} />
+          </div>
+        </div>
+      )}
     </div>
+  );
+};
+
+export const App: React.FC = () => {
+  return (
+    <LanguageProvider>
+      <ThemeProvider>
+        <ToastProvider>
+          <AuthProvider>
+            <ErrorBoundary>
+              <AppContent />
+            </ErrorBoundary>
+          </AuthProvider>
+        </ToastProvider>
+      </ThemeProvider>
+    </LanguageProvider>
   );
 };
 

@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-echo "🚀 Khởi động Agent Skill Trending Platform..."
+echo "🚀 Khởi động Agent Skill Trending Platform v2.0..."
 
 # Check Python venv
 if [ ! -d "backend/.venv" ]; then
@@ -16,11 +16,11 @@ if [ ! -d "frontend/node_modules" ]; then
     npm --prefix frontend install
 fi
 
-echo "🟢 Khởi chạy Backend FastAPI tại http://localhost:8000..."
-backend/.venv/bin/uvicorn main:app --app-dir backend --host 0.0.0.0 --port 8000 --reload &
+echo "🟢 Khởi chạy Backend FastAPI tại http://localhost:8899..."
+backend/.venv/bin/uvicorn main:app --app-dir backend --host 0.0.0.0 --port 8899 --reload &
 BACKEND_PID=$!
 
-echo "🟢 Khởi chạy Frontend Vite tại http://localhost:3000..."
+echo "🟢 Khởi chạy Frontend Vite tại http://localhost:3099..."
 npm --prefix frontend run dev &
 FRONTEND_PID=$!
 

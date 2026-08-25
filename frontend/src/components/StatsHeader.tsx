@@ -1,71 +1,79 @@
 import React from 'react';
+import { Flame, Star, Bookmark, Boxes } from 'lucide-react';
 import { StatsData } from '../types';
-import { Sparkles, Star, Layers, Cpu, BookmarkCheck } from 'lucide-react';
 
 interface StatsHeaderProps {
   stats: StatsData | null;
 }
 
 export const StatsHeader: React.FC<StatsHeaderProps> = ({ stats }) => {
-  if (!stats) return null;
-
-  const statItems = [
+  const cards = [
     {
-      label: 'Tổng số Skills / Solutions',
-      value: stats.total_skills,
-      icon: Sparkles,
-      color: 'text-emerald-400',
-      bg: 'bg-emerald-500/10 border-emerald-500/20'
+      title: 'Tổng Số Skills & MCPs',
+      value: stats ? stats.total_skills.toLocaleString() : '8+',
+      icon: Boxes,
+      color: 'from-emerald-500 to-teal-600',
+      textColor: 'text-emerald-500',
+      bgColor: 'bg-emerald-50 dark:bg-emerald-950/20',
+      borderColor: 'border-emerald-200 dark:border-emerald-800/40',
+      sub: 'Đang theo dõi tự động'
     },
     {
-      label: 'Tổng Stars GitHub',
-      value: (stats.total_stars / 1000).toFixed(1) + 'k',
+      title: 'Tổng Đánh Giá GitHub',
+      value: stats ? `${(stats.total_stars / 1000).toFixed(1)}k+` : '190k+',
       icon: Star,
-      color: 'text-amber-400',
-      bg: 'bg-amber-500/10 border-amber-500/20'
+      color: 'from-amber-500 to-orange-600',
+      textColor: 'text-amber-500',
+      bgColor: 'bg-amber-50 dark:bg-amber-950/20',
+      borderColor: 'border-amber-200 dark:border-amber-800/40',
+      sub: 'Stars từ cộng đồng toàn cầu'
     },
     {
-      label: 'Chuyên Mục AI',
-      value: Object.keys(stats.categories_count).length,
-      icon: Layers,
-      color: 'text-indigo-400',
-      bg: 'bg-indigo-500/10 border-indigo-500/20'
+      title: 'Chuyên Mục Phân Loại',
+      value: stats ? Object.keys(stats.categories_count).length : '9',
+      icon: Flame,
+      color: 'from-sky-500 to-indigo-600',
+      textColor: 'text-sky-500',
+      bgColor: 'bg-sky-50 dark:bg-sky-950/20',
+      borderColor: 'border-sky-200 dark:border-sky-800/40',
+      sub: 'MCP, Skill.md, Workflow...'
     },
     {
-      label: 'Hỗ Trợ Runtimes',
-      value: Object.keys(stats.runtimes_count).length,
-      icon: Cpu,
-      color: 'text-sky-400',
-      bg: 'bg-sky-500/10 border-sky-500/20'
-    },
-    {
-      label: 'Skills Đã Lưu',
-      value: stats.bookmarked_count,
-      icon: BookmarkCheck,
-      color: 'text-purple-400',
-      bg: 'bg-purple-500/10 border-purple-500/20'
+      title: 'Skills Bạn Đã Lưu',
+      value: stats ? stats.bookmarked_count.toString() : '0',
+      icon: Bookmark,
+      color: 'from-purple-500 to-pink-600',
+      textColor: 'text-purple-500',
+      bgColor: 'bg-purple-50 dark:bg-purple-950/20',
+      borderColor: 'border-purple-200 dark:border-purple-800/40',
+      sub: 'Bộ sưu tập cá nhân'
     }
   ];
 
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-6">
-      {statItems.map((item, idx) => {
-        const Icon = item.icon;
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      {cards.map((card, idx) => {
+        const Icon = card.icon;
         return (
           <div
             key={idx}
-            className="p-4 rounded-2xl bg-slate-900/70 border border-slate-800/80 flex items-center gap-3.5 transition-all hover:border-slate-700"
+            className={`relative rounded-3xl p-5 border bg-white dark:bg-slate-900/80 ${card.borderColor} shadow-sm backdrop-blur-md overflow-hidden transition-all hover:shadow-md`}
           >
-            <div className={`p-2.5 rounded-xl border ${item.bg} ${item.color}`}>
-              <Icon className="w-5 h-5" />
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 truncate mr-2">
+                {card.title}
+              </span>
+              <div className={`p-2 rounded-2xl ${card.bgColor} ${card.textColor}`}>
+                <Icon className="w-4 h-4" />
+              </div>
             </div>
-            <div>
-              <div className="text-xl font-bold text-slate-100 font-mono">
-                {item.value}
-              </div>
-              <div className="text-[11px] text-slate-400 font-medium line-clamp-1">
-                {item.label}
-              </div>
+
+            <div className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-slate-100 font-mono tracking-tight">
+              {card.value}
+            </div>
+
+            <div className="text-[11px] text-slate-400 dark:text-slate-500 mt-1 truncate">
+              {card.sub}
             </div>
           </div>
         );

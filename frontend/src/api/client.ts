@@ -1,8 +1,77 @@
-import { Skill, CategoryInfo, RuntimeInfo, StatsData, UserPreference, DataSourceStatus } from '../types';
+import { 
+  Skill, 
+  CategoryInfo, 
+  RuntimeInfo, 
+  StatsData, 
+  UserPreference, 
+  DataSourceStatus, 
+  User, 
+  CollectionRun, 
+  AuditLogItem,
+  ExportConfig,
+  SecurityReport,
+  SkillBundle,
+  PlaygroundSimResult
+} from '../types';
 
-const API_BASE = '/api/v1';
+const rawBase = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace(/\/+$/, '') : '';
+const API_BASE = rawBase ? `${rawBase}/api/v1` : '/api/v1';
+
+const getAuthHeaders = (): Record<string, string> => {
+  const token = localStorage.getItem('agent_trending_token');
+  return token ? { Authorization: `Bearer ${token}` } : {};
+};
 
 export const api = {
+  // Auth
+  login: async (username: string, password: string): Promise<{ access_token: string; user: User }> => {
+    const res = await fetch(`${API_BASE}/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: 'Đăng nhập thất bại' }));
+      throw new Error(err.detail || 'Đăng nhập thất bại');
+    }
+    const data = await res.json();
+    localStorage.setItem('agent_trending_token', data.access_token);
+    return data;
+  },
+
+  register: async (username: string, password: string, displayName?: string): Promise<{ access_token: string; user: User }> => {
+    const res = await fetch(`${API_BASE}/auth/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password, display_name: displayName }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: 'Đăng ký thất bại' }));
+      throw new Error(err.detail || 'Đăng ký thất bại');
+    }
+    const data = await res.json();
+    localStorage.setItem('agent_trending_token', data.access_token);
+    return data;
+  },
+
+  getMe: async (): Promise<User> => {
+    const res = await fetch(`${API_BASE}/auth/me`, {
+      headers: getAuthHeaders(),
+    });
+    if (!res.ok) throw new Error('Unauthenticated');
+    return res.json();
+  },
+
+  getAllUsers: async (): Promise<User[]> => {
+    const res = await fetch(`${API_BASE}/auth/users`);
+    if (!res.ok) throw new Error('Failed to fetch users');
+    return res.json();
+  },
+
+  logout: () => {
+    localStorage.removeItem('agent_trending_token');
+  },
+
   // Skills
   getTrendingSkills: async (params?: {
     category?: string;
@@ -22,19 +91,35 @@ export const api = {
     if (params?.sort_by) query.append('sort_by', params.sort_by);
     if (params?.limit) query.append('limit', params.limit.toString());
 
-    const res = await fetch(`${API_BASE}/skills/trending?${query.toString()}`);
+    const res = await fetch(`${API_BASE}/skills/trending?${query.toString()}`, {
+      headers: getAuthHeaders(),
+    });
     if (!res.ok) throw new Error('Failed to fetch trending skills');
     return res.json();
   },
 
   getPersonalizedSkills: async (limit: number = 30): Promise<Skill[]> => {
-    const res = await fetch(`${API_BASE}/skills/personalized?limit=${limit}`);
+    const res = await fetch(`${API_BASE}/skills/personalized?limit=${limit}`, {
+      headers: getAuthHeaders(),
+    });
     if (!res.ok) throw new Error('Failed to fetch personalized skills');
     return res.json();
   },
 
+  compareSkills: async (skillIds: number[]): Promise<Skill[]> => {
+    const res = await fetch(`${API_BASE}/skills/compare`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+      body: JSON.stringify({ skill_ids: skillIds }),
+    });
+    if (!res.ok) throw new Error('Failed to compare skills');
+    return res.json();
+  },
+
   getBookmarkedSkills: async (): Promise<Skill[]> => {
-    const res = await fetch(`${API_BASE}/skills/bookmarked`);
+    const res = await fetch(`${API_BASE}/skills/bookmarked`, {
+      headers: getAuthHeaders(),
+    });
     if (!res.ok) throw new Error('Failed to fetch bookmarks');
     return res.json();
   },
@@ -42,19 +127,24 @@ export const api = {
   toggleBookmark: async (skillId: number): Promise<Skill> => {
     const res = await fetch(`${API_BASE}/skills/${skillId}/bookmark`, {
       method: 'POST',
+      headers: getAuthHeaders(),
     });
     if (!res.ok) throw new Error('Failed to toggle bookmark');
     return res.json();
   },
 
   getSkillDetail: async (skillId: number): Promise<Skill> => {
-    const res = await fetch(`${API_BASE}/skills/${skillId}`);
+    const res = await fetch(`${API_BASE}/skills/${skillId}`, {
+      headers: getAuthHeaders(),
+    });
     if (!res.ok) throw new Error('Failed to fetch skill detail');
     return res.json();
   },
 
   getStats: async (): Promise<StatsData> => {
-    const res = await fetch(`${API_BASE}/skills/stats`);
+    const res = await fetch(`${API_BASE}/skills/stats`, {
+      headers: getAuthHeaders(),
+    });
     if (!res.ok) throw new Error('Failed to fetch stats');
     return res.json();
   },
@@ -74,7 +164,9 @@ export const api = {
 
   // User Preferences
   getPreferences: async (): Promise<UserPreference> => {
-    const res = await fetch(`${API_BASE}/preferences`);
+    const res = await fetch(`${API_BASE}/preferences`, {
+      headers: getAuthHeaders(),
+    });
     if (!res.ok) throw new Error('Failed to fetch preferences');
     return res.json();
   },
@@ -82,17 +174,18 @@ export const api = {
   updatePreferences: async (pref: UserPreference): Promise<UserPreference> => {
     const res = await fetch(`${API_BASE}/preferences`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
       body: JSON.stringify(pref),
     });
     if (!res.ok) throw new Error('Failed to update preferences');
     return res.json();
   },
 
-  // Data Collection Trigger & Status
+  // Data Collection & History
   triggerCollection: async (): Promise<{ status: string; message: string }> => {
     const res = await fetch(`${API_BASE}/collect/trigger`, {
       method: 'POST',
+      headers: getAuthHeaders(),
     });
     if (!res.ok) throw new Error('Failed to trigger collection');
     return res.json();
@@ -101,6 +194,81 @@ export const api = {
   getSourcesStatus: async (): Promise<DataSourceStatus[]> => {
     const res = await fetch(`${API_BASE}/collect/status`);
     if (!res.ok) throw new Error('Failed to fetch sources status');
+    return res.json();
+  },
+
+  getCollectionRuns: async (limit: number = 30): Promise<CollectionRun[]> => {
+    const res = await fetch(`${API_BASE}/history/runs?limit=${limit}`);
+    if (!res.ok) throw new Error('Failed to fetch collection runs');
+    return res.json();
+  },
+
+  getAuditLogs: async (params?: { action?: string; username?: string; limit?: number }): Promise<AuditLogItem[]> => {
+    const query = new URLSearchParams();
+    if (params?.action) query.append('action', params.action);
+    if (params?.username) query.append('username', params.username);
+    if (params?.limit) query.append('limit', params.limit.toString());
+
+    const res = await fetch(`${API_BASE}/history/audit-log?${query.toString()}`);
+    if (!res.ok) throw new Error('Failed to fetch audit logs');
+    return res.json();
+  },
+
+  // 1-Click Multi-IDE Exporter
+  exportSkillConfig: async (skillId: number, ide: string): Promise<ExportConfig> => {
+    const res = await fetch(`${API_BASE}/skills/${skillId}/export/${ide}`);
+    if (!res.ok) throw new Error('Failed to export skill configuration');
+    return res.json();
+  },
+
+  // Security Scanner
+  getSkillSecurityReport: async (skillId: number): Promise<SecurityReport> => {
+    const res = await fetch(`${API_BASE}/skills/${skillId}/security`);
+    if (!res.ok) throw new Error('Failed to fetch security report');
+    return res.json();
+  },
+
+  // Bundles & Starter Packs
+  getBundles: async (): Promise<SkillBundle[]> => {
+    const res = await fetch(`${API_BASE}/bundles`);
+    if (!res.ok) throw new Error('Failed to fetch bundles');
+    return res.json();
+  },
+
+  getBundleDetail: async (slug: string): Promise<SkillBundle> => {
+    const res = await fetch(`${API_BASE}/bundles/${slug}`);
+    if (!res.ok) throw new Error('Failed to fetch bundle detail');
+    return res.json();
+  },
+
+  bookmarkBundle: async (slug: string): Promise<{ message: string; added_count: number }> => {
+    const res = await fetch(`${API_BASE}/bundles/${slug}/bookmark-all`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+    });
+    if (!res.ok) throw new Error('Failed to bookmark bundle');
+    return res.json();
+  },
+
+  exportBundle: async (slug: string, ide: string): Promise<any> => {
+    const res = await fetch(`${API_BASE}/bundles/${slug}/export/${ide}`);
+    if (!res.ok) throw new Error('Failed to export bundle');
+    return res.json();
+  },
+
+  // Interactive Prompt Simulator Playground
+  simulatePlayground: async (data: {
+    prompt: string;
+    target_ide?: string;
+    skill_id?: number;
+    skill_slug?: string;
+  }): Promise<PlaygroundSimResult> => {
+    const res = await fetch(`${API_BASE}/playground/simulate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) throw new Error('Failed to simulate prompt in playground');
     return res.json();
   }
 };

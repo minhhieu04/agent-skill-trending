@@ -1,3 +1,4 @@
+import asyncio
 import httpx
 from bs4 import BeautifulSoup
 from typing import List, Dict, Any, Optional
@@ -47,7 +48,7 @@ class GitHubCollector(BaseCollector):
         url = f"https://api.github.com/search/repositories?q={query}&sort={sort}&order=desc&per_page={max_results}"
         items = []
         try:
-            async with httpx.AsyncClient(timeout=15.0) as client:
+            async with httpx.AsyncClient(timeout=10.0) as client:
                 resp = await client.get(url, headers=self.headers)
                 if resp.status_code == 200:
                     data = resp.json()
@@ -57,7 +58,6 @@ class GitHubCollector(BaseCollector):
                         topics = repo.get("topics", [])
                         runtimes = self._detect_runtimes(f"{desc} {' '.join(topics)} {repo.get('name')}")
                         
-                        # Infer tags
                         tags = list(set(topics + [t.lower() for t in runtimes]))
                         
                         items.append({
@@ -94,7 +94,7 @@ class GitHubCollector(BaseCollector):
         items = []
         try:
             headers = {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"}
-            async with httpx.AsyncClient(timeout=15.0) as client:
+            async with httpx.AsyncClient(timeout=10.0) as client:
                 resp = await client.get(url, headers=headers)
                 if resp.status_code == 200:
                     soup = BeautifulSoup(resp.text, "html.parser")
@@ -113,13 +113,11 @@ class GitHubCollector(BaseCollector):
                         desc_p = art.find("p", class_="col-9")
                         desc = desc_p.text.strip() if desc_p else ""
                         
-                        # Filter relevant AI/agent repos or include all tech
                         full_text = f"{repo_path} {desc}".lower()
                         keywords = ["agent", "skill", "mcp", "llm", "ai", "prompt", "cursor", "claude", "copilot", "gpt", "model", "bot", "tool", "workflow"]
                         if not any(kw in full_text for kw in keywords):
                             continue
                         
-                        # Stars
                         stars_tag = art.find("a", href=lambda x: x and x.endswith("/stargazers"))
                         stars_count = 0
                         if stars_tag:
@@ -128,7 +126,6 @@ class GitHubCollector(BaseCollector):
                             except:
                                 stars_count = 0
                         
-                        # Language
                         lang_span = art.find("span", itemprop="programmingLanguage")
                         lang = lang_span.text.strip() if lang_span else "Other"
                         
@@ -160,10 +157,9 @@ class GitHubCollector(BaseCollector):
         return items
 
     async def collect(self) -> List[Dict[str, Any]]:
-        self.logger.info("Starting GitHub collection...")
+        self.logger.info("Starting GitHub collection concurrently...")
         all_items: Dict[str, Dict[str, Any]] = {}
 
-        # 1. Search specific high-value keywords for AI Agent Skills
         queries = [
             "ai agent skills",
             "agent skill in:name,description,readme",
@@ -174,22 +170,24 @@ class GitHubCollector(BaseCollector):
             "autonomous coding agent",
         ]
         
-        for q in queries:
-            results = await self.collect_from_search(q, sort="stars", max_results=10)
-            for item in results:
-                all_items[item["repository_url"]] = item
+        # Parallel search queries and trending scrapes
+        search_tasks = [self.collect_from_search(q, sort="stars", max_results=10) for q in queries]
+        trending_tasks = [self.collect_trending_page(since="daily"), self.collect_trending_page(since="weekly")]
+        
+        results_list = await asyncio.gather(*search_tasks, *trending_tasks, return_exceptions=True)
 
-        # 2. Collect from Trending
-        for period in ["daily", "weekly"]:
-            trending_results = await self.collect_trending_page(since=period)
-            for item in trending_results:
-                if item["repository_url"] in all_items:
-                    # Update tags with trending info
-                    all_items[item["repository_url"]]["tags"] = list(set(
-                        all_items[item["repository_url"]]["tags"] + item["tags"]
-                    ))
-                else:
-                    all_items[item["repository_url"]] = item
+        for res in results_list:
+            if isinstance(res, list):
+                for item in res:
+                    repo_url = item.get("repository_url")
+                    if not repo_url:
+                        continue
+                    if repo_url in all_items:
+                        all_items[repo_url]["tags"] = list(set(
+                            all_items[repo_url].get("tags", []) + item.get("tags", [])
+                        ))
+                    else:
+                        all_items[repo_url] = item
 
         self.logger.info(f"GitHub collection finished with {len(all_items)} unique repositories.")
         return list(all_items.values())
