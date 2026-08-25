@@ -253,6 +253,17 @@ export const translations = {
     toast_pref_saved: 'Đã cập nhật sở thích & bộ lọc thành công!',
     toast_login_success: 'Đăng nhập thành công!',
     toast_scan_triggered: 'Đã kích hoạt quét dữ liệu nền thành công!',
+
+    // Playground Keys
+    prompt_input_label: 'Nhập yêu cầu code (Prompt):',
+    btn_simulate: 'Chạy Thử Nghiệm',
+    security_verdict: 'Đánh giá an toàn',
+    rules_applied_count: 'Quy chuẩn áp dụng',
+    rules: 'quy tắc',
+    execution_time: 'Thời gian xử lý',
+    before_rules: 'Code AI Mặc Định (Chưa có Rules)',
+    unconstrained: 'Chưa qua kiểm soát',
+    after_rules: 'Code Tối Ưu (Sau khi nạp Rules)',
   },
 
   en: {
@@ -507,5 +518,16 @@ export const translations = {
     toast_pref_saved: 'Preferences & filters updated successfully!',
     toast_login_success: 'Logged in successfully!',
     toast_scan_triggered: 'Background data collection pipeline triggered!',
+
+    // Playground Keys
+    prompt_input_label: 'Prompt Input:',
+    btn_simulate: 'Run Simulation',
+    security_verdict: 'Security Verdict',
+    rules_applied_count: 'Rules Applied',
+    rules: 'rules',
+    execution_time: 'Execution Time',
+    before_rules: 'Raw AI Code (Unconstrained)',
+    unconstrained: 'Unconstrained',
+    after_rules: 'Optimized Code (Rules Enforced)',
   }
 };
