@@ -339,7 +339,7 @@ export const ImageToMatrixConverter: React.FC = () => {
 
       {/* Custom Word Input (if selected) */}
       {charMode === 'custom_word' && (
-        <div className="flex items-center gap-3 p-3 rounded-2xl bg-emerald-500/5 border border-emerald-500/20 animate-in fade-in">
+        <div className="flex items-center gap-3 p-3 rounded-2xl bg-emerald-500/5 border border-emerald-500/20 animate-fade-in">
           <span className="text-xs font-bold text-slate-700 dark:text-slate-300">Nhập từ/tên muốn lặp vào ảnh:</span>
           <input
             type="text"

@@ -177,3 +177,77 @@ export interface AuditLogItem {
 }
 
 export type AuditLog = AuditLogItem;
+
+// Studio & AI Video Interfaces
+export interface VoiceOption {
+  id: string;
+  name: string;
+  language: string;
+  gender: 'female' | 'male';
+  style: string;
+  description?: string;
+  preview_text: string;
+}
+
+export interface BlogPost {
+  title: string;
+  content: string;
+  tags: string[];
+  word_count: number;
+  estimated_read_time: string;
+  language: string;
+  tone: string;
+}
+
+export interface VideoScene {
+  scene_number: number;
+  title: string;
+  voiceover_text: string;
+  visual_description: string;
+  duration_seconds: number;
+  code_snippet?: string;
+}
+
+export interface VideoStoryboard {
+  total_duration: number;
+  aspect_ratio: string;
+  scenes: VideoScene[];
+}
+
+export interface SubtitleEntry {
+  text: string;
+  start_ms: number;
+  end_ms: number;
+}
+
+export interface TTSResult {
+  audio_base64: string;
+  duration_seconds: number;
+  subtitle_entries: SubtitleEntry[];
+  voice: string;
+  status: string;
+  message?: string;
+}
+
+export interface BlogGenerateRequest {
+  skill_id?: number;
+  topic?: string;
+  tone?: string;
+  language?: string;
+  custom_notes?: string;
+}
+
+export interface StoryboardRequest {
+  skill_id?: number;
+  content?: string;
+  target_duration?: number;
+  aspect_ratio?: string;
+  language?: string;
+}
+
+export interface TTSRequest {
+  text: string;
+  voice?: string;
+  rate?: string;
+  pitch?: string;
+}

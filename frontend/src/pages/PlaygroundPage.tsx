@@ -84,7 +84,7 @@ export const PlaygroundPage: React.FC = () => {
         <div className="flex items-center gap-1.5 p-1.5 bg-slate-100 dark:bg-slate-950 rounded-2xl border border-slate-200 dark:border-slate-800 shrink-0">
           <button
             onClick={() => setActiveTab('image_matrix')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200 hover:scale-105 active:scale-95 flex items-center gap-2 ${
               activeTab === 'image_matrix'
                 ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/25'
                 : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
@@ -96,7 +96,7 @@ export const PlaygroundPage: React.FC = () => {
 
           <button
             onClick={() => setActiveTab('prompt_sim')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200 hover:scale-105 active:scale-95 flex items-center gap-2 ${
               activeTab === 'prompt_sim'
                 ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/25'
                 : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
@@ -110,20 +110,20 @@ export const PlaygroundPage: React.FC = () => {
 
       {/* TAB 1: IMAGE TO BINARY MATRIX 01 CONVERTER */}
       {activeTab === 'image_matrix' && (
-        <div className="animate-in fade-in duration-300">
+        <div className="animate-fade-in">
           <ImageToMatrixConverter />
         </div>
       )}
 
       {/* TAB 2: PROMPT SIMULATOR */}
       {activeTab === 'prompt_sim' && (
-        <div className="space-y-6 animate-in fade-in duration-300">
+        <div className="space-y-6 animate-fade-in">
           {/* Target IDE Picker */}
-          <div className="flex items-center justify-between p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
             <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
               Chọn môi trường IDE & Engine áp dụng:
             </span>
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1.5 flex-wrap">
               {[
                 { id: 'antigravity', label: '🪐 Antigravity' },
                 { id: 'codex', label: '🧠 Codex' },
@@ -133,7 +133,7 @@ export const PlaygroundPage: React.FC = () => {
                 <button
                   key={item.id}
                   onClick={() => setTargetIde(item.id)}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all duration-200 hover:scale-105 active:scale-95 ${
                     targetIde === item.id
                       ? 'bg-emerald-600 text-white font-bold shadow-sm'
                       : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
@@ -161,17 +161,17 @@ export const PlaygroundPage: React.FC = () => {
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
               placeholder="VD: Viết hàm query dữ liệu Postgres có phân trang an toàn..."
-              className="w-full p-4 rounded-2xl bg-slate-50 dark:bg-slate-950/80 border border-slate-200 dark:border-slate-800 text-xs font-mono text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 resize-none transition-all"
+              className="w-full p-4 rounded-2xl bg-slate-50 dark:bg-slate-950/80 border border-slate-200 dark:border-slate-800 text-xs font-mono text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 resize-none transition-all duration-200"
             />
 
             {/* Quick Sample Prompts */}
-            <div className="flex items-center gap-2 overflow-x-auto pb-1 text-xs">
+            <div className="flex items-center gap-2 overflow-x-auto pb-1 text-xs scrollbar-none">
               <span className="text-slate-400 text-[11px] shrink-0">{t('sample_prompts')}:</span>
               {samplePrompts.map((sample, idx) => (
                 <button
                   key={idx}
                   onClick={() => setPrompt(sample.text)}
-                  className="px-3 py-1 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-[11px] whitespace-nowrap transition-colors"
+                  className="px-3 py-1 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-[11px] whitespace-nowrap transition-all duration-200 hover:scale-105 active:scale-95"
                 >
                   {sample.label}
                 </button>
@@ -182,7 +182,7 @@ export const PlaygroundPage: React.FC = () => {
               <button
                 onClick={handleSimulate}
                 disabled={loading}
-                className="px-6 py-2.5 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition-all shadow-md shadow-emerald-600/25 active:scale-95 flex items-center gap-2 disabled:opacity-50"
+                className="px-6 py-2.5 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition-all duration-200 shadow-md shadow-emerald-600/25 hover:scale-105 active:scale-95 flex items-center gap-2 disabled:opacity-50"
               >
                 {loading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
                 <span>{loading ? t('simulating') : t('btn_simulate')}</span>
@@ -192,10 +192,10 @@ export const PlaygroundPage: React.FC = () => {
 
           {/* Results Display */}
           {result && (
-            <div className="space-y-6">
+            <div className="space-y-6 animate-fade-in">
               {/* Metrics & Verdict Header */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex items-center gap-3">
+                <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex items-center gap-3 hover:shadow-md transition-shadow">
                   <div className="p-2.5 rounded-xl bg-emerald-500/10 text-emerald-500">
                     <ShieldCheck className="w-5 h-5" />
                   </div>
@@ -210,7 +210,7 @@ export const PlaygroundPage: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex items-center gap-3">
+                <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex items-center gap-3 hover:shadow-md transition-shadow">
                   <div className="p-2.5 rounded-xl bg-teal-500/10 text-teal-500">
                     <CheckCircle2 className="w-5 h-5" />
                   </div>
@@ -224,7 +224,7 @@ export const PlaygroundPage: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex items-center gap-3">
+                <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex items-center gap-3 hover:shadow-md transition-shadow">
                   <div className="p-2.5 rounded-xl bg-indigo-500/10 text-indigo-500">
                     <Clock className="w-5 h-5" />
                   </div>
@@ -267,7 +267,7 @@ export const PlaygroundPage: React.FC = () => {
                     </span>
                     <button
                       onClick={handleCopyCode}
-                      className="text-xs text-emerald-500 hover:underline flex items-center gap-1 font-sans font-bold"
+                      className="text-xs text-emerald-500 hover:underline flex items-center gap-1 font-sans font-bold hover:scale-105 active:scale-95 transition-transform"
                     >
                       {copiedAfter ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
                       {copiedAfter ? t('copied') : t('copy_code')}

@@ -93,11 +93,11 @@ export const BundlesPage: React.FC<BundlesPageProps> = ({ onSelectSkillById }) =
       {isLoading ? (
         <GridSkeleton count={4} />
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 animate-fade-in">
           {bundles?.map((bundle) => (
             <div
               key={bundle.id}
-              className="group p-6 rounded-3xl bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 hover:border-emerald-500/40 shadow-sm hover:shadow-xl hover:shadow-emerald-500/5 transition-all duration-300 flex flex-col justify-between space-y-5"
+              className="group p-6 rounded-3xl bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 hover:border-emerald-500/40 shadow-sm hover:shadow-xl hover:shadow-emerald-500/10 hover:-translate-y-1.5 transition-all duration-300 ease-spring flex flex-col justify-between space-y-5"
             >
               <div>
                 {/* Top Badge & Header */}

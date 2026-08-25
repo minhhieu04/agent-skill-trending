@@ -50,7 +50,7 @@ export const ExploreCategories: React.FC<ExploreCategoriesProps> = ({
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 animate-fade-in">
         {categories.map((cat) => (
           <div
             key={cat.key}
@@ -63,11 +63,11 @@ export const ExploreCategories: React.FC<ExploreCategoriesProps> = ({
             }}
             role="button"
             tabIndex={0}
-            className="group p-6 rounded-3xl bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 hover:border-emerald-500/50 dark:hover:border-emerald-500/40 cursor-pointer transition-all duration-300 shadow-sm hover:shadow-xl hover:shadow-emerald-500/5 flex flex-col justify-between focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            className="group p-6 rounded-3xl bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 hover:border-emerald-500/50 dark:hover:border-emerald-500/40 cursor-pointer transition-all duration-300 ease-spring shadow-sm hover:shadow-xl hover:shadow-emerald-500/10 hover:-translate-y-1.5 active:scale-[0.99] flex flex-col justify-between focus:outline-none focus:ring-2 focus:ring-emerald-500"
           >
             <div>
               <div className="flex items-center justify-between mb-4">
-                <div className="p-3 rounded-2xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/60 group-hover:scale-110 transition-transform">
+                <div className="p-3 rounded-2xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/60 group-hover:scale-110 group-hover:rotate-6 transition-transform duration-300">
                   {getIcon(cat.icon)}
                 </div>
                 <span className="text-xs font-mono font-semibold px-2.5 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">

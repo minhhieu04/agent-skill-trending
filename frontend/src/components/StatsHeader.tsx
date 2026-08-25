@@ -51,24 +51,24 @@ export const StatsHeader: React.FC<StatsHeaderProps> = ({ stats }) => {
   ];
 
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8 animate-fade-in">
       {cards.map((card, idx) => {
         const Icon = card.icon;
         return (
           <div
             key={idx}
-            className={`relative rounded-3xl p-5 border bg-white dark:bg-slate-900/80 ${card.borderColor} shadow-sm backdrop-blur-md overflow-hidden transition-all hover:shadow-md`}
+            className={`group relative rounded-3xl p-5 border bg-white dark:bg-slate-900/80 ${card.borderColor} shadow-sm backdrop-blur-md overflow-hidden transition-all duration-300 ease-spring hover:-translate-y-1 hover:shadow-lg hover:shadow-emerald-500/5`}
           >
             <div className="flex items-center justify-between mb-3">
               <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 truncate mr-2">
                 {card.title}
               </span>
-              <div className={`p-2 rounded-2xl ${card.bgColor} ${card.textColor}`}>
+              <div className={`p-2 rounded-2xl ${card.bgColor} ${card.textColor} transition-transform duration-300 group-hover:scale-110 group-hover:rotate-6`}>
                 <Icon className="w-4 h-4" />
               </div>
             </div>
 
-            <div className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-slate-100 font-mono tracking-tight">
+            <div className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-slate-100 font-mono tracking-tight transition-transform duration-200 group-hover:translate-x-0.5">
               {card.value}
             </div>
 

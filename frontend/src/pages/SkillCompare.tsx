@@ -57,14 +57,14 @@ export const SkillCompare: React.FC<SkillCompareProps> = ({
             <div className="relative">
               <button
                 onClick={() => setSelectorOpen(!selectorOpen)}
-                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white transition-all shadow-md shadow-emerald-600/20"
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white transition-all duration-200 shadow-md shadow-emerald-600/20 hover:scale-105 active:scale-95"
               >
                 <Plus className="w-4 h-4" />
                 {t('add_skill_compare')}
               </button>
 
               {selectorOpen && (
-                <div className="absolute right-0 mt-2 w-72 max-h-80 overflow-y-auto rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl p-2 z-50 animate-in fade-in">
+                <div className="absolute right-0 mt-2 w-72 max-h-80 overflow-y-auto rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl p-2 z-50 animate-scale-in">
                   <div className="text-[11px] font-semibold text-slate-400 px-3 py-1.5 uppercase">
                     {t('select_skill_to_compare')}
                   </div>
@@ -75,7 +75,7 @@ export const SkillCompare: React.FC<SkillCompareProps> = ({
                         onAddSkillToCompare(skill.id);
                         setSelectorOpen(false);
                       }}
-                      className="p-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer flex items-center justify-between text-xs transition-colors"
+                      className="p-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer flex items-center justify-between text-xs transition-colors hover:translate-x-1 duration-150"
                     >
                       <span className="font-semibold text-slate-800 dark:text-slate-200 truncate pr-2">
                         {skill.title || skill.name}
@@ -93,8 +93,8 @@ export const SkillCompare: React.FC<SkillCompareProps> = ({
       </div>
 
       {comparedSkills.length === 0 ? (
-        <div className="p-12 text-center rounded-3xl bg-white dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 shadow-sm space-y-3">
-          <Scale className="w-12 h-12 text-slate-400 mx-auto" />
+        <div className="p-12 text-center rounded-3xl bg-white dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 shadow-sm space-y-3 animate-fade-in">
+          <Scale className="w-12 h-12 text-slate-400 mx-auto animate-float" />
           <h3 className="text-base font-bold text-slate-800 dark:text-slate-200">{t('no_compared_skills')}</h3>
           <p className="text-xs text-slate-500 dark:text-slate-400 max-w-md mx-auto">
             {t('no_compared_hint')}
@@ -105,7 +105,7 @@ export const SkillCompare: React.FC<SkillCompareProps> = ({
                 onAddSkillToCompare(allSkills[0].id);
                 onAddSkillToCompare(allSkills[1].id);
               }}
-              className="px-4 py-2 rounded-xl text-xs font-bold bg-sky-500/10 border border-sky-500/30 text-sky-600 dark:text-sky-300 hover:bg-sky-500/20 transition-colors"
+              className="px-4 py-2 rounded-xl text-xs font-bold bg-sky-500/10 border border-sky-500/30 text-sky-600 dark:text-sky-300 hover:bg-sky-500/20 transition-all duration-200 hover:scale-105 active:scale-95"
             >
               {t('compare_try_sample')}
             </button>
@@ -113,11 +113,11 @@ export const SkillCompare: React.FC<SkillCompareProps> = ({
         </div>
       ) : (
         /* Side-by-side comparison matrix */
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-fade-in">
           {comparedSkills.map((skill) => (
             <div
               key={skill.id}
-              className="p-6 rounded-3xl bg-white dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col justify-between space-y-5 transition-all"
+              className="p-6 rounded-3xl bg-white dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col justify-between space-y-5 transition-all duration-300 ease-spring hover:-translate-y-1 hover:shadow-xl hover:shadow-sky-500/5"
             >
               <div>
                 {/* Card Header */}

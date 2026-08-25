@@ -11,7 +11,14 @@ import {
   ExportConfig,
   SecurityReport,
   SkillBundle,
-  PlaygroundSimResult
+  PlaygroundSimResult,
+  VoiceOption,
+  BlogPost,
+  VideoStoryboard,
+  TTSResult,
+  BlogGenerateRequest,
+  StoryboardRequest,
+  TTSRequest
 } from '../types';
 
 const rawBase = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace(/\/+$/, '') : '';
@@ -269,6 +276,43 @@ export const api = {
       body: JSON.stringify(data),
     });
     if (!res.ok) throw new Error('Failed to simulate prompt in playground');
+    return res.json();
+  },
+
+  // AI Video & Blog Studio APIs
+  getVoices: async (): Promise<VoiceOption[]> => {
+    const res = await fetch(`${API_BASE}/studio/tts/voices`);
+    if (!res.ok) throw new Error('Failed to fetch AI voices');
+    return res.json();
+  },
+
+  generateBlog: async (data: BlogGenerateRequest): Promise<BlogPost> => {
+    const res = await fetch(`${API_BASE}/studio/blog/generate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) throw new Error('Failed to generate AI blog post');
+    return res.json();
+  },
+
+  generateStoryboard: async (data: StoryboardRequest): Promise<VideoStoryboard> => {
+    const res = await fetch(`${API_BASE}/studio/storyboard/generate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) throw new Error('Failed to generate video storyboard');
+    return res.json();
+  },
+
+  synthesizeTTS: async (data: TTSRequest): Promise<TTSResult> => {
+    const res = await fetch(`${API_BASE}/studio/tts/synthesize`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) throw new Error('Failed to synthesize AI voice audio');
     return res.json();
   }
 };

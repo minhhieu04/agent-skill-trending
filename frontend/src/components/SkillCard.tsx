@@ -67,7 +67,7 @@ export const SkillCard: React.FC<SkillCardProps> = ({
   };
 
   return (
-    <div className={`group relative rounded-2xl bg-white dark:bg-slate-900/90 border p-5 transition-all duration-300 hover:shadow-xl hover:shadow-emerald-500/5 flex flex-col justify-between ${
+    <div className={`group relative rounded-2xl bg-white dark:bg-slate-900/90 border p-5 transition-all duration-300 ease-spring hover:-translate-y-1.5 hover:shadow-xl hover:shadow-emerald-500/10 active:scale-[0.99] flex flex-col justify-between ${
       isCompared 
         ? 'border-sky-500 ring-2 ring-sky-500/30 dark:border-sky-500/60 dark:ring-1 dark:ring-sky-500/30' 
         : 'border-slate-200 dark:border-slate-800/80 hover:border-emerald-500/60 dark:hover:border-emerald-500/40 shadow-sm'
@@ -77,7 +77,7 @@ export const SkillCard: React.FC<SkillCardProps> = ({
         <div className="flex items-start justify-between gap-3 mb-2.5">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap mb-1">
-              <span className="text-xs font-mono text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800/80 px-2 py-0.5 rounded">
+              <span className="text-xs font-mono text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800/80 px-2 py-0.5 rounded transition-transform hover:scale-105">
                 {skill.category}
               </span>
               <SecurityBadge rating={skill.security_rating || 'safe'} score={skill.security_score || 95} size="sm" />
@@ -99,7 +99,7 @@ export const SkillCard: React.FC<SkillCardProps> = ({
               }}
               role="button"
               tabIndex={0}
-              className="text-lg font-bold text-slate-900 dark:text-slate-100 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors cursor-pointer line-clamp-1 group-hover:underline focus:outline-none focus:ring-1 focus:ring-emerald-500 rounded"
+              className="text-lg font-bold text-slate-900 dark:text-slate-100 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors duration-200 cursor-pointer line-clamp-1 group-hover:underline focus:outline-none focus:ring-1 focus:ring-emerald-500 rounded"
             >
               {skill.title || skill.name}
             </h3>
@@ -116,9 +116,9 @@ export const SkillCard: React.FC<SkillCardProps> = ({
                   e.stopPropagation();
                   onToggleCompare(skill.id);
                 }}
-                className={`p-2 rounded-xl border transition-all ${
+                className={`p-2 rounded-xl border transition-all duration-200 hover:scale-105 active:scale-90 ${
                   isCompared
-                    ? 'bg-sky-500/20 border-sky-500/40 text-sky-600 dark:text-sky-400 font-bold'
+                    ? 'bg-sky-500/20 border-sky-500/40 text-sky-600 dark:text-sky-400 font-bold shadow-sm'
                     : 'bg-slate-100 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700/60 text-slate-500 dark:text-slate-400 hover:text-sky-600 dark:hover:text-sky-300 hover:bg-slate-200 dark:hover:bg-slate-800'
                 }`}
                 title={t('btn_compare')}
@@ -132,15 +132,15 @@ export const SkillCard: React.FC<SkillCardProps> = ({
                 e.stopPropagation();
                 onToggleBookmark(skill.id);
               }}
-              className={`p-2 rounded-xl border transition-all ${
+              className={`p-2 rounded-xl border transition-all duration-200 hover:scale-105 active:scale-90 ${
                 skill.is_bookmarked
-                  ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-600 dark:text-emerald-400'
+                  ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-600 dark:text-emerald-400 shadow-sm'
                   : 'bg-slate-100 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700/60 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-800'
               }`}
               title={t('btn_bookmark')}
             >
               {skill.is_bookmarked ? (
-                <BookmarkCheck className="w-4 h-4" />
+                <BookmarkCheck className="w-4 h-4 text-emerald-500" />
               ) : (
                 <Bookmark className="w-4 h-4" />
               )}

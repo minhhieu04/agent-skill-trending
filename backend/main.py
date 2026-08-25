@@ -16,6 +16,7 @@ from api import (
     auth_router,
     bundles_router,
     playground_router,
+    studio_router,
 )
 from scheduler import start_scheduler, stop_scheduler
 from models.user_preference import UserPreference
@@ -389,6 +390,7 @@ app.include_router(history_router, prefix=settings.API_V1_STR)
 app.include_router(auth_router, prefix=settings.API_V1_STR)
 app.include_router(bundles_router, prefix=settings.API_V1_STR)
 app.include_router(playground_router, prefix=settings.API_V1_STR)
+app.include_router(studio_router, prefix=settings.API_V1_STR)
 
 @app.get("/")
 def root():

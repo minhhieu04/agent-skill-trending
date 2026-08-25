@@ -132,9 +132,9 @@ export const TrendingFeed: React.FC<TrendingFeedProps> = ({
           <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
             <button
               onClick={() => setSelectedCategory('all')}
-              className={`px-3 py-1 rounded-xl text-xs whitespace-nowrap transition-all ${
+              className={`px-3 py-1 rounded-xl text-xs whitespace-nowrap transition-all duration-200 hover:scale-105 active:scale-95 ${
                 selectedCategory === 'all'
-                  ? 'bg-emerald-600 text-white font-bold shadow-sm'
+                  ? 'bg-emerald-600 text-white font-bold shadow-md shadow-emerald-600/20'
                   : 'bg-slate-100 dark:bg-slate-800/80 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
               }`}
             >
@@ -144,9 +144,9 @@ export const TrendingFeed: React.FC<TrendingFeedProps> = ({
               <button
                 key={cat.key}
                 onClick={() => setSelectedCategory(cat.key)}
-                className={`px-3 py-1 rounded-xl text-xs whitespace-nowrap transition-all ${
+                className={`px-3 py-1 rounded-xl text-xs whitespace-nowrap transition-all duration-200 hover:scale-105 active:scale-95 ${
                   selectedCategory === cat.key
-                    ? 'bg-emerald-600 text-white font-bold shadow-sm'
+                    ? 'bg-emerald-600 text-white font-bold shadow-md shadow-emerald-600/20'
                     : 'bg-slate-100 dark:bg-slate-800/80 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
                 }`}
               >
@@ -166,7 +166,7 @@ export const TrendingFeed: React.FC<TrendingFeedProps> = ({
             </div>
             <button
               onClick={() => setSelectedRuntime('all')}
-              className={`px-2.5 py-0.5 rounded-lg text-xs font-mono shrink-0 transition-all ${
+              className={`px-2.5 py-0.5 rounded-lg text-xs font-mono shrink-0 transition-all duration-200 hover:scale-105 active:scale-95 ${
                 selectedRuntime === 'all'
                   ? 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-500/40 font-bold'
                   : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-300'
@@ -178,7 +178,7 @@ export const TrendingFeed: React.FC<TrendingFeedProps> = ({
               <button
                 key={rt.name}
                 onClick={() => setSelectedRuntime(rt.name)}
-                className={`px-2.5 py-0.5 rounded-lg text-xs font-mono shrink-0 transition-all ${
+                className={`px-2.5 py-0.5 rounded-lg text-xs font-mono shrink-0 transition-all duration-200 hover:scale-105 active:scale-95 ${
                   selectedRuntime === rt.name
                     ? 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-500/40 font-bold'
                     : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-300'
@@ -199,7 +199,7 @@ export const TrendingFeed: React.FC<TrendingFeedProps> = ({
               <button
                 key={lang}
                 onClick={() => setSelectedLanguage(lang)}
-                className={`px-2.5 py-0.5 rounded-lg text-xs font-mono shrink-0 transition-all ${
+                className={`px-2.5 py-0.5 rounded-lg text-xs font-mono shrink-0 transition-all duration-200 hover:scale-105 active:scale-95 ${
                   selectedLanguage === lang
                     ? 'bg-sky-500/20 text-sky-700 dark:text-sky-300 border border-sky-500/40 font-bold'
                     : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-300'
@@ -216,8 +216,8 @@ export const TrendingFeed: React.FC<TrendingFeedProps> = ({
       {loading ? (
         <GridSkeleton count={8} />
       ) : skills.length === 0 ? (
-        <div className="p-16 text-center rounded-3xl bg-white dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 shadow-sm space-y-3">
-          <Filter className="w-12 h-12 text-slate-400 mx-auto" />
+        <div className="p-16 text-center rounded-3xl bg-white dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 shadow-sm space-y-3 animate-fade-in">
+          <Filter className="w-12 h-12 text-slate-400 mx-auto animate-float" />
           <h3 className="text-base font-bold text-slate-800 dark:text-slate-200">{t('no_skills_found')}</h3>
           <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm mx-auto">
             {t('no_skills_hint')}
@@ -228,13 +228,13 @@ export const TrendingFeed: React.FC<TrendingFeedProps> = ({
               setSelectedRuntime('all');
               setSelectedLanguage('all');
             }}
-            className="px-4 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white shadow transition-all"
+            className="px-4 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white shadow-md shadow-emerald-600/20 transition-all duration-200 hover:scale-105 active:scale-95"
           >
             {t('category_all')}
           </button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 animate-fade-in">
           {skills.map((skill) => (
             <SkillCard
               key={skill.id}
