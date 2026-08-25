@@ -30,8 +30,46 @@ def _parse_gemini_error(e: Exception) -> Dict[str, Any]:
         "raw_error": err_str
     }
 
+def _extract_token_usage_and_finish_reason(response: Any) -> Dict[str, Any]:
+    """
+    Extracts token usage counters and candidate finish_reason from Gemini API response.
+    Detects if generation was truncated due to reaching max output token limits (MAX_TOKENS).
+    """
+    finish_reason = "STOP"
+    is_truncated = False
+    
+    try:
+        if hasattr(response, "candidates") and response.candidates:
+            cand = response.candidates[0]
+            raw_reason = getattr(cand, "finish_reason", "STOP")
+            finish_reason = str(raw_reason).split(".")[-1]
+            if "MAX_TOKENS" in finish_reason or "LENGTH" in finish_reason:
+                is_truncated = True
+    except Exception:
+        pass
+
+    usage = {
+        "prompt_tokens": 0,
+        "completion_tokens": 0,
+        "total_tokens": 0,
+    }
+    try:
+        if hasattr(response, "usage_metadata") and response.usage_metadata:
+            meta = response.usage_metadata
+            usage["prompt_tokens"] = getattr(meta, "prompt_token_count", 0) or 0
+            usage["completion_tokens"] = getattr(meta, "candidates_token_count", 0) or 0
+            usage["total_tokens"] = getattr(meta, "total_token_count", 0) or 0
+    except Exception:
+        pass
+
+    return {
+        "finish_reason": finish_reason,
+        "is_truncated": is_truncated,
+        "token_usage": usage
+    }
+
 def _log_gemini_audit(action: str, detail: Dict[str, Any]):
-    """Safely logs Gemini AI operations and quota failures to the AuditLog database."""
+    """Safely logs Gemini AI operations, quota failures, and token limits to the AuditLog database."""
     try:
         from database import SessionLocal
         from models.audit_log import AuditLog
@@ -59,7 +97,7 @@ class BlogVideoService:
         """
         Generates a comprehensive SEO-friendly tech blog post.
         Supports Vietnamese (vi) and English (en).
-        Automatically handles Gemini quota exhaustion with zero-downtime curated fallback.
+        Automatically monitors token limit exhaustion and quota limits.
         """
         title = topic.strip()
         skill_name = skill_data.get("name", "") if skill_data else ""
@@ -121,12 +159,25 @@ class BlogVideoService:
                     word_count = len(content.split())
                     read_time = f"{max(1, word_count // 200)} phút đọc" if language == "vi" else f"{max(1, word_count // 200)} min read"
                     
-                    _log_gemini_audit("gemini_generation_success", {
-                        "type": "blog",
-                        "topic": display_title,
-                        "model": "gemini-2.5-flash",
-                        "word_count": word_count
-                    })
+                    token_info = _extract_token_usage_and_finish_reason(response)
+                    
+                    # Log token truncation if output hit max token limit
+                    if token_info["is_truncated"]:
+                        _log_gemini_audit("gemini_token_limit_reached", {
+                            "type": "blog",
+                            "topic": display_title,
+                            "finish_reason": token_info["finish_reason"],
+                            "token_usage": token_info["token_usage"],
+                            "warning": "Đầu ra bị cắt ngắn do đạt giới hạn max_output_tokens."
+                        })
+                    else:
+                        _log_gemini_audit("gemini_generation_success", {
+                            "type": "blog",
+                            "topic": display_title,
+                            "model": "gemini-2.5-flash",
+                            "word_count": word_count,
+                            "token_usage": token_info["token_usage"]
+                        })
                     
                     return {
                         "title": first_line or display_title,
@@ -138,7 +189,10 @@ class BlogVideoService:
                         "tone": tone,
                         "provider": "google_gemini_2.5_flash",
                         "fallback_used": False,
-                        "quota_status": "ok"
+                        "quota_status": "ok",
+                        "finish_reason": token_info["finish_reason"],
+                        "is_truncated": token_info["is_truncated"],
+                        "token_usage": token_info["token_usage"]
                     }
             except Exception as e:
                 err_info = _parse_gemini_error(e)
@@ -157,6 +211,9 @@ class BlogVideoService:
         fallback_res["provider"] = "curated_offline_engine"
         fallback_res["fallback_used"] = True
         fallback_res["quota_status"] = "quota_exceeded_or_missing_key"
+        fallback_res["finish_reason"] = "COMPLETE_OFFLINE"
+        fallback_res["is_truncated"] = False
+        fallback_res["token_usage"] = {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
         return fallback_res
 
     @staticmethod
@@ -231,7 +288,7 @@ export async function executeAutonomousWorkflow(config: AgentSkillConfig) {{
 
 ## 🎯 5. Lời Kết
 
-**{title}** không chỉ là một công cụ, mà là một bước chuyển mình về tư duy kiến trúc AI Agent. Hãy trải nghiệm ngay hôm nay để đưa hiệu suất lập trình của bạn lên tầm cao mới!
+**{title}** không chỉ là một công cụ, mà là một bước chuyển mình về tư duy kiến trúc AI Agent. Hãy trải nghiệm ngay hôm đây để đưa hiệu suất lập trình của bạn lên tầm cao mới!
 """
             word_count = len(content.split())
             return {
@@ -307,7 +364,7 @@ Integrating **{title}** into your daily workflow transforms AI assistants from s
     ) -> Dict[str, Any]:
         """
         Breaks down blog post or skill context into timed video scenes for TikTok/Shorts or YouTube.
-        Handles Gemini quota failures with zero-downtime curated storyboard fallback.
+        Handles Gemini quota failures & token exhaustion with zero-downtime curated storyboard fallback.
         """
         skill_name = skill_data.get("name", "AI Agent Skill") if skill_data else "AI Agent Skill"
         skill_title = skill_data.get("title", skill_name) if skill_data else skill_name
@@ -356,7 +413,28 @@ Integrating **{title}** into your daily workflow transforms AI assistants from s
                     cleaned_json = response.text.strip()
                     cleaned_json = re.sub(r"^```json\s*", "", cleaned_json)
                     cleaned_json = re.sub(r"\s*```$", "", cleaned_json)
-                    parsed = json.loads(cleaned_json)
+                    
+                    token_info = _extract_token_usage_and_finish_reason(response)
+                    
+                    try:
+                        parsed = json.loads(cleaned_json)
+                    except json.JSONDecodeError as json_err:
+                        # Detect if JSON is truncated due to token exhaustion
+                        _log_gemini_audit("gemini_token_truncated_json_fallback", {
+                            "type": "storyboard",
+                            "topic": skill_title,
+                            "finish_reason": token_info["finish_reason"],
+                            "token_usage": token_info["token_usage"],
+                            "reason": f"JSON bị cắt ngắn do hết token ({json_err}). Tự động kích hoạt Storyboard chuẩn hóa."
+                        })
+                        fallback_sb = BlogVideoService._generate_curated_storyboard(skill_title, target_duration, aspect_ratio, language)
+                        fallback_sb["provider"] = "curated_offline_engine"
+                        fallback_sb["fallback_used"] = True
+                        fallback_sb["is_truncated"] = True
+                        fallback_sb["finish_reason"] = "MAX_TOKENS_JSON_TRUNCATED"
+                        fallback_sb["token_usage"] = token_info["token_usage"]
+                        return fallback_sb
+
                     _fallback_images = [
                         "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=1200&auto=format&fit=crop&q=80",
                         "https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=1200&auto=format&fit=crop&q=80",
@@ -372,6 +450,9 @@ Integrating **{title}** into your daily workflow transforms AI assistants from s
                     
                     parsed["provider"] = "google_gemini_2.5_flash"
                     parsed["fallback_used"] = False
+                    parsed["finish_reason"] = token_info["finish_reason"]
+                    parsed["is_truncated"] = token_info["is_truncated"]
+                    parsed["token_usage"] = token_info["token_usage"]
                     return parsed
             except Exception as e:
                 err_info = _parse_gemini_error(e)
@@ -388,6 +469,9 @@ Integrating **{title}** into your daily workflow transforms AI assistants from s
         fallback_sb = BlogVideoService._generate_curated_storyboard(skill_title, target_duration, aspect_ratio, language)
         fallback_sb["provider"] = "curated_offline_engine"
         fallback_sb["fallback_used"] = True
+        fallback_sb["finish_reason"] = "COMPLETE_OFFLINE"
+        fallback_sb["is_truncated"] = False
+        fallback_sb["token_usage"] = {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
         return fallback_sb
 
     @staticmethod
