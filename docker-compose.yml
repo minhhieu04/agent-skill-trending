@@ -1,0 +1,30 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=sqlite:///./agent_skills.db
+      - GITHUB_TOKEN=${GITHUB_TOKEN:-}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - REDDIT_CLIENT_ID=${REDDIT_CLIENT_ID:-}
+      - REDDIT_CLIENT_SECRET=${REDDIT_CLIENT_SECRET:-}
+      - COLLECTION_INTERVAL_HOURS=6
+      - AUTO_SCHEDULE_ENABLED=true
+    volumes:
+      - ./backend/agent_skills.db:/app/agent_skills.db
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
