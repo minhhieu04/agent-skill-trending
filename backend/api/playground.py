@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
@@ -28,6 +28,80 @@ class SimulateResponse(BaseModel):
     security_verdict: Dict[str, Any]
     latency_ms: int
 
+MATRIX_TEMPLATES = {
+    "buddha": """
+                      010101010101
+                   010101010101010101
+                 0101010101010101010101
+                010101010101010101010101
+               01010101010101010101010101
+              010101   01010101   010101
+              01010101010101010101010101
+               010101    0101    010101
+                0101010101010101010101
+                  010101010101010101
+                0101010101010101010101
+              01010101010101010101010101
+            010101010101010101010101010101
+          0101010101010101010101010101010101
+        01010101010101010101010101010101010101
+      010101010101010101010101010101010101010101
+    0101010101010101010101010101010101010101010101
+  01010101010101010101010101010101010101010101010101
+01010101010101010101010101010101010101010101010101010
+  01010101010101010101010101010101010101010101010101
+    0101010101010101010101010101010101010101010101
+      010101010101010101010101010101010101010101
+""",
+    "girl": """
+                   0101010101010101
+                0101010101010101010101
+              01010101010101010101010101
+             0101010101010101010101010101
+            010101010101010101010101010101
+            010101010101010101010101010101
+            010101  010101010101  01010101
+            010101 (01) 010101 (01) 010101
+            01010101    010101    01010101
+             0101010101   __   0101010101
+              01010101010101010101010101
+                0101010101010101010101
+                 01010101010101010101
+               010101010101010101010101
+             0101010101010101010101010101
+            010101010101010101010101010101
+           01010101010101010101010101010101
+          0101010101010101010101010101010101
+""",
+    "agent_shield": """
+               010101010101010101010101
+            010101010101010101010101010101
+          0101010101010101010101010101010101
+         010101010101010101010101010101010101
+        0101010101     010101     0101010101
+        0101010101     010101     0101010101
+        010101010101010101010101010101010101
+         0101010101010101010101010101010101
+          01010101010101010101010101010101
+           010101010101010101010101010101
+             01010101010101010101010101
+               0101010101010101010101
+                 010101010101010101
+                   01010101010101
+                     0101010101
+                       010101
+"""
+}
+
+@router.get("/matrix-art")
+def get_matrix_art(template: str = Query("buddha", description="buddha, girl, agent_shield")):
+    art = MATRIX_TEMPLATES.get(template, MATRIX_TEMPLATES["buddha"])
+    return {
+        "template": template,
+        "raw_matrix_art": art.strip(),
+        "matrix_lines": [line for line in art.strip().split("\n")]
+    }
+
 @router.post("/simulate", response_model=SimulateResponse)
 def simulate_skill_prompt(data: SimulateRequest, db: Session = Depends(get_db)):
     skill = None
@@ -40,12 +114,10 @@ def simulate_skill_prompt(data: SimulateRequest, db: Session = Depends(get_db)):
         skill = db.query(Skill).order_by(Skill.trending_score.desc()).first()
 
     skill_name = skill.name if skill else "Generic AI Agent"
-    category = skill.category if skill else "coding-agent"
     primary_lang = (skill.primary_language if skill else "Go").lower()
     
     start_time = time.time()
 
-    # Dynamic simulated outputs tailored to skill and prompt
     prompt_lower = data.prompt.lower()
 
     if "go" in prompt_lower or primary_lang == "go" or "golang" in prompt_lower:

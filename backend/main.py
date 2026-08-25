@@ -1,7 +1,8 @@
 import logging
 import asyncio
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+from fastapi import FastAPI, Response
+from fastapi.responses import HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
 from datetime import datetime
 
@@ -31,6 +32,31 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s"
 )
 logger = logging.getLogger("MainApp")
+
+MATRIX_BUDDHA_BINARY = """
+                      010101010101
+                   010101010101010101
+                 0101010101010101010101
+                010101010101010101010101
+               01010101010101010101010101
+              010101   01010101   010101
+              01010101010101010101010101
+               010101    0101    010101
+                0101010101010101010101
+                  010101010101010101
+                0101010101010101010101
+              01010101010101010101010101
+            010101010101010101010101010101
+          0101010101010101010101010101010101
+        01010101010101010101010101010101010101
+      010101010101010101010101010101010101010101
+    0101010101010101010101010101010101010101010101
+  01010101010101010101010101010101010101010101010101
+01010101010101010101010101010101010101010101010101010
+  01010101010101010101010101010101010101010101010101
+    0101010101010101010101010101010101010101010101
+      010101010101010101010101010101010101010101
+"""
 
 def seed_initial_curated_skills():
     """Seeds default users, preferences, rich curated skills, and tech stack bundles if empty."""
@@ -368,7 +394,8 @@ def root():
     return {
         "message": "Agent Skill Trending API v2.1 (Antigravity & Codex Ready)",
         "docs": "/docs",
-        "health": "/health"
+        "health": "/health",
+        "matrix_art_ui": "/health/matrix"
     }
 
 @app.get("/health", tags=["Health"])
@@ -378,5 +405,85 @@ def health_check():
         "status": "healthy",
         "timestamp": datetime.utcnow().isoformat(),
         "database": settings.DATABASE_URL.split(":")[0],
-        "version": "2.1.0"
+        "version": "2.1.0",
+        "matrix_avatar": MATRIX_BUDDHA_BINARY.strip().split("\n")
     }
+
+@app.get("/health/matrix", response_class=HTMLResponse, tags=["Health"])
+def health_matrix_view():
+    html_content = f"""
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <title>AgentSkills Health // Matrix 01 Stream</title>
+        <style>
+            body {{
+                background-color: #050811;
+                color: #00ff88;
+                font-family: 'Courier New', Courier, monospace;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                min-height: 100vh;
+                margin: 0;
+                padding: 20px;
+                box-sizing: border-box;
+                text-shadow: 0 0 10px rgba(0, 255, 136, 0.6);
+            }}
+            .matrix-box {{
+                background: rgba(10, 18, 30, 0.9);
+                border: 1px solid rgba(0, 255, 136, 0.4);
+                border-radius: 24px;
+                padding: 30px 40px;
+                box-shadow: 0 0 30px rgba(0, 255, 136, 0.2);
+                max-width: 800px;
+                width: 100%;
+                text-align: center;
+            }}
+            pre {{
+                font-size: 13px;
+                line-height: 1.25;
+                color: #55ff99;
+                white-space: pre;
+                overflow-x: auto;
+                text-shadow: 0 0 8px #00ff66;
+            }}
+            h1 {{
+                font-size: 20px;
+                margin-bottom: 10px;
+                letter-spacing: 2px;
+            }}
+            .badge {{
+                display: inline-block;
+                padding: 4px 12px;
+                background: rgba(0, 255, 136, 0.15);
+                border: 1px solid #00ff88;
+                border-radius: 12px;
+                font-size: 12px;
+                margin-top: 10px;
+            }}
+            .pulse {{
+                animation: pulse 1.8s infinite;
+            }}
+            @keyframes pulse {{
+                0% {{ opacity: 0.6; }}
+                50% {{ opacity: 1; }}
+                100% {{ opacity: 0.6; }}
+            }}
+        </style>
+    </head>
+    <body>
+        <div class="matrix-box">
+            <h1>🪐 AGENT-SKILLS // HEALTH MATRIX 2026</h1>
+            <div class="badge pulse">● SYSTEM ONLINE (STATUS: 200 HEALTHY)</div>
+            <pre>{MATRIX_BUDDHA_BINARY}</pre>
+            <div style="font-size: 11px; color: #88ffbb; margin-top: 15px;">
+                DATABASE: {settings.DATABASE_URL.split(":")[0].upper()} | VERSION: 2.1.0 | TIME: {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')}
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+    return HTMLResponse(content=html_content)
