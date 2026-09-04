@@ -10,6 +10,27 @@ interface KaraokeSubtitleProps {
   showCaptions?: boolean;
 }
 
+interface CaptionWord extends SubtitleEntry {
+  index: number;
+}
+
+export const buildCaptionPages = (subtitles: SubtitleEntry[], maxWords: number): CaptionWord[][] => {
+  const pages: CaptionWord[][] = [];
+  let page: CaptionWord[] = [];
+  subtitles.forEach((subtitle, index) => {
+    const previous = page[page.length - 1];
+    const followsPause = previous ? subtitle.start_ms - previous.end_ms >= 420 : false;
+    const followsSentence = previous ? /[.!?…]$/.test(previous.text.trim()) && page.length >= 3 : false;
+    if (page.length >= maxWords || followsPause || followsSentence) {
+      pages.push(page);
+      page = [];
+    }
+    page.push({ ...subtitle, index });
+  });
+  if (page.length) pages.push(page);
+  return pages;
+};
+
 export const KaraokeSubtitle: React.FC<KaraokeSubtitleProps> = ({
   subtitles = [],
   fallbackText,
@@ -29,11 +50,21 @@ export const KaraokeSubtitle: React.FC<KaraokeSubtitleProps> = ({
       if (currentMs >= subtitles[index].start_ms) activeIndex = index;
     }
   }
-  const halfWindow = Math.floor(maxWordsWindow / 2);
-  const windowStart = Math.max(0, Math.min(activeIndex - halfWindow, Math.max(0, subtitles.length - maxWordsWindow)));
-  const visibleSubtitles = subtitles.slice(windowStart, windowStart + maxWordsWindow);
+  const captionPages = buildCaptionPages(subtitles, Math.max(1, maxWordsWindow));
+  const activePage = captionPages.find((page) => page.some((subtitle) => subtitle.index === activeIndex))
+    || captionPages[0]
+    || [];
+  const visibleSubtitles = activePage;
   const fallbackWords = (fallbackText || '').split(/\s+/).filter(Boolean).slice(0, maxWordsWindow);
   const activeSubtitle = subtitles[activeIndex];
+  const activeWordProgress = activeSubtitle
+    ? interpolate(
+      currentMs,
+      [activeSubtitle.start_ms, Math.max(activeSubtitle.start_ms + 1, activeSubtitle.end_ms)],
+      [0, 1],
+      { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' },
+    )
+    : 0;
   const activeWordFrame = activeSubtitle ? Math.round((activeSubtitle.start_ms / 1000) * fps) : 0;
   const wordSpring = spring({
     frame: Math.max(0, frame - activeWordFrame),
@@ -75,7 +106,7 @@ export const KaraokeSubtitle: React.FC<KaraokeSubtitleProps> = ({
     >
       <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center', lineHeight: 1.45 }}>
         {(visibleSubtitles.length > 0 ? visibleSubtitles.map(item => item.text) : fallbackWords).map((word, index) => {
-          const absoluteIndex = windowStart + index;
+          const absoluteIndex = visibleSubtitles[index]?.index ?? index;
           const isActive = visibleSubtitles.length > 0 && absoluteIndex === activeIndex;
           const isPhraseCaption = visibleSubtitles.length === 1 && word.trim().includes(' ');
           const cleanWord = word.replace(/[^a-zA-Z0-9à-ỹÀ-Ỹ%]/g, '');
@@ -85,6 +116,7 @@ export const KaraokeSubtitle: React.FC<KaraokeSubtitleProps> = ({
               key={`${absoluteIndex}-${word}`}
               style={{
                 display: 'inline-block',
+                position: 'relative',
                 marginRight: '6px',
                 marginBottom: '2px',
                 padding: isActive && !isPhraseCaption ? '1px 5px 2px' : 0,
@@ -103,6 +135,27 @@ export const KaraokeSubtitle: React.FC<KaraokeSubtitleProps> = ({
               }}
             >
               {word}
+              {isActive && !isPhraseCaption && (
+                <span style={{
+                  position: 'absolute',
+                  left: 4,
+                  right: 4,
+                  bottom: -3,
+                  height: 3,
+                  borderRadius: 99,
+                  background: 'rgba(255,255,255,0.2)',
+                  overflow: 'hidden',
+                }}>
+                  <span style={{
+                    display: 'block',
+                    width: `${activeWordProgress * 100}%`,
+                    height: '100%',
+                    borderRadius: 99,
+                    background: 'linear-gradient(90deg, #facc15, #fff7a8)',
+                    boxShadow: '0 0 9px rgba(250,204,21,0.9)',
+                  }} />
+                </span>
+              )}
             </span>
           );
         })}

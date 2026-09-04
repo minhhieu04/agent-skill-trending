@@ -34,13 +34,23 @@ export const ArchitectureScene: React.FC<ArchitectureSceneProps> = ({
   const containerOpacity = interpolate(containerSpring, [0, 1], [0, 1]);
   const containerY = interpolate(containerSpring, [0, 1], [30, 0]);
 
-  // Flow nodes
-  const nodes = [
-    { title: 'User Context', desc: 'IDE / Terminal Query', icon: '👤', color: '#a5b4fc', bg: 'rgba(99,102,241,0.15)', border: 'rgba(99,102,241,0.4)' },
-    { title: 'Agent Orchestrator', desc: 'Gemini / Claude Brain', icon: '🧠', color: '#c084fc', bg: 'rgba(192,132,252,0.15)', border: 'rgba(192,132,252,0.4)' },
-    { title: 'Skill Subagents', desc: 'Sandbox & Tool Calling', icon: '⚡', color: '#38bdf8', bg: 'rgba(56,189,248,0.15)', border: 'rgba(56,189,248,0.4)' },
-    { title: 'Verified Result', desc: 'Zero-Vulnerability Code', icon: '🛡️', color: '#34d399', bg: 'rgba(52,211,153,0.15)', border: 'rgba(52,211,153,0.4)' },
+  // Use storyboard facts instead of presenting a made-up architecture as truth.
+  const palette = [
+    { icon: '①', color: '#a5b4fc', bg: 'rgba(99,102,241,0.15)', border: 'rgba(99,102,241,0.4)' },
+    { icon: '②', color: '#c084fc', bg: 'rgba(192,132,252,0.15)', border: 'rgba(192,132,252,0.4)' },
+    { icon: '③', color: '#38bdf8', bg: 'rgba(56,189,248,0.15)', border: 'rgba(56,189,248,0.4)' },
+    { icon: '✓', color: '#34d399', bg: 'rgba(52,211,153,0.15)', border: 'rgba(52,211,153,0.4)' },
   ];
+  const beatNodes = (scene.visual_beats || []).slice(0, 4).map((beat, index) => ({
+    title: beat.title,
+    desc: beat.detail,
+    ...palette[index % palette.length],
+  }));
+  const nodes = beatNodes.length > 0 ? beatNodes : [{
+    title: scene.title,
+    desc: scene.visual_description,
+    ...palette[0],
+  }];
 
   // One directional pass across the scene; do not restart on long videos.
   const beamProgress = interpolate(
@@ -103,7 +113,7 @@ export const ArchitectureScene: React.FC<ArchitectureSceneProps> = ({
           fontSize: isVertical ? '11px' : '13px',
           fontWeight: 800,
         }}>
-          🧠 Multi-Agent Flow
+          🧠 Source-backed Flow
         </div>
       </div>
 
@@ -188,13 +198,13 @@ export const ArchitectureScene: React.FC<ArchitectureSceneProps> = ({
           })}
         </div>
 
-        {/* Feature badges row */}
+        {/* Source badge row */}
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', justifyContent: 'center' }}>
           {[
-            '🔗 Model Context Protocol (MCP)',
-            '🛡️ Deterministic Guardrails',
-            '⚡ Parallel Subagent Execution',
-            '💾 Persistent Vector Memory',
+            '📖 Storyboard source',
+            '🔎 Reviewable steps',
+            '🔗 Recorded runtime',
+            `📋 ${scene.source_ref || 'Editor context'}`,
           ].map((tag, i) => (
             <span key={i} style={{
               padding: isVertical ? '3px 8px' : '5px 12px',

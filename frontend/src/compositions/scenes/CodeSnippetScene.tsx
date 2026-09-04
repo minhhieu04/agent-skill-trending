@@ -51,14 +51,9 @@ export const CodeSnippetScene: React.FC<CodeSnippetSceneProps> = ({
   const { fps, width, height } = useVideoConfig();
   const isVertical = height > width;
 
-  const codeText = scene.code_snippet || `// AI Agent Skill Execution
-const agent = new AgentSkill({
-  model: 'gemini-2.5-pro',
-  tools: [webSearch, bashSandbox],
-  memory: 'persistent',
-});
-
-const output = await agent.run(task);`;
+  const codeText = scene.code_snippet || `# Source excerpt unavailable
+# Open the repository and inspect README / source
+# before executing project commands.`;
 
   const lines = codeText.split('\n');
 
@@ -152,7 +147,7 @@ const output = await agent.run(task);`;
           fontSize: isVertical ? '11px' : '13px',
           fontWeight: 800,
         }}>
-          ⚡ Sandbox Verified: 100% Pass
+          ◉ README / SOURCE EXCERPT
         </div>
       </div>
 
@@ -245,11 +240,11 @@ const output = await agent.run(task);`;
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#22c55e', boxShadow: '0 0 8px #22c55e' }} />
             <span style={{ fontFamily: 'monospace', fontSize: isVertical ? '10px' : '12px', color: '#86efac', fontWeight: 700 }}>
-              ✔ Output: Agent task completed successfully
+              Source loaded for review — no untrusted code executed
             </span>
           </div>
           <span style={{ fontFamily: 'monospace', fontSize: isVertical ? '9px' : '11px', color: '#64748b' }}>
-            38ms • 0 err
+            {scene.source_ref || 'editor context'}
           </span>
         </div>
       </div>

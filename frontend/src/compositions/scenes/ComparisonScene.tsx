@@ -62,19 +62,11 @@ export const ComparisonScene: React.FC<ComparisonSceneProps> = ({
     { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' }
   );
 
-  const beforePoints = [
-    'Phải gõ prompt lặp lại mỗi lần mở chat',
-    'AI bị hallucinate & import thư viện lỗi thời',
-    'Mất 4-6 giờ debug kiến trúc thủ công',
-    'Không có sandbox kiểm tra an toàn',
-  ];
-
-  const afterPoints = [
-    '1-Click nạp cấu hình & quy tắc chuẩn',
-    'Tự động định tuyến multi-agent chính xác',
-    'Tăng 10x tốc độ code & refactor',
-    'Kiểm định bảo mật AST Sandbox 100%',
-  ];
+  const toPoints = (value: string | undefined, fallback: string) => (
+    (value || fallback).split(/\n|[;•]/).map((item) => item.trim()).filter(Boolean).slice(0, 4)
+  );
+  const beforePoints = toPoints(scene.before_text, 'Chưa có dữ liệu quy trình trước trong nguồn.');
+  const afterPoints = toPoints(scene.after_text, 'Chưa có dữ liệu quy trình sau trong nguồn.');
 
   return (
     <AbsoluteFill style={{ overflow: 'hidden', backgroundColor: '#090d16', opacity: fadeOut }}>
@@ -114,7 +106,7 @@ export const ComparisonScene: React.FC<ComparisonSceneProps> = ({
           fontSize: isVertical ? '11px' : '13px',
           fontWeight: 800,
         }}>
-          ⚡ 10x Productivity Boost
+          ◉ SOURCE-BACKED COMPARISON
         </div>
       </div>
 
@@ -163,7 +155,7 @@ export const ComparisonScene: React.FC<ComparisonSceneProps> = ({
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', paddingBottom: '6px', borderBottom: '1px solid rgba(239,68,68,0.2)' }}>
               <span style={{ fontSize: '16px' }}>❌</span>
               <span style={{ fontSize: isVertical ? '12px' : '14px', fontWeight: 900, color: '#f87171', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                Cách Cũ (Không Có Skill)
+                Trước
               </span>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
@@ -209,7 +201,7 @@ export const ComparisonScene: React.FC<ComparisonSceneProps> = ({
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', paddingBottom: '6px', borderBottom: '1px solid rgba(16,185,129,0.2)' }}>
               <span style={{ fontSize: '16px' }}>⚡</span>
               <span style={{ fontSize: isVertical ? '12px' : '14px', fontWeight: 900, color: '#34d399', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                Đột Phá (Với Agent Skill)
+                Sau
               </span>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>

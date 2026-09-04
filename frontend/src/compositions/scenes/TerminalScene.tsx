@@ -34,7 +34,7 @@ export const TerminalScene: React.FC<TerminalSceneProps> = ({
   const termOpacity = interpolate(termSpring, [0, 1], [0, 1]);
   const termY = interpolate(termSpring, [0, 1], [30, 0]);
 
-  const command = scene.terminal_command || `npx @agent/skills add ${scene.title.toLowerCase().replace(/[^a-z0-9]/g, '-')} --sandbox`;
+  const command = scene.terminal_command || '# Repository command unavailable — inspect source first';
 
   // Typing animation for CLI command
   const commandTypeFrames = Math.round(fps * 1.5);
@@ -49,11 +49,10 @@ export const TerminalScene: React.FC<TerminalSceneProps> = ({
 
   // Stdout log lines appearing sequentially
   const defaultLogs = [
-    '✔ Resolving verified skill package from registry...',
-    '✔ Running AST Security & Sandbox Guardrails audit [PASS]',
-    '✔ Injecting deterministic subagent instructions & MCP tools',
-    '✔ Synthesizing memory vector embeddings (128 dims)',
-    '🚀 Ready! Skill deployed with 1-click execution',
+    '→ Open the repository in an isolated workspace',
+    '→ Read README and dependency manifests',
+    '→ Review filesystem and network permissions',
+    '→ Run one small test before production use',
   ];
   const logs = scene.terminal_output || defaultLogs;
   const logStartFrame = 10 + commandTypeFrames + 5;
@@ -113,7 +112,7 @@ export const TerminalScene: React.FC<TerminalSceneProps> = ({
           fontSize: isVertical ? '11px' : '13px',
           fontWeight: 800,
         }}>
-          ⚡ Zero Configuration
+          ◉ SAFE INSPECTION DEMO
         </div>
       </div>
 
@@ -168,7 +167,7 @@ export const TerminalScene: React.FC<TerminalSceneProps> = ({
               background: 'rgba(34,197,94,0.15)', color: '#86efac',
               fontSize: '10px', fontWeight: 800, fontFamily: 'monospace',
             }}>
-              Node v20.11
+              READ-ONLY WALKTHROUGH
             </span>
           </div>
 

@@ -32,6 +32,7 @@ import {
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { Player, PlayerRef } from '@remotion/player';
 import { SkillVideoComposition } from '../compositions/SkillVideoComposition';
+import { buildVideoTimeline, getVideoDurationInFrames } from '../compositions/videoTimeline';
 import { api } from '../api/client';
 import { 
   Skill, 
@@ -99,7 +100,6 @@ export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({
   const [isGeneratingImages, setIsGeneratingImages] = useState<boolean>(false);
   const [previewingVoiceId, setPreviewingVoiceId] = useState<string | null>(null);
 
-  const audioRef = useRef<HTMLAudioElement | null>(null);
   const previewAudioRef = useRef<HTMLAudioElement | null>(null);
   const videoContainerRef = useRef<HTMLDivElement | null>(null);
   const playerRef = useRef<PlayerRef | null>(null);
@@ -129,15 +129,13 @@ export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({
   }, [ttsResult?.audio_base64]);
 
   const totalDurationInFrames = React.useMemo(() => {
-    if (ttsResult?.duration_seconds && ttsResult.duration_seconds > 0) {
-      return Math.max(VIDEO_FPS * 2, Math.round(ttsResult.duration_seconds * VIDEO_FPS));
-    }
-    if (!storyboard?.scenes || storyboard.scenes.length === 0) {
-      return VIDEO_FPS * 20;
-    }
-    const totalSec = storyboard.scenes.reduce((acc, s) => acc + (s.duration_seconds || 5), 0);
-    return Math.max(VIDEO_FPS * 5, Math.round(totalSec * VIDEO_FPS));
-  }, [ttsResult?.duration_seconds, storyboard?.scenes]);
+    return getVideoDurationInFrames(storyboard?.scenes || [], ttsResult, VIDEO_FPS);
+  }, [ttsResult, storyboard?.scenes]);
+  const playerTimeline = React.useMemo(() => buildVideoTimeline({
+    scenes: storyboard?.scenes || [],
+    ttsResult,
+    fps: VIDEO_FPS,
+  }), [storyboard?.scenes, ttsResult]);
 
 
   const currentSkill = skills.find(s => s.id === Number(selectedSkillId)) || initialSkill;
@@ -157,12 +155,15 @@ export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({
   useEffect(() => {
     if (language === 'en' && selectedVoice.startsWith('vi-')) {
       setSelectedVoice('en-US-ChristopherNeural');
+      setTtsResult(null);
     } else if (language === 'vi' && !selectedVoice.startsWith('vi-')) {
       setSelectedVoice('vi-VN-HoaiMyNeural');
+      setTtsResult(null);
     }
   }, [language]);
 
   const applyVoicePreset = (preset: 'hype' | 'professional' | 'podcast') => {
+    setTtsResult(null);
     setVoicePreset(preset);
     if (preset === 'hype') {
       setReadingSpeed('+15%');
@@ -191,6 +192,7 @@ export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({
     mutationFn: api.generateStoryboard,
     onSuccess: async (data) => {
       setStoryboard(data);
+      setTtsResult(null);
       setCurrentSceneIndex(0);
       const captures = new Map<string, Awaited<ReturnType<typeof api.captureGitHubRepository>> | null>();
       const enrichedScenes = [];
@@ -198,7 +200,11 @@ export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({
         if ((scene.scene_type === 'github' || scene.asset_type === 'github_walkthrough') && scene.repository_url) {
           if (!captures.has(scene.repository_url)) {
             try {
-              captures.set(scene.repository_url, await api.captureGitHubRepository(scene.repository_url));
+              captures.set(scene.repository_url, await api.captureGitHubRepository(
+                scene.repository_url,
+                data.aspect_ratio as '9:16' | '16:9',
+                scene.duration_seconds,
+              ));
             } catch {
               captures.set(scene.repository_url, null);
             }
@@ -262,16 +268,23 @@ export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({
     showToast(language === 'vi' ? 'Đang tạo ảnh nghệ thuật AI cho các phân cảnh...' : 'Generating AI scene visuals...');
     try {
       const updatedScenes = [...storyboard.scenes];
-      for (let i = 0; i < updatedScenes.length; i++) {
-        const scene = updatedScenes[i];
-        if (scene.scene_type === 'github' || scene.asset_type === 'github_walkthrough') {
-          continue;
+      const pendingIndexes = updatedScenes
+        .map((scene, index) => ({ scene, index }))
+        .filter(({ scene }) => scene.scene_type !== 'github' && scene.asset_type !== 'github_walkthrough')
+        .map(({ index }) => index);
+      let nextJob = 0;
+      const worker = async () => {
+        while (nextJob < pendingIndexes.length) {
+          const index = pendingIndexes[nextJob];
+          nextJob += 1;
+          const scene = updatedScenes[index];
+          const targetPrompt = scene.visual_prompt || scene.visual_description || 'AI Coding Assistant';
+          const res = await api.generateSceneImage(targetPrompt, scene.scene_number, aspectRatio);
+          updatedScenes[index] = { ...scene, image_url: res.image_url };
+          setStoryboard(prev => prev ? { ...prev, scenes: [...updatedScenes] } : prev);
         }
-        const targetPrompt = scene.visual_prompt || scene.visual_description || 'AI Coding Assistant';
-        const res = await api.generateSceneImage(targetPrompt, scene.scene_number, aspectRatio);
-        updatedScenes[i] = { ...scene, image_url: res.image_url };
-        setStoryboard(prev => prev ? { ...prev, scenes: [...updatedScenes] } : prev);
-      }
+      };
+      await Promise.all(Array.from({ length: Math.min(3, pendingIndexes.length) }, worker));
       showToast(language === 'vi' ? '✨ Đã hoàn thành sinh toàn bộ ảnh AI!' : '✨ All AI scene visuals generated!');
     } catch (e: any) {
       showToast(e.message || 'Lỗi sinh ảnh AI', 'error');
@@ -327,6 +340,7 @@ export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({
     };
     const updated = [...storyboard.scenes, newScene].map((s, idx) => ({ ...s, scene_number: idx + 1 }));
     setStoryboard({ ...storyboard, scenes: updated });
+    setTtsResult(null);
     showToast(language === 'vi' ? `Đã thêm phân cảnh (Scene ${updated.length})` : `Added Scene ${updated.length}`);
   };
 
@@ -337,6 +351,7 @@ export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({
     }
     const updated = storyboard.scenes.filter((_, i) => i !== sceneIndex).map((s, idx) => ({ ...s, scene_number: idx + 1 }));
     setStoryboard({ ...storyboard, scenes: updated });
+    setTtsResult(null);
     showToast(language === 'vi' ? 'Đã xóa phân cảnh' : 'Scene deleted');
   };
 
@@ -344,6 +359,7 @@ export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({
     if (!storyboard) return;
     const updated = storyboard.scenes.map((s, i) => i === sceneIndex ? { ...s, ...patch } : s);
     setStoryboard({ ...storyboard, scenes: updated });
+    if (patch.voiceover_text !== undefined) setTtsResult(null);
   };
 
   const handleMoveScene = (sceneIndex: number, direction: 'up' | 'down') => {
@@ -355,6 +371,7 @@ export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({
     copy.splice(targetIndex, 0, moved);
     const updated = copy.map((s, idx) => ({ ...s, scene_number: idx + 1 }));
     setStoryboard({ ...storyboard, scenes: updated });
+    setTtsResult(null);
   };
 
 
@@ -437,15 +454,9 @@ export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({
   };
 
   useEffect(() => {
-    if (audioRef.current && ttsResult?.audio_base64) {
-      const audioUrl = `data:audio/mp3;base64,${ttsResult.audio_base64}`;
-      audioRef.current.src = audioUrl;
-      audioRef.current.load();
-      audioRef.current.volume = volume;
-      audioRef.current.muted = isMuted;
-      setCurrentSceneIndex(0);
-      setIsPlaying(false);
-    }
+    setCurrentSceneIndex(0);
+    currentSceneIndexRef.current = 0;
+    setIsPlaying(false);
   }, [ttsResult]);
 
   const togglePlay = () => {
@@ -470,111 +481,51 @@ export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({
       return;
     }
 
-    if (!audioRef.current) return;
-    if (isPlaying) {
-      audioRef.current.pause();
+  };
+
+  useEffect(() => {
+    const player = playerRef.current;
+    if (!player || activeStep !== 'player') return;
+
+    const handleFrameUpdate = (event: { detail: { frame: number } }) => {
+      const matchingSegment = playerTimeline.find((segment, index) => (
+        event.detail.frame >= segment.fromFrame
+        && (event.detail.frame < segment.fromFrame + segment.durationFrames || index === playerTimeline.length - 1)
+      ));
+      const newSceneIndex = matchingSegment?.index ?? 0;
+      if (newSceneIndex !== currentSceneIndexRef.current) {
+        currentSceneIndexRef.current = newSceneIndex;
+        setCurrentSceneIndex(newSceneIndex);
+      }
+    };
+    const handlePlay = () => setIsPlaying(true);
+    const handlePause = () => setIsPlaying(false);
+    const handleEnded = () => {
       setIsPlaying(false);
-    } else {
-      audioRef.current.play().then(() => {
-        setIsPlaying(true);
-      }).catch((e) => {
-        console.warn('Playback error:', e);
-        showToast(language === 'vi' ? 'Hãy bấm lại nút phát để trình duyệt cấp quyền âm thanh' : 'Click play again to permit audio', 'error');
-      });
-    }
-  };
+      currentSceneIndexRef.current = 0;
+      setCurrentSceneIndex(0);
+    };
 
-  const handleTimeUpdate = React.useCallback(() => {
-    if (!audioRef.current) return;
-    const currentMs = audioRef.current.currentTime * 1000;
-    const scenes = storyboard?.scenes || [];
-    const subtitles = ttsResult?.subtitle_entries || [];
-
-    if (scenes.length === 0) return;
-
-    let newSceneIdx = scenes.length - 1;
-    const sceneSegments = ttsResult?.scene_segments || [];
-
-    if (sceneSegments.length === scenes.length) {
-      const matchingSegment = sceneSegments.find(segment => currentMs >= segment.start_ms && currentMs < segment.end_ms);
-      newSceneIdx = matchingSegment?.scene_index ?? scenes.length - 1;
-    } else if (subtitles.length > 0) {
-      // Use real TTS timestamps for accurate scene boundary detection
-      let curSubIdx = 0;
-      for (let sIdx = 0; sIdx < scenes.length; sIdx++) {
-        const words = (scenes[sIdx].voiceover_text || '').trim().split(/\s+/).filter(Boolean);
-        const isLast = sIdx === scenes.length - 1;
-        const endIdx = isLast ? subtitles.length : Math.min(subtitles.length, curSubIdx + words.length);
-        const sceneSubs = subtitles.slice(curSubIdx, endIdx);
-        curSubIdx = endIdx;
-        if (sceneSubs.length > 0) {
-          const sceneEndMs = isLast ? Infinity : sceneSubs[sceneSubs.length - 1].end_ms;
-          if (currentMs <= sceneEndMs) {
-            newSceneIdx = sIdx;
-            break;
-          }
-        }
-      }
-    } else {
-      // Fallback: use duration_seconds
-      let accumulatedSec = 0;
-      for (let i = 0; i < scenes.length; i++) {
-        accumulatedSec += scenes[i].duration_seconds || 5;
-        if (currentMs / 1000 <= accumulatedSec) {
-          newSceneIdx = i;
-          break;
-        }
-      }
-    }
-
-    // Only setState when scene actually changes (avoids 60fps re-renders)
-    if (newSceneIdx !== currentSceneIndexRef.current) {
-      currentSceneIndexRef.current = newSceneIdx;
-      setCurrentSceneIndex(newSceneIdx);
-    }
-  }, [storyboard, ttsResult]);
-
-  const handleAudioEnded = () => {
-    setIsPlaying(false);
-    currentSceneIndexRef.current = 0;
-    setCurrentSceneIndex(0);
-  };
+    player.addEventListener('frameupdate', handleFrameUpdate);
+    player.addEventListener('play', handlePlay);
+    player.addEventListener('pause', handlePause);
+    player.addEventListener('ended', handleEnded);
+    return () => {
+      player.removeEventListener('frameupdate', handleFrameUpdate);
+      player.removeEventListener('play', handlePlay);
+      player.removeEventListener('pause', handlePause);
+      player.removeEventListener('ended', handleEnded);
+    };
+  }, [activeStep, playerTimeline]);
 
   const handleSeekScene = (sceneIdx: number) => {
     if (!storyboard || !storyboard.scenes[sceneIdx]) return;
-    const subtitles = ttsResult?.subtitle_entries || [];
-    const sceneSegments = ttsResult?.scene_segments || [];
-    const scenes = storyboard.scenes;
-    let targetSec = 0;
-
-    if (sceneSegments[sceneIdx]) {
-      targetSec = sceneSegments[sceneIdx].start_ms / 1000;
-    } else if (subtitles.length > 0) {
-      // Use real subtitle timestamps
-      let curSubIdx = 0;
-      for (let sIdx = 0; sIdx < sceneIdx; sIdx++) {
-        const words = (scenes[sIdx].voiceover_text || '').trim().split(/\s+/).filter(Boolean);
-        const endIdx = Math.min(subtitles.length, curSubIdx + words.length);
-        if (endIdx > curSubIdx && subtitles[endIdx - 1]) {
-          curSubIdx = endIdx;
-        }
-      }
-      if (curSubIdx < subtitles.length) {
-        targetSec = subtitles[curSubIdx].start_ms / 1000;
-      }
-    } else {
-      for (let i = 0; i < sceneIdx; i++) {
-        targetSec += scenes[i].duration_seconds || 5;
-      }
-    }
+    const targetFrame = playerTimeline[sceneIdx]?.fromFrame || 0;
 
     currentSceneIndexRef.current = sceneIdx;
     setCurrentSceneIndex(sceneIdx);
     if (playerRef.current) {
-      playerRef.current.seekTo(Math.round(targetSec * VIDEO_FPS));
-    }
-    if (audioRef.current) {
-      audioRef.current.currentTime = targetSec;
+      playerRef.current.seekTo(targetFrame);
     }
   };
 
@@ -583,430 +534,50 @@ export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({
       showToast(language === 'vi' ? 'Vui lòng sinh giọng đọc trước khi xuất video' : 'Please synthesize audio first', 'error');
       return;
     }
-
-    setIsExportingVideo(true);
-    setExportProgress(0);
-    showToast(language === 'vi' ? '🎬 Đang render MP4 từ chính video preview...' : '🎬 Rendering MP4 from the preview composition...');
-
-    if (storyboard) {
-      try {
-        setExportProgress(12);
-        const mp4Blob = await api.renderSkillVideo({
-          storyboard,
-          tts_result: ttsResult,
-          skill_title: blogPost?.title || customTopic || currentSkill?.title || currentSkill?.name || 'AI Agent Skill',
-          skill_stats: {
-            stars: currentSkill?.stars,
-            forks: currentSkill?.forks,
-            language: currentSkill?.primary_language,
-          },
-          show_captions: showCaptions,
-        });
-        if (mp4Blob.size < 1024) throw new Error('Rendered MP4 is empty');
-        setExportProgress(100);
-        const mp4Url = URL.createObjectURL(mp4Blob);
-        const download = document.createElement('a');
-        download.href = mp4Url;
-        download.download = `ai_video_${(currentSkill?.name || 'skill').replace(/\s+/g, '_')}_${Date.now()}.mp4`;
-        download.click();
-        URL.revokeObjectURL(mp4Url);
-        setIsExportingVideo(false);
-        showToast(language === 'vi' ? '🎬 Xuất MP4 thành công — hình ảnh giống video preview!' : '🎬 MP4 exported successfully with preview-quality visuals!');
-        return;
-      } catch (renderError) {
-        console.warn('Remotion MP4 render failed, using browser WebM fallback:', renderError);
-        setExportProgress(0);
-        showToast(language === 'vi' ? 'MP4 renderer chưa sẵn sàng, đang dùng WebM dự phòng...' : 'MP4 renderer unavailable, using WebM fallback...', 'error');
-      }
+    if (!storyboard) {
+      showToast(language === 'vi' ? 'Vui lòng tạo storyboard trước khi render' : 'Please create a storyboard before rendering', 'error');
+      return;
     }
 
+    setIsExportingVideo(true);
+    setExportProgress(12);
+    showToast(language === 'vi'
+      ? '🎬 Đang render MP4 chất lượng cao từ đúng composition preview...'
+      : '🎬 Rendering a high-quality MP4 from the preview composition...');
+
     try {
-      // Decode audio
-      const byteCharacters = atob(ttsResult.audio_base64);
-      const byteArray = new Uint8Array(byteCharacters.length);
-      for (let i = 0; i < byteCharacters.length; i++) {
-        byteArray[i] = byteCharacters.charCodeAt(i);
-      }
-
-      // Canvas setup
-      const canvas = document.createElement('canvas');
-      canvas.width = aspectRatio === '9:16' ? 720 : 1280;
-      canvas.height = aspectRatio === '9:16' ? 1280 : 720;
-      const ctx = canvas.getContext('2d')!;
-      const W = canvas.width;
-      const H = canvas.height;
-
-      // Audio setup
-      const AudioCtxClass = window.AudioContext || (window as any).webkitAudioContext;
-      const audioCtx = new AudioCtxClass();
-      const audioBuffer = await audioCtx.decodeAudioData(byteArray.buffer.slice(0));
-
-      const canvasStream = canvas.captureStream(30);
-      const dest = audioCtx.createMediaStreamDestination();
-      const source = audioCtx.createBufferSource();
-      source.buffer = audioBuffer;
-      source.connect(dest);
-      source.connect(audioCtx.destination); // needed for timing
-
-      const combinedStream = new MediaStream([
-        ...canvasStream.getVideoTracks(),
-        ...dest.stream.getAudioTracks()
-      ]);
-
-      // Pick supported MIME
-      const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9,opus')
-        ? 'video/webm;codecs=vp9,opus'
-        : MediaRecorder.isTypeSupported('video/webm;codecs=vp8,opus')
-          ? 'video/webm;codecs=vp8,opus'
-          : 'video/webm';
-
-      const recorder = new MediaRecorder(combinedStream, { mimeType, videoBitsPerSecond: 2_500_000 });
-      const chunks: BlobPart[] = [];
-      recorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
-
-      const totalMs = Math.ceil(ttsResult.duration_seconds * 1000);
-      const scenes = storyboard?.scenes || [];
-      const subtitles = ttsResult.subtitle_entries || [];
-      const explicitSegments = ttsResult.scene_segments || [];
-      const title = blogPost?.title || customTopic || 'AI Video';
-      const exportStart = Date.now();
-
-      // Scene timing dynamically mapped to real TTS audio word timestamps
-      const sceneTimings: { start: number; end: number }[] = [];
-      let curSubIdx = 0;
-      scenes.forEach((s, sIdx) => {
-        const explicitSegment = explicitSegments.find(segment => segment.scene_index === sIdx);
-        if (explicitSegment) {
-          sceneTimings.push({ start: explicitSegment.start_ms, end: explicitSegment.end_ms });
-          return;
-        }
-        const words = (s.voiceover_text || '').trim().split(/\s+/).filter(Boolean);
-        const isLast = sIdx === scenes.length - 1;
-        const endIdx = isLast ? subtitles.length : Math.min(subtitles.length, curSubIdx + words.length);
-        const sceneSubs = subtitles.slice(curSubIdx, endIdx);
-        curSubIdx = endIdx;
-
-        if (sceneSubs.length > 0) {
-          const start = sceneSubs[0].start_ms;
-          const end = isLast ? totalMs : sceneSubs[sceneSubs.length - 1].end_ms;
-          sceneTimings.push({ start, end: Math.max(start + 500, end) });
-        } else {
-          const perSceneMs = totalMs / Math.max(1, scenes.length);
-          sceneTimings.push({ start: sIdx * perSceneMs, end: (sIdx + 1) * perSceneMs });
-        }
+      const mp4Blob = await api.renderSkillVideo({
+        storyboard,
+        tts_result: ttsResult,
+        skill_title: blogPost?.title || customTopic || currentSkill?.title || currentSkill?.name || 'AI Agent Skill',
+        skill_stats: {
+          stars: currentSkill?.stars,
+          forks: currentSkill?.forks,
+          language: currentSkill?.primary_language,
+        },
+        show_captions: showCaptions,
       });
+      if (mp4Blob.size < 1024) throw new Error('Rendered MP4 is empty');
 
-      // Scene gradient colors
-      const sceneColors = [
-        ['#e11d48', '#6366f1', '#7c3aed'], // rose → indigo → purple
-        ['#d97706', '#dc2626', '#1e293b'], // amber → red → slate
-        ['#059669', '#0d9488', '#4f46e5'], // emerald → teal → indigo
-        ['#0284c7', '#6366f1', '#7c3aed'], // sky → indigo → purple
-        ['#6366f1', '#e11d48', '#059669'], // indigo → rose → emerald
-      ];
-
-      // Word wrap helper
-      const wrapText = (text: string, maxW: number, font: string): string[] => {
-        ctx.font = font;
-        const words = text.split(' ');
-        const result: string[] = [];
-        let line = '';
-        for (const w of words) {
-          const test = line ? line + ' ' + w : w;
-          if (ctx.measureText(test).width > maxW && line) {
-            result.push(line);
-            line = w;
-          } else {
-            line = test;
-          }
-        }
-        if (line) result.push(line);
-        return result;
-      };
-
-      // Animation render loop
-      let animId: number;
-      let audioStartTime = 0;
-      const renderFrame = () => {
-        const elapsedMs = audioStartTime > 0
-          ? Math.max(0, (audioCtx.currentTime - audioStartTime) * 1000)
-          : Date.now() - exportStart;
-        const progress = Math.min(1, elapsedMs / totalMs);
-
-        // Determine current scene
-        let sceneIdx = 0;
-        for (let i = 0; i < sceneTimings.length; i++) {
-          if (elapsedMs >= sceneTimings[i].start && elapsedMs < sceneTimings[i].end) {
-            sceneIdx = i;
-            break;
-          }
-          if (i === sceneTimings.length - 1) sceneIdx = i;
-        }
-        const scene = scenes[sceneIdx];
-        const colors = sceneColors[sceneIdx % sceneColors.length];
-
-        // Scene-local progress (0 → 1)
-        const st = sceneTimings[sceneIdx];
-        const sceneProgress = st ? Math.min(1, (elapsedMs - st.start) / (st.end - st.start)) : 0;
-
-        // === BACKGROUND ===
-        ctx.fillStyle = '#0f172a';
-        ctx.fillRect(0, 0, W, H);
-
-        // Animated gradient
-        const angle = elapsedMs * 0.0003;
-        const gx = W / 2 + Math.cos(angle) * W * 0.4;
-        const gy = H / 2 + Math.sin(angle) * H * 0.4;
-        const grad = ctx.createRadialGradient(gx, gy, 0, W / 2, H / 2, W * 0.8);
-        grad.addColorStop(0, colors[0] + '55');
-        grad.addColorStop(0.5, colors[1] + '33');
-        grad.addColorStop(1, colors[2] + '11');
-        ctx.fillStyle = grad;
-        ctx.fillRect(0, 0, W, H);
-
-        // Floating particles
-        for (let p = 0; p < 12; p++) {
-          const px = (Math.sin(elapsedMs * 0.001 + p * 1.7) * 0.5 + 0.5) * W;
-          const py = (Math.cos(elapsedMs * 0.0008 + p * 2.3) * 0.5 + 0.5) * H;
-          const pr = 2 + Math.sin(elapsedMs * 0.002 + p) * 2;
-          ctx.beginPath();
-          ctx.arc(px, py, pr, 0, Math.PI * 2);
-          ctx.fillStyle = `rgba(${p % 2 === 0 ? '99,102,241' : '244,63,94'},${0.15 + Math.sin(elapsedMs * 0.003 + p) * 0.1})`;
-          ctx.fill();
-        }
-
-        // === TOP BAR ===
-        ctx.fillStyle = 'rgba(15,23,42,0.85)';
-        ctx.fillRect(0, 0, W, 56);
-        // Recording dot
-        ctx.beginPath();
-        ctx.arc(24, 28, 5 + Math.sin(elapsedMs * 0.005) * 2, 0, Math.PI * 2);
-        ctx.fillStyle = '#ef4444';
-        ctx.fill();
-        // Title
-        ctx.font = `bold ${Math.round(W / 50)}px sans-serif`;
-        ctx.fillStyle = '#e2e8f0';
-        ctx.textAlign = 'left';
-        ctx.textBaseline = 'middle';
-        ctx.fillText('AGENT SKILLS TRENDING', 42, 28);
-        // Scene badge
-        ctx.textAlign = 'right';
-        ctx.font = `bold ${Math.round(W / 55)}px monospace`;
-        ctx.fillStyle = '#818cf8';
-        ctx.fillText(`Scene ${sceneIdx + 1}/${scenes.length || 5}  •  ${(elapsedMs / 1000).toFixed(1)}s`, W - 20, 28);
-
-        // === MAIN CONTENT ===
-        const contentY = 80;
-        const contentH = H - 180;
-        ctx.textAlign = 'center';
-
-        // Scene title badge
-        if (scene?.title) {
-          const badgeFont = `bold ${Math.round(W / 38)}px sans-serif`;
-          ctx.font = badgeFont;
-          const badgeW = ctx.measureText(scene.title).width + 36;
-          const badgeX = (W - badgeW) / 2;
-          const badgeY = contentY + 20;
-          // Slide-in animation
-          const slideX = Math.min(1, sceneProgress * 4) * 0 + (1 - Math.min(1, sceneProgress * 4)) * -50;
-
-          ctx.fillStyle = colors[0] + '44';
-          ctx.beginPath();
-          ctx.roundRect(badgeX + slideX, badgeY, badgeW, 36, 18);
-          ctx.fill();
-          ctx.strokeStyle = colors[0] + '88';
-          ctx.lineWidth = 1.5;
-          ctx.stroke();
-
-          ctx.fillStyle = '#fecdd3';
-          ctx.fillText(scene.title, W / 2 + slideX, badgeY + 19);
-        }
-
-        // Main title or scene voiceover text
-        const mainText = sceneIdx === 0 ? title : (scene?.voiceover_text || '');
-        if (mainText) {
-          const mainFont = sceneIdx === 0
-            ? `900 ${Math.round(W / 16)}px sans-serif`
-            : `bold ${Math.round(W / 26)}px sans-serif`;
-          const wrappedLines = wrapText(mainText, W * 0.8, mainFont);
-          const lineHeight = sceneIdx === 0 ? Math.round(W / 14) : Math.round(W / 22);
-          const startY = contentY + contentH / 2 - (wrappedLines.length * lineHeight) / 2 + 20;
-
-          // Fade-in per line
-          wrappedLines.forEach((line, li) => {
-            const lineDelay = li * 0.08;
-            const lineAlpha = Math.min(1, Math.max(0, (sceneProgress - lineDelay) * 5));
-            const offsetY = (1 - lineAlpha) * 15;
-            ctx.globalAlpha = lineAlpha;
-            ctx.font = mainFont;
-            ctx.fillStyle = sceneIdx === 0 ? '#f1f5f9' : '#cbd5e1';
-            ctx.fillText(line, W / 2, startY + li * lineHeight + offsetY);
-          });
-          ctx.globalAlpha = 1;
-        }
-
-        // Stats badges (scene 0 only)
-        if (sceneIdx === 0 && currentSkill) {
-          const statsY = contentY + contentH / 2 + 80;
-          const stats = [
-            { icon: '⭐', text: `${currentSkill.stars?.toLocaleString() || '4,280'} Stars`, color: '#fbbf24' },
-            { icon: '🍴', text: `${currentSkill.forks?.toLocaleString() || '320'} Forks`, color: '#818cf8' },
-            { icon: '⚡', text: currentSkill.primary_language || 'TypeScript', color: '#34d399' },
-          ];
-          const badgeW = 130;
-          const totalW = stats.length * badgeW + (stats.length - 1) * 12;
-          const startX = (W - totalW) / 2;
-          stats.forEach((s, si) => {
-            const bx = startX + si * (badgeW + 12);
-            const fadeIn = Math.min(1, Math.max(0, (sceneProgress - 0.3 - si * 0.1) * 4));
-            ctx.globalAlpha = fadeIn;
-            ctx.fillStyle = 'rgba(15,23,42,0.9)';
-            ctx.beginPath();
-            ctx.roundRect(bx, statsY, badgeW, 34, 12);
-            ctx.fill();
-            ctx.font = `bold ${Math.round(W / 55)}px monospace`;
-            ctx.fillStyle = s.color;
-            ctx.textAlign = 'center';
-            ctx.fillText(`${s.icon} ${s.text}`, bx + badgeW / 2, statsY + 18);
-          });
-          ctx.globalAlpha = 1;
-        }
-
-        // === SUBTITLE BAR ===
-        const subBarY = H - 100;
-        ctx.fillStyle = 'rgba(0,0,0,0.8)';
-        ctx.beginPath();
-        ctx.roundRect(W * 0.05, subBarY, W * 0.9, 44, 12);
-        ctx.fill();
-
-        // Find current subtitle word
-        let currentSubIdx = -1;
-        for (let w = 0; w < subtitles.length; w++) {
-          if (elapsedMs >= subtitles[w].start_ms && elapsedMs <= subtitles[w].end_ms) {
-            currentSubIdx = w;
-            break;
-          }
-          if (elapsedMs >= subtitles[w].start_ms) currentSubIdx = w;
-        }
-        // Render ±4 words
-        const subFont = `bold ${Math.round(W / 42)}px sans-serif`;
-        ctx.font = subFont;
-        ctx.textAlign = 'center';
-        const windowWords: { text: string; active: boolean }[] = [];
-        for (let w = Math.max(0, currentSubIdx - 4); w <= Math.min(subtitles.length - 1, currentSubIdx + 4); w++) {
-          windowWords.push({ text: subtitles[w].text, active: w === currentSubIdx });
-        }
-        if (windowWords.length > 0) {
-          let subX = W / 2;
-          const fullStr = windowWords.map(w => w.text).join(' ');
-          const fullW = ctx.measureText(fullStr).width;
-          subX = W / 2 - fullW / 2;
-          windowWords.forEach((w) => {
-            const ww = ctx.measureText(w.text + ' ').width;
-            if (w.active) {
-              ctx.fillStyle = '#fbbf24';
-              ctx.font = `900 ${Math.round(W / 40)}px sans-serif`;
-            } else {
-              ctx.fillStyle = 'rgba(148,163,184,0.7)';
-              ctx.font = subFont;
-            }
-            ctx.textAlign = 'left';
-            ctx.fillText(w.text, subX, subBarY + 26);
-            subX += ww;
-          });
-        }
-
-        // === PROGRESS BAR ===
-        const pbY = H - 44;
-        ctx.fillStyle = 'rgba(30,41,59,0.9)';
-        ctx.fillRect(0, pbY, W, 44);
-        // Progress track
-        ctx.fillStyle = 'rgba(51,65,85,0.8)';
-        ctx.beginPath();
-        ctx.roundRect(20, pbY + 16, W - 40, 6, 3);
-        ctx.fill();
-        // Progress fill
-        const progGrad = ctx.createLinearGradient(20, 0, 20 + (W - 40) * progress, 0);
-        progGrad.addColorStop(0, '#e11d48');
-        progGrad.addColorStop(0.5, '#6366f1');
-        progGrad.addColorStop(1, '#10b981');
-        ctx.fillStyle = progGrad;
-        ctx.beginPath();
-        ctx.roundRect(20, pbY + 16, (W - 40) * progress, 6, 3);
-        ctx.fill();
-        // Time label
-        ctx.font = `bold ${Math.round(W / 60)}px monospace`;
-        ctx.fillStyle = '#94a3b8';
-        ctx.textAlign = 'right';
-        ctx.fillText(`${(elapsedMs / 1000).toFixed(1)}s / ${(totalMs / 1000).toFixed(0)}s`, W - 20, pbY + 10);
-        // Branding
-        ctx.textAlign = 'left';
-        ctx.fillStyle = '#475569';
-        ctx.fillText('AI Video Studio • Agent Skill Trending', 20, pbY + 10);
-
-        // Continue rendering
-        if (elapsedMs < totalMs + 500) {
-          animId = requestAnimationFrame(renderFrame);
-        }
-
-        // Update export progress
-        setExportProgress(Math.min(95, Math.round(progress * 100)));
-      };
-
-      // Recording callbacks
-      recorder.onstop = () => {
-        cancelAnimationFrame(animId);
-        setExportProgress(100);
-        const blob = new Blob(chunks, { type: mimeType });
-        if (blob.size < 1000) {
-          showToast(language === 'vi' ? 'Video quá nhỏ, đang tải audio MP3...' : 'Video too small, downloading MP3...', 'error');
-          const audioBlob = new Blob([byteArray], { type: 'audio/mp3' });
-          const url = URL.createObjectURL(audioBlob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = `ai_audio_${Date.now()}.mp3`;
-          a.click();
-          URL.revokeObjectURL(url);
-        } else {
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = `ai_video_${(currentSkill?.name || 'skill').replace(/\s+/g, '_')}_${Date.now()}.webm`;
-          a.click();
-          URL.revokeObjectURL(url);
-          showToast(language === 'vi' ? '🎬 Xuất video thành công! (WebM — dùng CloudConvert.com để chuyển sang MP4 nếu cần)' : '🎬 Video exported! (WebM — use CloudConvert.com to convert to MP4 if needed)');
-        }
-        setTimeout(() => { setIsExportingVideo(false); audioCtx.close(); }, 300);
-      };
-
-      // Start recording + animation
-      recorder.start(200);
-      source.start(0);
-      audioStartTime = audioCtx.currentTime;
-      animId = requestAnimationFrame(renderFrame);
-
-      // Auto-stop after audio finishes
-      source.onended = () => {
-        setTimeout(() => {
-          try { recorder.stop(); } catch (_) {}
-        }, 500);
-      };
-
-    } catch (err: any) {
+      setExportProgress(100);
+      const mp4Url = URL.createObjectURL(mp4Blob);
+      const download = document.createElement('a');
+      download.href = mp4Url;
+      download.download = `ai_video_${(currentSkill?.name || 'skill').replace(/\s+/g, '_')}_${Date.now()}.mp4`;
+      download.click();
+      URL.revokeObjectURL(mp4Url);
+      showToast(language === 'vi'
+        ? '🎬 Xuất MP4 thành công — audio, cảnh và karaoke dùng chung một timeline.'
+        : '🎬 MP4 exported — audio, scenes, and karaoke share one timeline.');
+    } catch (renderError) {
+      setExportProgress(0);
+      const message = renderError instanceof Error ? renderError.message : 'renderer không phản hồi';
+      console.error('Remotion MP4 render failed:', renderError);
+      showToast(language === 'vi'
+        ? `Render MP4 thất bại: ${message}. Hệ thống đã chặn bản Canvas chất lượng thấp.`
+        : `MP4 render failed: ${message}. The low-quality Canvas fallback was blocked.`, 'error');
+    } finally {
       setIsExportingVideo(false);
-      showToast(language === 'vi' ? 'Trình duyệt không hỗ trợ quay video, đang tải audio MP3...' : 'Video not supported, downloading MP3 audio...', 'error');
-      try {
-        const byteCharacters = atob(ttsResult.audio_base64);
-        const byteArray = new Uint8Array(byteCharacters.length);
-        for (let i = 0; i < byteCharacters.length; i++) byteArray[i] = byteCharacters.charCodeAt(i);
-        const audioBlob = new Blob([byteArray], { type: 'audio/mp3' });
-        const url = URL.createObjectURL(audioBlob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `ai_audio_${Date.now()}.mp3`;
-        a.click();
-        URL.revokeObjectURL(url);
-      } catch (_) {}
     }
   };
 
@@ -1076,15 +647,6 @@ export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({
 
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
-      <audio
-        ref={audioRef}
-        onTimeUpdate={handleTimeUpdate}
-        onEnded={handleAudioEnded}
-        onPlay={() => setIsPlaying(true)}
-        onPause={() => setIsPlaying(false)}
-        className="hidden"
-      />
-
       <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-900 via-indigo-950/80 to-slate-950 border border-indigo-500/20 p-6 md:p-8 shadow-2xl shadow-indigo-950/40">
         <div className="absolute -top-24 -right-24 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute -bottom-24 -left-24 w-96 h-96 bg-rose-500/10 rounded-full blur-3xl pointer-events-none" />
@@ -1094,7 +656,7 @@ export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({
             <div className="flex items-center gap-2">
               <span className="px-2.5 py-1 text-[11px] font-bold font-mono tracking-wider uppercase rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/30 flex items-center gap-1.5">
                 <Radio className="w-3.5 h-3.5 animate-pulse text-rose-400" />
-                AI Video & Blog Studio v4.0
+                AI Video & Blog Studio v5.0
               </span>
               <span className="px-2 py-0.5 text-[10px] font-mono rounded bg-cyan-500/10 text-cyan-400 border border-cyan-500/30 font-semibold flex items-center gap-1">
                 <Sparkles className="w-2.5 h-2.5" />
@@ -1657,7 +1219,10 @@ export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({
                 return (
                   <div
                     key={voice.id}
-                    onClick={() => setSelectedVoice(voice.id)}
+                    onClick={() => {
+                      setSelectedVoice(voice.id);
+                      setTtsResult(null);
+                    }}
                     className={`p-5 rounded-2xl border transition-all cursor-pointer space-y-3 relative group ${
                       isSelected
                         ? 'bg-indigo-500/10 dark:bg-indigo-500/15 border-indigo-500 ring-2 ring-indigo-500/20 shadow-lg shadow-indigo-500/10'
@@ -1796,6 +1361,22 @@ export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({
                     : 'w-full max-w-[780px] h-[440px]'
                 }`}
               >
+                {ttsResult && (
+                  <div className="absolute top-3 left-3 right-3 z-30 flex items-center justify-between gap-2 pointer-events-none">
+                    <span className={`px-2.5 py-1 rounded-full border text-[9px] font-black tracking-[0.12em] backdrop-blur-md ${
+                      ttsResult.timing_quality === 'word'
+                        ? 'bg-emerald-950/80 border-emerald-400/50 text-emerald-300'
+                        : 'bg-amber-950/80 border-amber-400/50 text-amber-200'
+                    }`}>
+                      {ttsResult.timing_quality === 'word'
+                        ? `● SYNC LOCK · ${ttsResult.actual_provider === 'edge_tts' ? 'WORD BOUNDARY' : 'SPEECH MARKS'}`
+                        : '● SYNC ASSIST · ESTIMATED'}
+                    </span>
+                    <span className="px-2.5 py-1 rounded-full border border-sky-400/30 bg-slate-950/75 text-sky-200 text-[9px] font-mono font-bold backdrop-blur-md">
+                      AUDIO MASTER · {(ttsResult.duration_seconds || 0).toFixed(2)}s
+                    </span>
+                  </div>
+                )}
                 <Player
                   ref={playerRef}
                   component={SkillVideoComposition}
@@ -1809,8 +1390,6 @@ export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({
                       forks: currentSkill.forks,
                       language: currentSkill.primary_language,
                     } : {
-                      stars: 4280,
-                      forks: 340,
                       language: 'TypeScript / AI Agent',
                     },
                     showCaptions,
@@ -1825,6 +1404,8 @@ export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({
                   }}
                   controls
                   loop={false}
+                  initialVolume={volume}
+                  initiallyMuted={isMuted}
                 />
               </div>
 
@@ -1862,7 +1443,6 @@ export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({
                 <button
                   onClick={() => {
                     if (playerRef.current) playerRef.current.seekTo(0);
-                    if (audioRef.current) audioRef.current.currentTime = 0;
                     setCurrentSceneIndex(0);
                     setIsPlaying(false);
                   }}
@@ -1894,7 +1474,8 @@ export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({
                     onClick={() => {
                       const nextMuted = !isMuted;
                       setIsMuted(nextMuted);
-                      if (audioRef.current) audioRef.current.muted = nextMuted;
+                      if (nextMuted) playerRef.current?.mute();
+                      else playerRef.current?.unmute();
                     }}
                     className={`p-2 rounded-xl transition-colors ${
                       isMuted ? 'text-rose-400 bg-rose-500/10' : 'text-slate-400 hover:text-white hover:bg-slate-800'
@@ -1913,10 +1494,8 @@ export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({
                       const val = Number(e.target.value);
                       setVolume(val);
                       setIsMuted(false);
-                      if (audioRef.current) {
-                        audioRef.current.volume = val;
-                        audioRef.current.muted = false;
-                      }
+                      playerRef.current?.setVolume(val);
+                      playerRef.current?.unmute();
                     }}
                     className="w-16 accent-rose-500 h-1 bg-slate-700 rounded-lg cursor-pointer hidden sm:block"
                   />
@@ -1979,7 +1558,7 @@ export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({
                     </div>
                     <div>
                       <div className="text-xs font-extrabold text-white flex items-center gap-1.5">
-                        <span>{language === 'vi' ? 'Xuất & Tải Video (MP4 / WebM)' : 'Export Video (MP4 / WebM)'}</span>
+                        <span>{language === 'vi' ? 'Render & Tải MP4 Chất Lượng Cao' : 'Render High-Quality MP4'}</span>
                         <span className="px-1.5 py-0.5 text-[9px] bg-white/20 rounded font-mono font-bold">HD</span>
                       </div>
                       <div className="text-[10px] text-white/80 font-mono">

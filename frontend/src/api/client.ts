@@ -72,7 +72,9 @@ export const api = {
   },
 
   getAllUsers: async (): Promise<User[]> => {
-    const res = await fetch(`${API_BASE}/auth/users`);
+    const res = await fetch(`${API_BASE}/auth/users`, {
+      headers: getAuthHeaders(),
+    });
     if (!res.ok) throw new Error('Failed to fetch users');
     return res.json();
   },
@@ -332,16 +334,30 @@ export const api = {
     return res.json();
   },
 
-  captureGitHubRepository: async (repositoryUrl: string): Promise<{
+  captureGitHubRepository: async (
+    repositoryUrl: string,
+    aspectRatio: '9:16' | '16:9' = '9:16',
+    durationSeconds: number = 8,
+  ): Promise<{
     github_capture_frames: string[];
+    github_capture_video?: string;
+    github_capture_duration_seconds?: number;
+    github_capture_fps?: number;
+    github_capture_source_revision?: string;
+    github_capture_captured_at?: string;
     image_url: string;
-    cursor_actions: Array<{ at: number; x: number; y: number; type: 'move' | 'click' | 'scroll' | 'highlight'; frame_index?: number }>;
+    cursor_actions: Array<{ at: number; x: number; y: number; type: 'move' | 'click' | 'scroll' | 'highlight'; frame_index?: number; label?: string }>;
+    github_capture_viewport: { width: number; height: number; deviceScaleFactor?: number };
     capture_status: 'captured';
   }> => {
     const res = await fetch(`${API_BASE}/studio/github/capture`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-      body: JSON.stringify({ repository_url: repositoryUrl }),
+      body: JSON.stringify({
+        repository_url: repositoryUrl,
+        aspect_ratio: aspectRatio,
+        duration_seconds: durationSeconds,
+      }),
     });
     if (!res.ok) {
       const error = await res.json().catch(() => ({ detail: 'GitHub capture failed' }));

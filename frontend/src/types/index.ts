@@ -246,9 +246,24 @@ export interface VideoScene {
     y: number;
     type: 'move' | 'click' | 'scroll' | 'highlight';
     frame_index?: number;
+    label?: string;
+    semantic_key?: 'repository' | 'readme' | 'details' | 'skill' | 'verification';
   }>;
   github_capture_frames?: string[];
+  github_capture_video?: string;
+  github_capture_duration_seconds?: number;
+  github_capture_fps?: number;
+  github_capture_source_revision?: string;
+  github_capture_captured_at?: string;
+  github_capture_viewport?: { width: number; height: number; deviceScaleFactor?: number };
   capture_status?: 'captured' | 'unavailable';
+  visual_beats?: Array<{
+    at: number;
+    anchor_text?: string;
+    title: string;
+    detail: string;
+    badge?: string;
+  }>;
 }
 
 
@@ -256,6 +271,8 @@ export interface VideoStoryboard {
   total_duration: number;
   aspect_ratio: string;
   scenes: VideoScene[];
+  narration_word_count?: number;
+  target_word_budget?: number;
 }
 
 export interface SubtitleEntry {
@@ -279,6 +296,24 @@ export interface TTSResult {
     subtitle_end_index: number;
   }>;
   timing_quality?: 'word' | 'estimated';
+  timeline_version?: number;
+  audio_duration_ms?: number;
+  caption_lead_ms?: number;
+  sync_diagnostics?: {
+    audio_duration_ms: number;
+    last_caption_end_ms: number;
+    tail_ms: number;
+    raw_caption_end_ms?: number;
+    timestamp_scale?: number;
+    scene_count: number;
+    subtitle_count: number;
+    source: 'provider_boundaries' | 'cadence_estimate';
+  };
+  narration_revision?: string;
+  rate?: string;
+  pitch?: string;
+  requested_provider?: string;
+  actual_provider?: string;
 }
 
 export interface BlogGenerateRequest {

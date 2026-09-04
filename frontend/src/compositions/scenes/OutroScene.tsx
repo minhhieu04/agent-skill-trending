@@ -81,9 +81,9 @@ export const OutroScene: React.FC<OutroSceneProps> = ({
   );
 
   const ctaItems = [
-    { icon: '⭐', label: 'GitHub Stars', sub: 'Star & Fork', color: '#fbbf24', delay: 20 },
-    { icon: '🔔', label: 'Subscribe', sub: 'Weekly Drops', color: '#a78bfa', delay: 30 },
-    { icon: '🚀', label: 'Try It Now', sub: 'Free Forever', color: '#34d399', delay: 40 },
+    { icon: '🔎', label: 'Read Source', sub: 'Repository', color: '#fbbf24', delay: 20 },
+    { icon: '📖', label: 'Inspect Setup', sub: 'README', color: '#a78bfa', delay: 30 },
+    { icon: '🧪', label: 'Test Safely', sub: 'Sandbox First', color: '#34d399', delay: 40 },
   ];
 
   return (
