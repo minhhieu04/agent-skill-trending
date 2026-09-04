@@ -1,8 +1,10 @@
-import React from 'react';
-import { Skill, CategoryInfo, RuntimeInfo } from '../types';
+import React, { useState } from 'react';
+import { Skill, CategoryInfo, RuntimeInfo, AIRecommendationResponse } from '../types';
 import { SkillCard } from '../components/SkillCard';
 import { GridSkeleton } from '../components/Skeleton';
 import { LearningTrackFinder } from '../components/LearningTrackFinder';
+import { AIAdvisorModal } from '../components/AIAdvisorModal';
+import { api } from '../api/client';
 import { 
   Flame, 
   Filter, 
@@ -12,6 +14,7 @@ import {
   Scale
 } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
+import { useToast } from '../context/ToastContext';
 
 interface TrendingFeedProps {
   skills: Skill[];
@@ -56,8 +59,27 @@ export const TrendingFeed: React.FC<TrendingFeedProps> = ({
   searchTerm = '',
   setSearchTerm,
 }) => {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
+  const { showToast } = useToast();
   const languages = ["all", "Python", "TypeScript", "JavaScript", "Go", "Rust", "Markdown"];
+
+  // AI Advisor Modal State
+  const [aiModalOpen, setAiModalOpen] = useState<boolean>(false);
+  const [aiLoading, setAiLoading] = useState<boolean>(false);
+  const [aiRecommendation, setAiRecommendation] = useState<AIRecommendationResponse | null>(null);
+
+  const handleOpenAIAdvisor = async (goalQuery: string) => {
+    setAiModalOpen(true);
+    setAiLoading(true);
+    try {
+      const res = await api.getAIRecommendedTrack(goalQuery, language, 8);
+      setAiRecommendation(res);
+    } catch (err: any) {
+      showToast(err.message || 'Không thể kết nối AI Advisor', 'error');
+    } finally {
+      setAiLoading(false);
+    }
+  };
 
   const handleSelectLearningTrack = (trackQuery: string, lang?: string, cat?: string) => {
     if (setSearchTerm) {
@@ -89,6 +111,7 @@ export const TrendingFeed: React.FC<TrendingFeedProps> = ({
       {/* Learning Goals & Skills Track Finder Widget */}
       <LearningTrackFinder
         onSelectTrack={handleSelectLearningTrack}
+        onOpenAIAdvisor={handleOpenAIAdvisor}
         activeQuery={searchTerm || (selectedLanguage !== 'all' ? selectedLanguage : (selectedCategory !== 'all' ? selectedCategory : undefined))}
         onClearTrack={handleClearLearningTrack}
       />
@@ -261,6 +284,21 @@ export const TrendingFeed: React.FC<TrendingFeedProps> = ({
           ))}
         </div>
       )}
+
+      {/* AI Goal & Learning Track Advisor Modal */}
+      <AIAdvisorModal
+        isOpen={aiModalOpen}
+        onClose={() => setAiModalOpen(false)}
+        recommendation={aiRecommendation}
+        loading={aiLoading}
+        onSelectSkill={onSelectSkill}
+        onApplyFilter={(queryText) => {
+          if (setSearchTerm) {
+            setSearchTerm(queryText);
+          }
+        }}
+        onToggleBookmark={onToggleBookmark}
+      />
     </div>
   );
 };

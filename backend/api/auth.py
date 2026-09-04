@@ -1,8 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, ConfigDict
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, List
+
 
 from database import get_db
 from models.user import User
@@ -43,26 +44,27 @@ def register(data: RegisterRequest, db: Session = Depends(get_db)):
     username = data.username.strip().lower()
     if not username or len(username) < 2:
         raise HTTPException(status_code=400, detail="Username must be at least 2 characters")
-    if not data.password or len(data.password) < 4:
-        raise HTTPException(status_code=400, detail="Password must be at least 4 characters")
+    if not data.password or len(data.password) < 8:
+        raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
 
     existing = db.query(User).filter(User.username == username).first()
     if existing:
         raise HTTPException(status_code=400, detail="Username already exists")
 
     display_name = data.display_name.strip() if data.display_name else username.capitalize()
-    
-    # Check if first user -> make admin
-    is_admin = db.query(User).count() == 0 or username == "hieu"
 
+    # Only first user ever registered becomes admin
+    is_admin = db.query(User).count() == 0
+
+    now = datetime.now(timezone.utc)
     user = User(
         username=username,
         display_name=display_name,
         password_hash=hash_password(data.password),
         avatar_color=data.avatar_color or "from-emerald-500 to-teal-600",
         is_admin=is_admin,
-        created_at=datetime.utcnow(),
-        last_login_at=datetime.utcnow()
+        created_at=now,
+        last_login_at=now
     )
     db.add(user)
     db.commit()
@@ -104,8 +106,9 @@ def login(data: LoginRequest, db: Session = Depends(get_db)):
             detail="Tên đăng nhập hoặc mật khẩu không chính xác"
         )
 
-    user.last_login_at = datetime.utcnow()
-    
+    now = datetime.now(timezone.utc)
+    user.last_login_at = now
+
     # Audit log
     audit = AuditLog(
         user_id=user.id,
@@ -113,7 +116,7 @@ def login(data: LoginRequest, db: Session = Depends(get_db)):
         action="login",
         target_type="user",
         target_id=user.id,
-        detail={"timestamp": datetime.utcnow().isoformat()}
+        detail={"timestamp": now.isoformat()}
     )
     db.add(audit)
     db.commit()
@@ -127,5 +130,10 @@ def get_me(current_user: User = Depends(get_current_user)):
     return current_user
 
 @router.get("/users", response_model=List[UserResponse])
-def get_all_users(db: Session = Depends(get_db)):
+def get_all_users(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    if not current_user.is_admin:
+        raise HTTPException(status_code=403, detail="Admin access required")
     return db.query(User).order_by(User.created_at.asc()).all()

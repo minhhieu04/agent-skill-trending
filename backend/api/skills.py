@@ -14,6 +14,7 @@ from middleware.auth import get_optional_current_user
 from services.skill_service import SkillService
 from services.exporter_service import ExporterService
 from services.security_scanner import SecurityScanner
+from services.learning_track_service import LearningTrackService
 
 router = APIRouter(tags=["Skills"])
 
@@ -78,6 +79,36 @@ class StatsResponse(BaseModel):
     languages_count: Dict[str, int]
     total_stars: int
     bookmarked_count: int
+
+class AIRecommendTrackRequest(BaseModel):
+    goal_query: str
+    language: Optional[str] = "vi"
+    max_skills: Optional[int] = 8
+
+class RoadmapStageResponse(BaseModel):
+    stage_number: int
+    title: str
+    description: str
+    recommended_skill_ids: List[int] = []
+    key_takeaways: List[str] = []
+
+class RecommendedSkillItemResponse(BaseModel):
+    skill: SkillResponse
+    match_score: float
+    reason: str
+    stage_number: int
+
+class AIRecommendationResponse(BaseModel):
+    success: bool
+    is_ai_powered: bool
+    goal_query: str
+    summary: str
+    difficulty_level: str
+    estimated_time: str
+    target_technologies: List[str] = []
+    roadmap: List[RoadmapStageResponse] = []
+    recommended_skills: List[RecommendedSkillItemResponse] = []
+    ai_tips: List[str] = []
 
 CATEGORIES_META = [
     {"key": "coding-agent", "title": "Coding Agents", "description": "Autonomous developer agents (Devin, Cursor, Claude Code, Antigravity, Codex)", "icon": "Code2"},
@@ -153,28 +184,28 @@ def get_skills_stats(
     skills = db.query(Skill).all()
     total_skills = len(skills)
     total_stars = sum(s.stars for s in skills)
-    
+
     if current_user:
         bookmarked_count = db.query(UserBookmark).filter(UserBookmark.user_id == current_user.id).count()
     else:
         user = db.query(User).filter(User.username == "hieu").first()
         bookmarked_count = db.query(UserBookmark).filter(UserBookmark.user_id == user.id).count() if user else 0
-    
+
     categories_count = {}
     runtimes_count = {}
     languages_count = {}
-    
+
     for s in skills:
         cat = s.category or "uncategorized"
         categories_count[cat] = categories_count.get(cat, 0) + 1
-        
+
         lang = s.primary_language or "Other"
         languages_count[lang] = languages_count.get(lang, 0) + 1
-        
+
         if s.runtimes:
             for r in s.runtimes:
                 runtimes_count[r] = runtimes_count.get(r, 0) + 1
-                
+
     return {
         "total_skills": total_skills,
         "categories_count": categories_count,
@@ -258,7 +289,7 @@ def toggle_bookmark(
     skill = db.query(Skill).filter(Skill.id == skill_id).first()
     if not skill:
         raise HTTPException(status_code=404, detail="Skill not found")
-        
+
     user = current_user or db.query(User).filter(User.username == "hieu").first()
     if not user:
         raise HTTPException(status_code=401, detail="Authentication required")
@@ -267,7 +298,7 @@ def toggle_bookmark(
         UserBookmark.user_id == user.id,
         UserBookmark.skill_id == skill_id
     ).first()
-    
+
     if existing_bm:
         db.delete(existing_bm)
         skill.is_bookmarked = False
@@ -277,7 +308,7 @@ def toggle_bookmark(
         db.add(new_bm)
         skill.is_bookmarked = True
         action_name = "bookmark"
-        
+
     audit = AuditLog(
         user_id=user.id,
         username=user.username,
@@ -338,3 +369,19 @@ def get_skill_detail(
     if current_user:
         SkillService.populate_user_bookmarks([skill], current_user.id, db)
     return skill
+
+# AI Learning Track & Goal Recommendation Endpoint
+@router.post("/skills/ai-recommend-track", response_model=AIRecommendationResponse)
+async def ai_recommend_track(
+    req: AIRecommendTrackRequest,
+    current_user: Optional[User] = Depends(get_optional_current_user),
+    db: Session = Depends(get_db)
+):
+    user_id = current_user.id if current_user else None
+    return await LearningTrackService.recommend_track(
+        db=db,
+        goal_query=req.goal_query,
+        language=req.language or "vi",
+        user_id=user_id,
+        max_skills=req.max_skills or 8
+    )
