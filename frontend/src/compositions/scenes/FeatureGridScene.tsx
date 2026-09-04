@@ -34,14 +34,12 @@ export const FeatureGridScene: React.FC<FeatureGridSceneProps> = ({
   const containerOpacity = interpolate(containerSpring, [0, 1], [0, 1]);
   const containerY = interpolate(containerSpring, [0, 1], [30, 0]);
 
-  const defaultFeatures = [
-    { icon: '🧠', title: 'Context Memory', desc: 'Lưu trữ ngữ cảnh liên phiên làm việc không bị mất dữ liệu', color: '#c084fc' },
-    { icon: '🛡️', title: 'Sandbox Guardrails', desc: 'Kiểm duyệt quyền truy cập CLI và sandbox tự động', color: '#34d399' },
-    { icon: '⚡', title: 'Subagent Swarm', desc: 'Điều phối đa agent giải quyết các task phức tạp song song', color: '#38bdf8' },
-    { icon: '🚀', title: '1-Click IDE Export', desc: 'Tương thích sẵn với Antigravity, Cursor, Codex & Claude', color: '#fbbf24' },
-  ];
-
-  const features = scene.feature_items || defaultFeatures;
+  const sourceFeatures = (scene.visual_beats || []).map((beat, index) => ({
+    icon: ['📖', '🔎', '🔗'][index] || '•',
+    title: beat.title,
+    desc: beat.detail,
+  }));
+  const features = scene.feature_items?.length ? scene.feature_items : sourceFeatures;
 
   const fadeOut = interpolate(
     frame,
@@ -96,7 +94,7 @@ export const FeatureGridScene: React.FC<FeatureGridSceneProps> = ({
           fontSize: isVertical ? '11px' : '13px',
           fontWeight: 800,
         }}>
-          ✨ 4 Core Pillars
+          ✨ {features.length || 1} Source Points
         </div>
       </div>
 

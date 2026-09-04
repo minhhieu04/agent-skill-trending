@@ -246,9 +246,17 @@ export interface VideoScene {
     y: number;
     type: 'move' | 'click' | 'scroll' | 'highlight';
     frame_index?: number;
+    label?: string;
   }>;
   github_capture_frames?: string[];
+  github_capture_viewport?: { width: number; height: number; deviceScaleFactor?: number };
   capture_status?: 'captured' | 'unavailable';
+  visual_beats?: Array<{
+    at: number;
+    title: string;
+    detail: string;
+    badge?: string;
+  }>;
 }
 
 
@@ -256,6 +264,8 @@ export interface VideoStoryboard {
   total_duration: number;
   aspect_ratio: string;
   scenes: VideoScene[];
+  narration_word_count?: number;
+  target_word_budget?: number;
 }
 
 export interface SubtitleEntry {
@@ -279,6 +289,19 @@ export interface TTSResult {
     subtitle_end_index: number;
   }>;
   timing_quality?: 'word' | 'estimated';
+  timeline_version?: number;
+  audio_duration_ms?: number;
+  caption_lead_ms?: number;
+  sync_diagnostics?: {
+    audio_duration_ms: number;
+    last_caption_end_ms: number;
+    tail_ms: number;
+    raw_caption_end_ms?: number;
+    timestamp_scale?: number;
+    scene_count: number;
+    subtitle_count: number;
+    source: 'provider_boundaries' | 'cadence_estimate';
+  };
 }
 
 export interface BlogGenerateRequest {

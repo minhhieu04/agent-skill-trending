@@ -1,7 +1,9 @@
 import asyncio
 import base64
+import html
 import io
 import logging
+import re
 import subprocess
 import tempfile
 import wave
@@ -158,7 +160,7 @@ CURATED_VOICES = [
         "gender": "female",
         "style": "Tutorial & Explainer",
         "description": "Energetic, crisp and friendly voice ideal for quick tutorials, SaaS demos and product highlights.",
-        "preview_text": "Here is how you can boost your coding velocity by 10x with this new trending AI skill.",
+        "preview_text": "Here is how this agent skill can support a real developer workflow with source-backed guidance.",
         "recommended_preset": "hype",
         "badge": "HOT"
     },
@@ -194,6 +196,50 @@ class TTSService:
     def get_available_voices() -> List[Dict[str, Any]]:
         """Returns list of curated hot voices with metadata."""
         return CURATED_VOICES
+
+    @staticmethod
+    def _script_words(text: str) -> List[str]:
+        """Tokenize exactly as the Studio sends narration to TTS."""
+        return re.findall(r"\S+", text or "")
+
+    @staticmethod
+    def _build_google_timepoint_ssml(text: str) -> tuple[str, List[str]]:
+        """Add a Google SSML mark before every spoken word for real karaoke starts."""
+        words = TTSService._script_words(text)
+        marked_words = [
+            f'<mark name="w{index}"/>{html.escape(word, quote=True)}'
+            for index, word in enumerate(words)
+        ]
+        return f"<speak>{' '.join(marked_words)}</speak>", words
+
+    @staticmethod
+    def _subtitles_from_timepoints(timepoints: Any, words: List[str]) -> List[Dict[str, Any]]:
+        starts_by_index: Dict[int, int] = {}
+        for timepoint in timepoints or []:
+            name = str(getattr(timepoint, "mark_name", ""))
+            match = re.fullmatch(r"w(\d+)", name)
+            if not match:
+                continue
+            word_index = int(match.group(1))
+            if word_index >= len(words):
+                continue
+            starts_by_index[word_index] = max(0, round(float(timepoint.time_seconds) * 1000))
+
+        # Partial timepoint streams are worse than a cadence-aware fallback because
+        # missing marks would shift every following caption.
+        if len(starts_by_index) != len(words):
+            return []
+
+        entries: List[Dict[str, Any]] = []
+        for index, word in enumerate(words):
+            start_ms = starts_by_index[index]
+            next_start_ms = starts_by_index.get(index + 1, start_ms + 420)
+            entries.append({
+                "text": word,
+                "start_ms": start_ms,
+                "end_ms": max(start_ms + 1, next_start_ms),
+            })
+        return entries
 
     @staticmethod
     async def synthesize(
@@ -284,7 +330,7 @@ class TTSService:
 
     @staticmethod
     def _finalize_timing(result: Dict[str, Any], scene_texts: Optional[List[str]]) -> Dict[str, Any]:
-        """Lock video timing to the encoded audio and expose explicit scene boundaries."""
+        """Lock every visual boundary to the encoded audio, never storyboard estimates."""
         actual_duration = TTSService._probe_audio_duration(result.get("audio_base64", ""))
         if actual_duration:
             result["duration_seconds"] = round(actual_duration, 3)
@@ -299,21 +345,67 @@ class TTSService:
             )
             subtitles = result["subtitle_entries"]
 
+        raw_caption_end_ms = max(
+            (int(subtitle.get("end_ms") or 0) for subtitle in subtitles),
+            default=0,
+        )
+        timestamp_scale = 1.0
+        # Edge speech metadata can use a clock that is longer than the encoded
+        # MP3 stream (observed as a near-linear drift). Clamping only the tail
+        # collapses many words into the final frame. Scale the complete stream
+        # to the decoded audio clock instead.
+        if duration_ms > 0 and raw_caption_end_ms > duration_ms * 1.02:
+            timestamp_scale = duration_ms / raw_caption_end_ms
+            subtitles = [
+                {
+                    **subtitle,
+                    "start_ms": round(int(subtitle.get("start_ms") or 0) * timestamp_scale),
+                    "end_ms": round(int(subtitle.get("end_ms") or 0) * timestamp_scale),
+                }
+                for subtitle in subtitles
+            ]
+
+        normalized_subtitles: List[Dict[str, Any]] = []
+        previous_start = 0
+        for index, subtitle in enumerate(subtitles):
+            text = str(subtitle.get("text") or "").strip()
+            if not text:
+                continue
+            start_ms = max(previous_start, int(subtitle.get("start_ms") or 0))
+            if duration_ms:
+                start_ms = min(start_ms, max(0, duration_ms - 1))
+            next_start = None
+            if index + 1 < len(subtitles):
+                next_start = max(start_ms + 1, int(subtitles[index + 1].get("start_ms") or 0))
+            raw_end = int(subtitle.get("end_ms") or start_ms + 1)
+            end_ms = max(start_ms + 1, raw_end)
+            if next_start is not None:
+                end_ms = min(end_ms, next_start)
+            if duration_ms:
+                end_ms = min(end_ms, duration_ms)
+            normalized_subtitles.append({"text": text, "start_ms": start_ms, "end_ms": end_ms})
+            previous_start = start_ms
+        result["subtitle_entries"] = normalized_subtitles
+        subtitles = normalized_subtitles
+
         normalized_scenes = [(text or "").strip() for text in (scene_texts or [])]
         if normalized_scenes:
             segments: List[Dict[str, int]] = []
+            scene_word_counts = [max(1, len(TTSService._script_words(text))) for text in normalized_scenes]
+            total_scene_words = sum(scene_word_counts)
             subtitle_cursor = 0
+            cumulative_words = 0
             for scene_index, scene_text in enumerate(normalized_scenes):
-                word_count = max(1, len(scene_text.split()))
                 subtitle_start = subtitle_cursor
-                subtitle_end = len(subtitles) if scene_index == len(normalized_scenes) - 1 else min(
-                    len(subtitles), subtitle_start + word_count
+                cumulative_words += scene_word_counts[scene_index]
+                subtitle_end = (
+                    len(subtitles)
+                    if scene_index == len(normalized_scenes) - 1
+                    else min(len(subtitles), round(cumulative_words / total_scene_words * len(subtitles)))
                 )
-                start_ms = 0 if scene_index == 0 else (
-                    subtitles[subtitle_start].get("start_ms", 0)
-                    if subtitle_start < len(subtitles)
-                    else segments[-1]["end_ms"]
-                )
+                if scene_index < len(normalized_scenes) - 1 and subtitle_end <= subtitle_start and subtitle_start < len(subtitles):
+                    subtitle_end = subtitle_start + 1
+                start_ms = 0 if scene_index == 0 else segments[-1]["end_ms"]
                 next_start = subtitles[subtitle_end].get("start_ms") if subtitle_end < len(subtitles) else None
                 end_ms = duration_ms if scene_index == len(normalized_scenes) - 1 else int(
                     next_start
@@ -334,6 +426,23 @@ class TTSService:
             result["scene_segments"] = segments
 
         result["timing_quality"] = timing_quality
+        result["timeline_version"] = 2
+        result["audio_duration_ms"] = duration_ms
+        # Speech marks can trail audible phonemes slightly because of provider and
+        # MP3 encoder latency. Rendering 90 ms ahead feels locked without flashing
+        # the next word too early; estimated providers get a little more lead.
+        result["caption_lead_ms"] = 140 if timing_quality == "estimated" else 90
+        last_caption_end = subtitles[-1]["end_ms"] if subtitles else 0
+        result["sync_diagnostics"] = {
+            "audio_duration_ms": duration_ms,
+            "last_caption_end_ms": last_caption_end,
+            "tail_ms": max(0, duration_ms - last_caption_end),
+            "raw_caption_end_ms": raw_caption_end_ms,
+            "timestamp_scale": round(timestamp_scale, 6),
+            "scene_count": len(normalized_scenes),
+            "subtitle_count": len(subtitles),
+            "source": "provider_boundaries" if timing_quality == "word" else "cadence_estimate",
+        }
         return result
 
     @staticmethod
@@ -413,7 +522,7 @@ class TTSService:
         text: str, voice: str, rate: str, pitch: str
     ) -> Optional[Dict[str, Any]]:
         """
-        Attempts Google Cloud Text-to-Speech synthesis.
+        Attempts Google Cloud Text-to-Speech synthesis with real SSML timepoints.
         Returns None if unavailable (not installed or no credentials).
         """
         gcloud_voice_map = {
@@ -425,7 +534,9 @@ class TTSService:
             return None
 
         try:
-            from google.cloud import texttospeech
+            # Word marks are exposed by the v1beta1 request. They are used as the
+            # canonical karaoke clock instead of spreading words evenly.
+            from google.cloud import texttospeech_v1beta1 as texttospeech
             client = texttospeech.TextToSpeechClient()
 
             lang_code, voice_name = gcloud_voice_map[voice]
@@ -446,7 +557,8 @@ class TTSService:
                 except ValueError:
                     pass
 
-            synthesis_input = texttospeech.SynthesisInput(text=text)
+            marked_ssml, words = TTSService._build_google_timepoint_ssml(text)
+            synthesis_input = texttospeech.SynthesisInput(ssml=marked_ssml)
             voice_params = texttospeech.VoiceSelectionParams(
                 language_code=lang_code,
                 name=voice_name,
@@ -457,18 +569,26 @@ class TTSService:
                 pitch=pitch_semitones,
             )
 
-            # Use asyncio.to_thread to avoid blocking the event loop
-            response = await asyncio.to_thread(
-                client.synthesize_speech,
+            request = texttospeech.SynthesizeSpeechRequest(
                 input=synthesis_input,
                 voice=voice_params,
-                audio_config=audio_config
+                audio_config=audio_config,
+                enable_time_pointing=[
+                    texttospeech.SynthesizeSpeechRequest.TimepointType.SSML_MARK
+                ],
+            )
+
+            # Use asyncio.to_thread to avoid blocking the event loop.
+            response = await asyncio.to_thread(
+                client.synthesize_speech,
+                request=request,
             )
             audio_base64 = base64.b64encode(response.audio_content).decode("utf-8")
-
-            words = text.split()
+            subtitle_entries = TTSService._subtitles_from_timepoints(response.timepoints, words)
+            has_exact_timepoints = len(subtitle_entries) == len(words) and len(words) > 0
             estimated_duration = max(2.0, len(words) * 0.38)
-            subtitle_entries = TTSService._generate_synthetic_timings(text, estimated_duration)
+            if not has_exact_timepoints:
+                subtitle_entries = TTSService._generate_synthetic_timings(text, estimated_duration)
 
             return {
                 "audio_base64": audio_base64,
@@ -476,8 +596,8 @@ class TTSService:
                 "subtitle_entries": subtitle_entries,
                 "voice": voice,
                 "status": "success",
-                "message": "Google Cloud TTS WaveNet",
-                "timing_quality": "estimated",
+                "message": "Google Cloud TTS WaveNet + SSML speech marks",
+                "timing_quality": "word" if has_exact_timepoints else "estimated",
             }
 
         except ImportError:
@@ -560,22 +680,33 @@ class TTSService:
 
     @staticmethod
     def _generate_synthetic_timings(text: str, total_duration_sec: float) -> List[Dict[str, Any]]:
-        """Generates proportional word-level timestamps when exact boundaries are missing."""
-        words = text.split()
+        """Generate cadence-aware timings when a provider has no speech marks."""
+        words = TTSService._script_words(text)
         if not words:
             return []
 
-        total_ms = total_duration_sec * 1000
-        word_duration = total_ms / len(words)  # float division to avoid zero duration
+        total_ms = max(1.0, total_duration_sec * 1000)
+        weights: List[float] = []
+        for word in words:
+            clean_length = len(re.sub(r"[^\wÀ-ỹ]", "", word, flags=re.UNICODE))
+            weight = 1.0 + min(clean_length, 12) * 0.035
+            if re.search(r"[.!?…][\"')\]]*$", word):
+                weight += 0.72
+            elif re.search(r"[,;:][\"')\]]*$", word):
+                weight += 0.34
+            weights.append(weight)
+        weight_total = sum(weights)
 
-        entries = []
+        entries: List[Dict[str, Any]] = []
         current_time = 0.0
-        for w in words:
+        for index, word in enumerate(words):
+            word_duration = total_ms * weights[index] / weight_total
             entries.append({
-                "text": w,
-                "start_ms": int(current_time),
-                "end_ms": int(current_time + word_duration)
+                "text": word,
+                "start_ms": round(current_time),
+                "end_ms": min(round(total_ms), max(round(current_time) + 1, round(current_time + word_duration))),
             })
             current_time += word_duration
 
+        entries[-1]["end_ms"] = round(total_ms)
         return entries

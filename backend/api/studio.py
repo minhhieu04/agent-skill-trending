@@ -69,7 +69,9 @@ class VideoSceneItem(BaseModel):
     feature_items: Optional[List[Dict[str, str]]] = None
     cursor_actions: Optional[List[Dict[str, Any]]] = None
     github_capture_frames: Optional[List[str]] = None
+    github_capture_viewport: Optional[Dict[str, int]] = None
     capture_status: Optional[Literal["captured", "unavailable"]] = None
+    visual_beats: Optional[List[Dict[str, Any]]] = None
 
 class StoryboardGenerateRequest(BaseModel):
     skill_id: Optional[int] = None
@@ -87,6 +89,8 @@ class StoryboardGenerateResponse(BaseModel):
     finish_reason: Optional[str] = None
     is_truncated: Optional[bool] = None
     token_usage: Optional[Dict[str, int]] = None
+    narration_word_count: Optional[int] = None
+    target_word_budget: Optional[int] = None
 
 class TTSRequest(BaseModel):
     text: str
@@ -118,6 +122,10 @@ class TTSResponse(BaseModel):
     message: Optional[str] = None
     scene_segments: Optional[List[SceneSegmentItem]] = None
     timing_quality: Optional[Literal["word", "estimated"]] = None
+    timeline_version: int = 2
+    audio_duration_ms: Optional[int] = None
+    caption_lead_ms: int = 90
+    sync_diagnostics: Optional[Dict[str, Any]] = None
 
 
 class VideoRenderRequest(BaseModel):
@@ -232,6 +240,7 @@ async def _capture_github_repository(repository_url: Optional[str]) -> Optional[
             "github_capture_frames": encoded_frames,
             "image_url": encoded_frames[0],
             "cursor_actions": manifest.get("cursor_actions") or [],
+            "github_capture_viewport": manifest.get("viewport") or {},
             "capture_status": "captured",
         }
     except (subprocess.SubprocessError, OSError, ValueError, json.JSONDecodeError):
@@ -351,9 +360,13 @@ async def render_video(payload: VideoRenderRequest):
     props_path = render_dir / "props.json"
     output_path = render_dir / "skill-video.mp4"
     storyboard_payload = await _attach_github_captures(payload.storyboard.model_dump())
+    scene_texts = [str(scene.get("voiceover_text") or "") for scene in storyboard_payload.get("scenes") or []]
+    # Never trust stale browser timings during export. Probe the submitted audio
+    # again and rebuild every scene boundary before Remotion receives the props.
+    tts_payload = TTSService._finalize_timing(payload.tts_result.model_dump(), scene_texts)
     props = {
         "storyboard": storyboard_payload,
-        "ttsResult": payload.tts_result.model_dump(),
+        "ttsResult": tts_payload,
         "audioSrc": f"data:audio/mpeg;base64,{payload.tts_result.audio_base64}",
         "skillTitle": payload.skill_title,
         "skillStats": payload.skill_stats,
@@ -399,5 +412,10 @@ async def render_video(payload: VideoRenderRequest):
         output_path,
         media_type="video/mp4",
         filename="agent-skill-video.mp4",
+        headers={
+            "X-Studio-Timeline": str(tts_payload.get("timeline_version") or 2),
+            "X-Studio-Duration-Ms": str(tts_payload.get("audio_duration_ms") or 0),
+            "X-Studio-Caption-Source": str((tts_payload.get("sync_diagnostics") or {}).get("source") or "unknown"),
+        },
         background=BackgroundTask(shutil.rmtree, render_dir, ignore_errors=True),
     )

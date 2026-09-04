@@ -1,6 +1,7 @@
 import base64
 import io
 import wave
+from types import SimpleNamespace
 
 import pytest
 from fastapi.testclient import TestClient
@@ -126,11 +127,15 @@ def test_storyboard_schema_preserves_rich_visual_fields():
         repository_name="verified-skill",
         stars_count=321,
         cursor_actions=[{"at": 0.4, "x": 0.5, "y": 0.3, "type": "click"}],
+        github_capture_viewport={"width": 1000, "height": 1400},
+        visual_beats=[{"at": 0.04, "badge": "HOOK", "title": "Repo", "detail": "Verified"}],
     ).model_dump()
     assert scene["scene_type"] == "github"
     assert scene["repository_url"].endswith("verified-skill")
     assert scene["stars_count"] == 321
     assert scene["cursor_actions"][0]["type"] == "click"
+    assert scene["github_capture_viewport"]["height"] == 1400
+    assert scene["visual_beats"][0]["badge"] == "HOOK"
 
 
 def test_curated_storyboard_uses_verified_skill_data():
@@ -161,6 +166,33 @@ def test_curated_storyboard_uses_verified_skill_data():
     assert stat_scene["stars_count"] == 321
     assert "45,000" not in stat_scene["voiceover_text"]
     assert terminal_scene["terminal_command"] == "git clone https://github.com/example/verified-skill"
+    assert all(len(scene["visual_beats"]) == 3 for scene in storyboard["scenes"])
+    assert [beat["at"] for beat in terminal_scene["visual_beats"]] == [0.04, 0.38, 0.72]
+    assert storyboard["narration_word_count"] <= storyboard["target_word_budget"]
+
+
+def test_short_storyboard_caps_narration_to_requested_duration():
+    storyboard = BlogVideoService._generate_curated_storyboard(
+        "Public Agent Skill Demo",
+        target_duration=30,
+        aspect_ratio="9:16",
+        language="vi",
+        skill_data={
+            "name": "google/skills",
+            "repository_url": "https://github.com/google/skills",
+            "description": "Bản kiểm thử công khai cho quy trình đọc nguồn và trình bày agent skill.",
+            "readme_preview": "Đọc tài liệu, kiểm tra repository và thử trong sandbox.",
+            "primary_language": "TypeScript",
+            "use_cases": ["Đọc tài liệu", "Kiểm tra repository", "Thử trong sandbox"],
+            "runtimes": ["Codex", "Claude Code", "Cursor"],
+        },
+    )
+    spoken_words = sum(
+        len(scene["voiceover_text"].split()) for scene in storyboard["scenes"]
+    )
+    assert storyboard["total_duration"] == 30
+    assert spoken_words == storyboard["narration_word_count"]
+    assert spoken_words <= 72
 
 
 def test_long_storyboard_adds_distinct_deep_dive_scenes():
@@ -209,6 +241,62 @@ def test_tts_timing_uses_encoded_audio_duration_and_scene_segments():
     assert result["duration_seconds"] == pytest.approx(2.0, abs=0.02)
     assert result["scene_segments"][0]["end_ms"] == 900
     assert result["scene_segments"][1]["end_ms"] == pytest.approx(2000, abs=20)
+    assert result["timeline_version"] == 2
+    assert result["caption_lead_ms"] == 90
+    assert result["sync_diagnostics"]["audio_duration_ms"] == pytest.approx(2000, abs=20)
+
+
+def test_google_ssml_and_timepoints_produce_real_word_timeline():
+    ssml, words = TTSService._build_google_timepoint_ssml("Xin chào GitHub & Codex.")
+    assert words == ["Xin", "chào", "GitHub", "&", "Codex."]
+    assert ssml.count("<mark name=") == len(words)
+    assert "&amp;" in ssml
+
+    timepoints = [
+        SimpleNamespace(mark_name=f"w{index}", time_seconds=index * 0.25)
+        for index in range(len(words))
+    ]
+    subtitles = TTSService._subtitles_from_timepoints(timepoints, words)
+    assert [entry["text"] for entry in subtitles] == words
+    assert subtitles[2]["start_ms"] == 500
+    assert subtitles[2]["end_ms"] == 750
+
+
+def test_estimated_timing_is_cadence_aware_instead_of_uniform():
+    subtitles = TTSService._generate_synthetic_timings("Nhanh, rồi dừng. Tiếp tục", 3.0)
+    durations = [entry["end_ms"] - entry["start_ms"] for entry in subtitles]
+    assert subtitles[-1]["end_ms"] == 3000
+    assert durations[2] > durations[-1]
+
+
+def test_provider_clock_drift_is_scaled_instead_of_collapsing_last_scene():
+    wav_buffer = io.BytesIO()
+    with wave.open(wav_buffer, "wb") as wav_file:
+        wav_file.setnchannels(1)
+        wav_file.setsampwidth(2)
+        wav_file.setframerate(8000)
+        wav_file.writeframes(b"\x00\x00" * 16000)
+
+    result = TTSService._finalize_timing(
+        {
+            "audio_base64": base64.b64encode(wav_buffer.getvalue()).decode("ascii"),
+            "duration_seconds": 3.0,
+            "subtitle_entries": [
+                {"text": "scene", "start_ms": 0, "end_ms": 800},
+                {"text": "one", "start_ms": 800, "end_ms": 1500},
+                {"text": "scene", "start_ms": 1500, "end_ms": 2300},
+                {"text": "two", "start_ms": 2300, "end_ms": 3000},
+            ],
+            "timing_quality": "word",
+        },
+        ["scene one", "scene two"],
+    )
+
+    assert result["duration_seconds"] == pytest.approx(2.0, abs=0.02)
+    assert result["sync_diagnostics"]["timestamp_scale"] == pytest.approx(2 / 3, abs=0.001)
+    assert result["scene_segments"][0]["end_ms"] == 1000
+    assert result["scene_segments"][1]["end_ms"] == pytest.approx(2000, abs=20)
+    assert result["scene_segments"][1]["end_ms"] - result["scene_segments"][1]["start_ms"] >= 900
 
 def test_synthesize_tts_success():
     payload = {

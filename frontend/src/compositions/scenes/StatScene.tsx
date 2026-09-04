@@ -64,11 +64,6 @@ export const StatScene: React.FC<StatSceneProps> = ({
     fps,
     config: { damping: 20, stiffness: 60 },
   });
-  const meterWidth = interpolate(meterSpring, [0, 1], [0, 94], {
-    extrapolateLeft: 'clamp',
-    extrapolateRight: 'clamp',
-  });
-
   const fadeOut = interpolate(
     frame,
     [durationInFrames - Math.round(fps * 0.6), durationInFrames],
@@ -79,32 +74,40 @@ export const StatScene: React.FC<StatSceneProps> = ({
   const stats = [
     {
       label: 'GitHub Stars',
-      value: scene.stars_count || 4280,
+      value: scene.stars_count,
       icon: '⭐',
       color: '#fbbf24',
-      badge: '+420% MoM',
+      badge: 'RECORDED',
       bg: 'rgba(245,158,11,0.12)',
       border: 'rgba(245,158,11,0.4)',
     },
     {
-      label: 'Forks & Clones',
-      value: scene.forks_count || 340,
+      label: 'GitHub Forks',
+      value: scene.forks_count,
       icon: '🍴',
       color: '#a5b4fc',
-      badge: 'Active Fork',
+      badge: 'RECORDED',
       bg: 'rgba(99,102,241,0.12)',
       border: 'rgba(99,102,241,0.4)',
     },
     {
-      label: 'Contributors',
-      value: scene.contributors || 48,
-      icon: '👥',
+      label: 'Open Issues',
+      value: scene.open_issues,
+      icon: '●',
       color: '#6ee7b7',
-      badge: 'Worldwide',
+      badge: 'RECORDED',
       bg: 'rgba(16,185,129,0.12)',
       border: 'rgba(16,185,129,0.4)',
     },
-  ];
+  ].filter((stat): stat is typeof stat & { value: number } => stat.value !== undefined);
+  const visibleStats = stats.length > 0 ? stats.slice(0, 3) : [{
+    label: 'Repository Metrics', value: 0, icon: '—', color: '#94a3b8', badge: 'NOT RECORDED',
+    bg: 'rgba(148,163,184,0.1)', border: 'rgba(148,163,184,0.28)',
+  }];
+  const meterWidth = interpolate(meterSpring, [0, 1], [0, Math.min(100, visibleStats.length / 3 * 100)], {
+    extrapolateLeft: 'clamp',
+    extrapolateRight: 'clamp',
+  });
 
   return (
     <AbsoluteFill style={{ overflow: 'hidden', backgroundColor: '#090d16', opacity: fadeOut }}>
@@ -142,7 +145,7 @@ export const StatScene: React.FC<StatSceneProps> = ({
         }}>
           <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#fbbf24', boxShadow: '0 0 6px #fbbf24' }} />
           <span style={{ color: '#fbbf24', fontSize: isVertical ? '10px' : '12px', fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
-            METRICS & BENCHMARK
+            VERIFIED REPOSITORY DATA
           </span>
         </div>
 
@@ -155,7 +158,7 @@ export const StatScene: React.FC<StatSceneProps> = ({
           fontSize: isVertical ? '11px' : '13px',
           fontWeight: 800,
         }}>
-          ⚡ Trending Velocity: 9.8/10
+          ◉ SOURCE SNAPSHOT
         </div>
       </div>
 
@@ -191,7 +194,7 @@ export const StatScene: React.FC<StatSceneProps> = ({
           gap: isVertical ? '8px' : '14px',
           width: '100%',
         }}>
-          {stats.map((stat, i) => {
+          {visibleStats.map((stat, i) => {
             const cardSlide = spring({
               frame: Math.max(0, frame - 10 - i * 5),
               fps,
@@ -251,10 +254,10 @@ export const StatScene: React.FC<StatSceneProps> = ({
         }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span style={{ fontSize: isVertical ? '11px' : '13px', fontWeight: 800, color: '#e2e8f0' }}>
-              🚀 Tốc độ tăng trưởng so với thị trường
+              Độ đầy đủ của dữ liệu repository đang hiển thị
             </span>
             <span style={{ fontSize: isVertical ? '12px' : '14px', fontWeight: 900, color: '#38bdf8' }}>
-              Top 1% Global
+              {stats.length} trường đã ghi nhận
             </span>
           </div>
           {/* Animated fill bar */}

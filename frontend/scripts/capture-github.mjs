@@ -116,15 +116,29 @@ try {
   const readmeTarget = await getTarget(page, 'README.md');
   const skillTarget = await getTarget(page, 'SKILL.md');
 
-  await page.evaluate(() => {
-    const heading = Array.from(document.querySelectorAll('h1, h2')).find((node) =>
-      (node.textContent || '').toLowerCase().includes('readme'),
-    );
-    const fallback = document.querySelector('article.markdown-body');
-    (heading || fallback)?.scrollIntoView({ block: 'start' });
-  });
-  await wait(350);
-  const readmePath = await capture(page, 'github-readme.png');
+  let readmePath = null;
+  let readmeDetailsPath = null;
+  if (readmeTarget?.href && new URL(readmeTarget.href).hostname === 'github.com') {
+    await page.goto({ url: readmeTarget.href, timeout: 45000 });
+    await wait(900);
+    readmePath = await capture(page, 'github-readme.png');
+    await page.evaluate(() => window.scrollBy(0, Math.round(window.innerHeight * 0.62)));
+    await wait(300);
+    readmeDetailsPath = await capture(page, 'github-readme-details.png');
+  } else {
+    await page.evaluate(() => {
+      const heading = Array.from(document.querySelectorAll('h1, h2')).find((node) =>
+        (node.textContent || '').toLowerCase().includes('readme'),
+      );
+      const fallback = document.querySelector('article.markdown-body');
+      (heading || fallback)?.scrollIntoView({ block: 'start' });
+    });
+    await wait(350);
+    readmePath = await capture(page, 'github-readme.png');
+    await page.evaluate(() => window.scrollBy(0, Math.round(window.innerHeight * 0.62)));
+    await wait(300);
+    readmeDetailsPath = await capture(page, 'github-readme-details.png');
+  }
 
   let skillPath = null;
   if (skillTarget?.href && new URL(skillTarget.href).hostname === 'github.com') {
@@ -133,18 +147,34 @@ try {
     skillPath = await capture(page, 'github-skill.png');
   }
 
-  const frames = [rootPath, readmePath, skillPath].filter(Boolean);
+  const frames = [rootPath, readmePath, readmeDetailsPath, skillPath].filter(Boolean);
+  const readmeFrameIndex = readmePath ? 1 : 0;
+  const readmeDetailsFrameIndex = readmeDetailsPath ? readmeFrameIndex + 1 : readmeFrameIndex;
+  const skillFrameIndex = skillPath ? frames.length - 1 : readmeFrameIndex;
+  const cursorActions = [
+    { at: 0.03, x: 0.50, y: 0.10, type: 'move', frame_index: 0, label: 'Repository overview' },
+    { at: 0.15, x: readmeTarget?.x ?? 0.30, y: readmeTarget?.y ?? 0.36, type: 'move', frame_index: 0, label: 'Locate README.md' },
+    { at: 0.24, x: readmeTarget?.x ?? 0.30, y: readmeTarget?.y ?? 0.36, type: 'click', frame_index: 0, label: 'Open README.md' },
+    { at: 0.30, x: 0.50, y: 0.18, type: 'move', frame_index: readmeFrameIndex, label: 'Read source documentation' },
+    { at: 0.49, x: 0.88, y: 0.74, type: 'scroll', frame_index: readmeFrameIndex, label: 'Review setup and usage' },
+    { at: 0.55, x: 0.50, y: 0.32, type: 'move', frame_index: readmeDetailsFrameIndex, label: 'README details' },
+  ];
+  if (skillPath) {
+    cursorActions.push(
+      { at: 0.62, x: 0.08, y: 0.10, type: 'move', frame_index: 0, label: 'Back to file tree' },
+      { at: 0.71, x: skillTarget?.x ?? 0.28, y: skillTarget?.y ?? 0.32, type: 'move', frame_index: 0, label: 'Locate SKILL.md' },
+      { at: 0.79, x: skillTarget?.x ?? 0.28, y: skillTarget?.y ?? 0.32, type: 'click', frame_index: 0, label: 'Open SKILL.md' },
+      { at: 0.85, x: 0.50, y: 0.25, type: 'move', frame_index: skillFrameIndex, label: 'Inspect skill instructions' },
+      { at: 0.94, x: 0.50, y: 0.42, type: 'highlight', frame_index: skillFrameIndex, label: 'Verified source content' },
+    );
+  } else {
+    cursorActions.push({ at: 0.90, x: 0.50, y: 0.42, type: 'highlight', frame_index: readmeFrameIndex, label: 'Verified README content' });
+  }
   const manifest = {
     source_url: repositoryUrl.toString(),
     viewport,
     frames,
-    cursor_actions: [
-      { at: 0.08, x: 0.50, y: 0.10, type: 'move', frame_index: 0 },
-      { at: 0.27, x: readmeTarget?.x ?? 0.30, y: readmeTarget?.y ?? 0.36, type: 'click', frame_index: 0 },
-      { at: 0.46, x: 0.84, y: 0.72, type: 'scroll', frame_index: 1 },
-      { at: 0.69, x: skillTarget?.x ?? 0.28, y: skillTarget?.y ?? 0.32, type: 'click', frame_index: frames.length > 2 ? 2 : 1 },
-      { at: 0.90, x: 0.54, y: 0.42, type: 'highlight', frame_index: frames.length - 1 },
-    ],
+    cursor_actions: cursorActions,
   };
   await writeFile(resolve(safeOutputDir, 'manifest.json'), JSON.stringify(manifest, null, 2));
   process.stdout.write(JSON.stringify(manifest));

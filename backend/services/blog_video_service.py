@@ -59,6 +59,127 @@ def _fit_scene_durations(scenes: List[Dict[str, Any]], target_duration: int) -> 
     for scene, duration in zip(scenes, durations):
         scene["duration_seconds"] = duration
 
+
+def _cap_narration_to_target(
+    scenes: List[Dict[str, Any]],
+    target_duration: int,
+    language: str,
+) -> Dict[str, int]:
+    """Cap narration to a realistic speech budget without padding or repetition."""
+    if not scenes:
+        return {"word_count": 0, "word_budget": 0}
+
+    words_by_scene = [
+        re.findall(r"\S+", str(scene.get("voiceover_text") or ""))
+        for scene in scenes
+    ]
+    original_total = sum(len(words) for words in words_by_scene)
+    # Vietnamese neural voices include longer tonal and punctuation pauses.
+    # 2.4 words/s keeps the default +15% Studio preset close to the selected
+    # target while still leaving room for natural sentence cadence.
+    words_per_second = 2.4 if language == "vi" else 2.6
+    word_budget = max(len(scenes) * 8, round(max(1, target_duration) * words_per_second))
+    if original_total <= word_budget:
+        return {"word_count": original_total, "word_budget": word_budget}
+
+    scale = word_budget / original_total
+    allocations = [
+        min(len(words), max(8, round(len(words) * scale)))
+        for words in words_by_scene
+    ]
+    while sum(allocations) > word_budget:
+        candidates = [index for index, count in enumerate(allocations) if count > 8]
+        if not candidates:
+            break
+        index = max(candidates, key=lambda item: allocations[item])
+        allocations[index] -= 1
+    while sum(allocations) < word_budget:
+        candidates = [
+            index for index, words in enumerate(words_by_scene)
+            if allocations[index] < len(words)
+        ]
+        if not candidates:
+            break
+        index = max(candidates, key=lambda item: len(words_by_scene[item]) - allocations[item])
+        allocations[index] += 1
+
+    for scene, words, allocation in zip(scenes, words_by_scene, allocations):
+        if allocation >= len(words):
+            continue
+        trimmed = " ".join(words[:allocation]).rstrip(" ,;:")
+        if trimmed and not re.search(r"[.!?…]$", trimmed):
+            trimmed += "…"
+        scene["voiceover_text"] = trimmed
+
+    return {
+        "word_count": sum(
+            min(len(words), allocation)
+            for words, allocation in zip(words_by_scene, allocations)
+        ),
+        "word_budget": word_budget,
+    }
+
+
+def _add_visual_beats(scenes: List[Dict[str, Any]], language: str) -> None:
+    """Give every scene distinct editorial beats without inventing new claims."""
+    is_vi = language == "vi"
+    for scene in scenes:
+        if scene.get("visual_beats"):
+            continue
+        scene_type = scene.get("scene_type") or "content"
+        source = _compact_text(scene.get("source_ref") or scene.get("repository_url") or "editor context", 100)
+        voiceover_sentences = [
+            _compact_text(part, 150)
+            for part in re.split(r"(?<=[.!?])\s+", scene.get("voiceover_text") or "")
+            if part.strip()
+        ]
+        primary_detail = voiceover_sentences[0] if voiceover_sentences else _compact_text(scene.get("visual_description"), 150)
+        secondary_detail = (
+            voiceover_sentences[1]
+            if len(voiceover_sentences) > 1
+            else _compact_text(scene.get("visual_description") or primary_detail, 150)
+        )
+
+        if scene_type == "terminal":
+            secondary_detail = _compact_text(scene.get("terminal_command") or secondary_detail, 150)
+        elif scene_type == "code":
+            code_lines = [line.strip() for line in (scene.get("code_snippet") or "").splitlines() if line.strip()]
+            secondary_detail = _compact_text(code_lines[0] if code_lines else secondary_detail, 150)
+        elif scene_type in {"features", "security"}:
+            feature_items = scene.get("feature_items") or []
+            secondary_detail = _compact_text(
+                " · ".join(str(item.get("title") or "") for item in feature_items[:4] if item.get("title"))
+                or secondary_detail,
+                150,
+            )
+        elif scene_type == "stat":
+            metrics = []
+            for label, key in (("stars", "stars_count"), ("forks", "forks_count"), ("issues", "open_issues")):
+                if scene.get(key) is not None:
+                    metrics.append(f"{scene[key]:,} {label}")
+            secondary_detail = " · ".join(metrics) or secondary_detail
+
+        scene["visual_beats"] = [
+            {
+                "at": 0.04,
+                "badge": "HOOK" if scene_type == "intro" else "CONTEXT",
+                "title": _compact_text(scene.get("title"), 76),
+                "detail": primary_detail,
+            },
+            {
+                "at": 0.38,
+                "badge": "DEMO" if scene_type in {"github", "code", "terminal"} else "KEY POINT",
+                "title": "Chi tiết thực tế" if is_vi else "Practical detail",
+                "detail": secondary_detail,
+            },
+            {
+                "at": 0.72,
+                "badge": "SOURCE",
+                "title": "Nguồn kiểm chứng" if is_vi else "Verification source",
+                "detail": source,
+            },
+        ]
+
 def _parse_gemini_error(e: Exception) -> Dict[str, Any]:
     """Classifies Gemini API exceptions into quota, auth, or generic errors."""
     err_str = str(e)
@@ -159,7 +280,7 @@ class BlogVideoService:
         display_title = skill_title or title or "Xu Hướng AI Agent & Kỹ Năng Lập Trình 2026"
         
         tone_descriptor = {
-            "hype": "năng động, cuốn hút, nhấn mạnh sự đột phá 10x năng suất",
+            "hype": "năng động, cuốn hút, nhấn mạnh tác động thực tế có trong nguồn",
             "casual": "gần gũi, chia sẻ kinh nghiệm thực chiến từ developer",
             "deep_dive": "chuyên sâu kiến trúc, phân tích mã nguồn và hệ thống",
             "professional": "chuẩn mực kỹ sư, phân tích toàn diện và best practices"
@@ -191,7 +312,7 @@ class BlogVideoService:
                 ## 🚀 1. Vì Sao Công Nghệ Này Là Game Changer? (The Hook)
                 ## 🧠 2. Kiến Trúc & Nguyên Lý Hoạt Động (Deep Dive)
                 ## 💻 3. Code Demo & Hướng Dẫn Thực Hành Nhanh (Step-by-Step)
-                ## ⚡ 4. Ứng Dụng Thực Tế & So Sánh Năng Suất (10x Dev Productivity)
+                ## ⚡ 4. Ứng Dụng Thực Tế & So Sánh Workflow
                 ## 🛡️ 5. Kinh Nghiệm Thực Chiến & An Toàn Bảo Mật (Best Practices)
                 ## 🎯 6. Lời Kết & Lộ Trình Bắt Đầu
                 
@@ -290,7 +411,7 @@ Trong năm 2026, việc chỉ sử dụng AI như một công cụ auto-complete
 ### Điểm nhấn cốt lõi:
 * 🎯 **Context Injection Siêu Nhẹ**: Nạp toàn bộ quy chuẩn kiến trúc mà không làm phình context window.
 * 🛡️ **Sandbox Security Guardrails**: Kiểm soát quyền truy cập hệ thống và ngăn chặn command injection.
-* 🚀 **Tăng Tốc Độ Xử Lý 10x**: Tự động hóa từ phân tích yêu cầu đến sinh code kiểm thử.
+* 🚀 **Tối Ưu Workflow**: Chỉ mô tả mức tự động hóa và tác động đã có trong nguồn.
 
 ---
 
@@ -299,7 +420,7 @@ Trong năm 2026, việc chỉ sử dụng AI như một công cụ auto-complete
 Hệ thống hoạt động dựa trên cơ chế **Phân rã tác vụ (Task Decomposition)** và điều phối Subagents phản ứng nhanh:
 
 ```
-[ Developer Prompt ] ➡️ [ Context Radar ] ➡️ [ Sandbox AST Scanner ] ➡️ [ Code Output 100% Type-Safe ]
+[ Developer Prompt ] ➡️ [ Skill Instructions ] ➡️ [ Runtime Tools ] ➡️ [ Reviewable Output ]
 ```
 
 Khi tích hợp vào các runtime như **Google Antigravity, Cursor hoặc OpenAI Codex**, các quy tắc sẽ được nạp tự động dưới dạng runtime instruction rules.
@@ -367,7 +488,7 @@ In 2026, relying solely on single-prompt code completion is obsolete. The rise o
 ### Key Architectural Strengths:
 * 🎯 **Deterministic Context Loading**: Injects precise architecture rules without context dilution.
 * 🛡️ **Zero-Trust AST Guardrails**: Pre-execution sandbox validation for safe terminal operations.
-* 🚀 **10x Engineering Velocity**: Automates research, planning, implementation, and test suites.
+* 🚀 **Workflow Support**: Describes only automation and outcomes recorded in the source.
 
 ---
 
@@ -383,7 +504,7 @@ export interface SkillSpec {{
 
 export async function deployAgentStack(spec: SkillSpec) {{
   console.info(`[Radar 2026] Activating skill spec: ${{spec.name}}`);
-  return {{ status: "ACTIVE", compliance: "100%" }};
+  return {{ status: "ACTIVE", review: "required" }};
 }}
 ```
 
@@ -432,6 +553,7 @@ Integrating **{title}** into your daily workflow transforms AI assistants from s
             target_scene_count = 12
         else:
             target_scene_count = 16
+        target_words_per_scene = max(12, min(30, round(target_duration * 2.4 / target_scene_count)))
 
         # Auto-enrich context if user provided minimal text
         rich_content = content.strip()
@@ -470,14 +592,15 @@ Source Context:
 STRICT DIRECTIVES:
 {lang_note}
 You MUST use these scene types across the {target_scene_count} scenes in logical narrative order:
-1. "intro" - Hook title, trending rank, explosive first 6-8 seconds.
-2. "comparison" - Pain point / The Old Broken Way vs The New AI Agent Way.
-3. "stat" - Real numbers (stars_count, forks_count, contributors, +400% growth).
-4. "architecture" - Multi-agent orchestrator / MCP protocol flow.
-5. "code" - Working code snippet (5-8 lines) in {skill_lang}.
-6. "terminal" - CLI installation command (terminal_command) and logs (terminal_output).
-7. "features" - 4 core capabilities matrix (feature_items: array of 4 objects with icon, title, desc).
-8. "outro" - Strong call to action, GitHub star, 1-click export.
+1. "intro" - Source-backed hook title and concrete purpose in the first 6-8 seconds.
+2. "github" - Real repository walkthrough when a GitHub URL exists in source context.
+3. "comparison" - Pain point / old workflow vs source-backed use case.
+4. "stat" - Only real numbers present in source context.
+5. "architecture" - Source-backed workflow, never an invented system diagram.
+6. "code" - README or source code excerpt; do not invent an API.
+7. "terminal" - Real repository command and safe inspection logs.
+8. "features" - Recorded capabilities or use cases.
+9. "outro" - Concrete review action and source call to action.
 
 Return ONLY a single valid JSON string with no markdown formatting:
 {{
@@ -489,9 +612,14 @@ Return ONLY a single valid JSON string with no markdown formatting:
       "scene_type": "intro",
       "title": "Hook Mở Đầu",
       "voiceover_text": "30-50 từ tiếng Việt dồn dập, nêu bật sự bùng nổ của {skill_title}...",
-      "visual_description": "Logo 3D Hologram phát sáng cyberpunk với badge TOP #1 Trending",
+      "visual_description": "Logo chuyển động với tên skill, mục đích và badge SOURCE VERIFIED",
       "visual_prompt": "Hyperrealistic 3D glowing hologram of AI Agent {skill_title}, cyberpunk neon lighting, volumetric mist, 8k render",
       "duration_seconds": {max(6, target_duration // target_scene_count)},
+      "visual_beats": [
+        {{"at": 0.04, "badge": "HOOK", "title": "Specific point", "detail": "Source-backed detail"}},
+        {{"at": 0.38, "badge": "DEMO", "title": "Practical detail", "detail": "A different source-backed fact"}},
+        {{"at": 0.72, "badge": "SOURCE", "title": "Verification source", "detail": "Repository or editor context"}}
+      ],
       "code_snippet": null
     }}
   ]
@@ -499,8 +627,9 @@ Return ONLY a single valid JSON string with no markdown formatting:
 
 RULES:
 - Total scenes in "scenes" array MUST be EXACTLY {target_scene_count}.
-- scene_type MUST be one of: "intro", "comparison", "stat", "architecture", "code", "terminal", "features", "outro".
-- Each voiceover_text: 25-50 words packed with specific developer knowledge.
+- scene_type MUST be one of: "intro", "github", "comparison", "stat", "architecture", "code", "terminal", "features", "security", "content", "outro".
+- Each voiceover_text should be about {target_words_per_scene} words so narration matches the requested duration.
+- Every scene must contain exactly 3 visual_beats at 0.04, 0.38, and 0.72 with different information; do not repeat the same card or sentence.
 - Never invent stars, forks, growth percentages, benchmarks, install commands, security claims or supported runtimes.
 - If the source context does not contain a fact, omit it instead of guessing.
 - Add "source_ref" to every scene using "source context" or "editor context".
@@ -559,7 +688,9 @@ RULES:
                         if not _scene.get("visual_prompt"):
                             _scene["visual_prompt"] = _scene.get("visual_description", "")
 
-                    # Replace claim-heavy scenes with locally assembled, verified repository data.
+                    # Keep editorial facts deterministic and source-backed. Gemini may
+                    # contribute visual direction, but never narration, code, metrics,
+                    # commands, or capability claims.
                     if skill_data and parsed.get("scenes"):
                         verified_storyboard = BlogVideoService._generate_curated_storyboard(
                             skill_title,
@@ -568,26 +699,28 @@ RULES:
                             language,
                             skill_data=skill_data,
                         )
-                        verified_by_type = {
-                            scene.get("scene_type"): scene
-                            for scene in verified_storyboard["scenes"]
-                        }
                         generated_scenes = parsed["scenes"]
-                        for index, scene in enumerate(generated_scenes):
-                            scene_type = scene.get("scene_type")
-                            if scene_type in {"stat", "terminal"} and scene_type in verified_by_type:
-                                verified_scene = verified_by_type[scene_type]
-                                generated_scenes[index] = {
-                                    **scene,
-                                    **verified_scene,
-                                    "image_url": scene.get("image_url") or verified_scene.get("image_url"),
-                                    "visual_prompt": scene.get("visual_prompt") or verified_scene.get("visual_prompt"),
-                                }
-                        if "github" in verified_by_type and not any(
-                            scene.get("scene_type") == "github" for scene in generated_scenes
-                        ):
-                            replace_index = 1 if len(generated_scenes) > 2 else 0
-                            generated_scenes[replace_index] = verified_by_type["github"]
+                        generated_visuals_by_type: Dict[str, List[Dict[str, Any]]] = {}
+                        for generated_scene in generated_scenes:
+                            generated_visuals_by_type.setdefault(
+                                str(generated_scene.get("scene_type") or "content"), []
+                            ).append(generated_scene)
+
+                        source_backed_scenes = []
+                        for index, verified_scene in enumerate(verified_storyboard["scenes"]):
+                            scene_type = str(verified_scene.get("scene_type") or "content")
+                            candidates = generated_visuals_by_type.get(scene_type) or []
+                            generated_visual = candidates.pop(0) if candidates else (
+                                generated_scenes[index] if index < len(generated_scenes) else {}
+                            )
+                            source_backed_scenes.append({
+                                **verified_scene,
+                                "image_url": generated_visual.get("image_url") or verified_scene.get("image_url"),
+                                "visual_prompt": generated_visual.get("visual_prompt") or verified_scene.get("visual_prompt"),
+                            })
+
+                        generated_scenes = source_backed_scenes
+                        parsed["scenes"] = generated_scenes
                         for index, scene in enumerate(generated_scenes):
                             scene["scene_number"] = index + 1
                         _fit_scene_durations(generated_scenes, target_duration)
@@ -595,11 +728,17 @@ RULES:
                             scene["duration_seconds"] for scene in generated_scenes
                         )
                     
+                    narration = _cap_narration_to_target(
+                        parsed.get("scenes") or [], target_duration, language
+                    )
+                    parsed["narration_word_count"] = narration["word_count"]
+                    parsed["target_word_budget"] = narration["word_budget"]
                     parsed["provider"] = "google_gemini_2.5_flash"
                     parsed["fallback_used"] = False
                     parsed["finish_reason"] = token_info["finish_reason"]
                     parsed["is_truncated"] = token_info["is_truncated"]
                     parsed["token_usage"] = token_info["token_usage"]
+                    _add_visual_beats(parsed.get("scenes") or [], language)
                     return parsed
             except Exception as e:
                 err_info = _parse_gemini_error(e)
@@ -938,11 +1077,15 @@ RULES:
         for index, scene in enumerate(scenes):
             scene["scene_number"] = index + 1
             scene.setdefault("code_snippet", None)
+        narration = _cap_narration_to_target(scenes, target_duration, language)
         _fit_scene_durations(scenes, target_duration)
+        _add_visual_beats(scenes, language)
         return {
             "total_duration": sum(scene["duration_seconds"] for scene in scenes),
             "aspect_ratio": aspect_ratio,
             "scenes": scenes,
+            "narration_word_count": narration["word_count"],
+            "target_word_budget": narration["word_budget"],
         }
 
     @staticmethod

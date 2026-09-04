@@ -74,6 +74,7 @@ const buildFacts = (
   sceneType: VideoScene['scene_type'],
   sceneIndex: number,
   totalScenes: number,
+  actualDurationSeconds: number,
 ) => {
   const facts: InformationFact[] = [];
   const repo = repositoryLabel(scene);
@@ -111,7 +112,7 @@ const buildFacts = (
   // Factual fallbacks keep sparse scenes informative without inventing claims.
   addFact(facts, 'Repository', repo, '⌘');
   addFact(facts, 'Nguồn', scene.source_ref, '↗');
-  addFact(facts, 'Thời lượng scene', `${scene.duration_seconds}s`, '◷');
+  addFact(facts, 'Thời lượng theo audio', `${actualDurationSeconds.toFixed(1)}s`, '◷');
   addFact(
     facts,
     'Vị trí nội dung',
@@ -132,16 +133,26 @@ export const SceneInformationDeck: React.FC<SceneInformationDeckProps> = React.m
   const frame = useCurrentFrame();
   const { fps, width, height } = useVideoConfig();
   const isVertical = height > width;
+  const sceneProgress = Math.max(0, Math.min(1, frame / Math.max(1, durationInFrames - 1)));
+  const visualBeats = React.useMemo(
+    () => (scene.visual_beats || []).slice().sort((left, right) => left.at - right.at),
+    [scene.visual_beats],
+  );
+  const activeBeat = visualBeats.reduce(
+    (current, beat) => (beat.at <= sceneProgress ? beat : current),
+    visualBeats[0],
+  );
   const facts = React.useMemo(
-    () => buildFacts(scene, sceneType, sceneIndex, totalScenes),
-    [scene, sceneType, sceneIndex, totalScenes],
+    () => buildFacts(scene, sceneType, sceneIndex, totalScenes, durationInFrames / fps),
+    [scene, sceneType, sceneIndex, totalScenes, durationInFrames, fps],
   );
   const source = cleanText(scene.source_ref)
     || repositoryLabel(scene)
     || cleanText(scene.asset_type)
     || 'Chưa có source_ref';
   const takeaway = truncate(
-    cleanText(scene.readme_excerpt)
+    cleanText(activeBeat?.detail)
+      || cleanText(scene.readme_excerpt)
       || cleanText(scene.visual_description)
       || cleanText(scene.voiceover_text),
     isVertical ? 180 : 240,
@@ -209,7 +220,12 @@ export const SceneInformationDeck: React.FC<SceneInformationDeckProps> = React.m
             fontWeight: 900,
             letterSpacing: '0.14em',
           }}>
-            QUICK CONTEXT
+            {truncate(
+              activeBeat
+                ? `${activeBeat.badge || 'BEAT'} · ${activeBeat.title}`
+                : 'QUICK CONTEXT',
+              isVertical ? 58 : 76,
+            )}
           </span>
         </div>
         <span style={{
@@ -221,6 +237,23 @@ export const SceneInformationDeck: React.FC<SceneInformationDeckProps> = React.m
           {String(sceneIndex + 1).padStart(2, '0')} / {String(totalScenes).padStart(2, '0')}
         </span>
       </div>
+
+      {visualBeats.length > 1 && (
+        <div style={{ position: 'relative', display: 'flex', gap: 7 }}>
+          {visualBeats.map((beat, index) => {
+            const active = beat === activeBeat;
+            return (
+              <span key={`${beat.at}-${index}`} style={{
+                height: 4,
+                flex: 1,
+                borderRadius: 99,
+                background: active ? '#38bdf8' : beat.at < sceneProgress ? 'rgba(56,189,248,0.38)' : 'rgba(148,163,184,0.18)',
+                boxShadow: active ? '0 0 12px rgba(56,189,248,0.75)' : 'none',
+              }} />
+            );
+          })}
+        </div>
+      )}
 
       <div style={{
         position: 'relative',

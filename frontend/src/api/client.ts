@@ -335,7 +335,8 @@ export const api = {
   captureGitHubRepository: async (repositoryUrl: string): Promise<{
     github_capture_frames: string[];
     image_url: string;
-    cursor_actions: Array<{ at: number; x: number; y: number; type: 'move' | 'click' | 'scroll' | 'highlight'; frame_index?: number }>;
+    cursor_actions: Array<{ at: number; x: number; y: number; type: 'move' | 'click' | 'scroll' | 'highlight'; frame_index?: number; label?: string }>;
+    github_capture_viewport: { width: number; height: number; deviceScaleFactor?: number };
     capture_status: 'captured';
   }> => {
     const res = await fetch(`${API_BASE}/studio/github/capture`, {

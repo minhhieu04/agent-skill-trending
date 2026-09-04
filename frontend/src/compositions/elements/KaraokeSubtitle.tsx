@@ -34,6 +34,14 @@ export const KaraokeSubtitle: React.FC<KaraokeSubtitleProps> = ({
   const visibleSubtitles = subtitles.slice(windowStart, windowStart + maxWordsWindow);
   const fallbackWords = (fallbackText || '').split(/\s+/).filter(Boolean).slice(0, maxWordsWindow);
   const activeSubtitle = subtitles[activeIndex];
+  const activeWordProgress = activeSubtitle
+    ? interpolate(
+      currentMs,
+      [activeSubtitle.start_ms, Math.max(activeSubtitle.start_ms + 1, activeSubtitle.end_ms)],
+      [0, 1],
+      { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' },
+    )
+    : 0;
   const activeWordFrame = activeSubtitle ? Math.round((activeSubtitle.start_ms / 1000) * fps) : 0;
   const wordSpring = spring({
     frame: Math.max(0, frame - activeWordFrame),
@@ -85,6 +93,7 @@ export const KaraokeSubtitle: React.FC<KaraokeSubtitleProps> = ({
               key={`${absoluteIndex}-${word}`}
               style={{
                 display: 'inline-block',
+                position: 'relative',
                 marginRight: '6px',
                 marginBottom: '2px',
                 padding: isActive && !isPhraseCaption ? '1px 5px 2px' : 0,
@@ -103,6 +112,27 @@ export const KaraokeSubtitle: React.FC<KaraokeSubtitleProps> = ({
               }}
             >
               {word}
+              {isActive && !isPhraseCaption && (
+                <span style={{
+                  position: 'absolute',
+                  left: 4,
+                  right: 4,
+                  bottom: -3,
+                  height: 3,
+                  borderRadius: 99,
+                  background: 'rgba(255,255,255,0.2)',
+                  overflow: 'hidden',
+                }}>
+                  <span style={{
+                    display: 'block',
+                    width: `${activeWordProgress * 100}%`,
+                    height: '100%',
+                    borderRadius: 99,
+                    background: 'linear-gradient(90deg, #facc15, #fff7a8)',
+                    boxShadow: '0 0 9px rgba(250,204,21,0.9)',
+                  }} />
+                </span>
+              )}
             </span>
           );
         })}
