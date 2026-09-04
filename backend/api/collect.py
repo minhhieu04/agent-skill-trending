@@ -12,7 +12,7 @@ from models.user_preference import UserPreference
 from models.collection_run import CollectionRun
 from models.audit_log import AuditLog
 from models.user import User
-from middleware.auth import get_optional_current_user
+from middleware.auth import get_optional_current_user, get_current_user
 from collectors import (
     GitHubCollector,
     RedditCollector,
@@ -45,7 +45,7 @@ async def run_full_collection_pipeline(triggered_by: str = "scheduler", user_id:
     Saves results to DB safely with per-item isolation, calculates scores, and records CollectionRun & AuditLog.
     """
     db = SessionLocal()
-    
+
     run_entry = CollectionRun(
         triggered_by=triggered_by,
         started_at=datetime.utcnow(),
@@ -68,7 +68,7 @@ async def run_full_collection_pipeline(triggered_by: str = "scheduler", user_id:
             RedditCollector(),
             HackerNewsCollector(),
         ]
-        
+
         pref = db.query(UserPreference).first()
 
         # Update all data sources to 'running'
@@ -144,7 +144,7 @@ async def run_full_collection_pipeline(triggered_by: str = "scheduler", user_id:
 
                         quality_score = Scorer.calculate_quality_score(item)
                         trending_score = Scorer.calculate_trending_score(item, quality_score)
-                        
+
                         relevance_dict = {
                             "category": category,
                             "primary_language": item.get("primary_language"),
@@ -162,15 +162,15 @@ async def run_full_collection_pipeline(triggered_by: str = "scheduler", user_id:
                                 existing.forks = item.get("forks", 0)
                             if item.get("open_issues", 0) > 0:
                                 existing.open_issues = item.get("open_issues", 0)
-                            
+
                             existing.reddit_mentions += item.get("reddit_mentions", 0)
                             existing.hackernews_mentions += item.get("hackernews_mentions", 0)
                             existing.reddit_score += item.get("reddit_score", 0)
                             existing.hackernews_score += item.get("hackernews_score", 0)
-                            
+
                             existing.tags = list(set((existing.tags or []) + (item.get("tags") or [])))
                             existing.runtimes = list(set((existing.runtimes or []) + (item.get("runtimes") or [])))
-                            
+
                             existing.quality_score = max(existing.quality_score, quality_score)
                             existing.trending_score = max(existing.trending_score, trending_score)
                             existing.relevance_score = relevance_score
@@ -223,7 +223,7 @@ async def run_full_collection_pipeline(triggered_by: str = "scheduler", user_id:
                 if source_rec:
                     source_rec.last_status = "failed"
                 sources_summary[col_name] = {"status": "failed", "error": err}
-            
+
             try:
                 db.commit()
             except Exception:
@@ -268,11 +268,11 @@ async def run_full_collection_pipeline(triggered_by: str = "scheduler", user_id:
 @router.post("/trigger")
 async def trigger_collection(
     background_tasks: BackgroundTasks,
-    current_user: Optional[User] = Depends(get_optional_current_user),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    triggered_by = current_user.username if current_user else "manual"
-    user_id = current_user.id if current_user else None
+    triggered_by = current_user.username
+    user_id = current_user.id
 
     audit = AuditLog(
         user_id=user_id,

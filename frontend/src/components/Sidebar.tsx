@@ -118,7 +118,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   </span>
                 </div>
                 <p className="text-[10px] text-slate-400 dark:text-slate-500 truncate whitespace-nowrap">
-                  Antigravity & Codex Radar
+                  Trending Skills & Tools
                 </p>
               </div>
             )}

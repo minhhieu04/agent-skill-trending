@@ -45,12 +45,15 @@ def get_current_user(
     )
     if not authorization:
         raise credentials_exception
-        
-    token = authorization.replace("Bearer ", "").strip()
+
+    parts = authorization.split(" ", 1)
+    if len(parts) != 2 or parts[0].lower() != "bearer":
+        raise credentials_exception
+    token = parts[1].strip()
     payload = decode_access_token(token)
     if not payload or "sub" not in payload:
         raise credentials_exception
-        
+
     username = payload["sub"]
     user = db.query(User).filter(User.username == username).first()
     if not user:
@@ -64,7 +67,10 @@ def get_optional_current_user(
     if not authorization:
         return None
     try:
-        token = authorization.replace("Bearer ", "").strip()
+        parts = authorization.split(" ", 1)
+        if len(parts) != 2 or parts[0].lower() != "bearer":
+            return None
+        token = parts[1].strip()
         payload = decode_access_token(token)
         if not payload or "sub" not in payload:
             return None

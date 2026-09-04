@@ -34,6 +34,7 @@ if command -v docker &> /dev/null && command -v docker compose &> /dev/null; the
     echo "🔌 Backend API:     http://localhost:8899"
     echo "📚 Swagger API Doc: http://localhost:8899/docs"
     echo "🗄️ PostgreSQL DB:   localhost:5433 (user: agent_admin)"
+    echo "🧭 Adminer DB Web:  http://localhost:8088"
     echo "======================================================================"
     echo "Useful commands:"
     echo "  - View logs:    docker compose logs -f"

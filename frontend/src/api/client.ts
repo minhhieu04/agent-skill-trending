@@ -19,7 +19,8 @@ import {
   BlogGenerateRequest,
   StoryboardRequest,
   TTSRequest,
-  SceneImageResponse
+  SceneImageResponse,
+  AIRecommendationResponse
 } from '../types';
 
 const rawBase = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace(/\/+$/, '') : '';
@@ -366,5 +367,19 @@ export const api = {
       throw new Error(error.detail || 'Failed to render MP4 video');
     }
     return res.blob();
+  },
+
+  // AI Learning Track & Goal Advisor
+  getAIRecommendedTrack: async (goal_query: string, language: string = 'vi', max_skills: number = 8): Promise<AIRecommendationResponse> => {
+    const res = await fetch(`${API_BASE}/skills/ai-recommend-track`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+      body: JSON.stringify({ goal_query, language, max_skills }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: 'Không thể phân tích lộ trình AI' }));
+      throw new Error(err.detail || 'Không thể phân tích lộ trình AI');
+    }
+    return res.json();
   }
 };

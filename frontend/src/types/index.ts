@@ -313,3 +313,32 @@ export interface SceneImageResponse {
   status: string;
   provider: string;
 }
+
+// AI Goal & Learning Track Advisor Interfaces
+export interface RoadmapStage {
+  stage_number: number;
+  title: string;
+  description: string;
+  recommended_skill_ids: number[];
+  key_takeaways: string[];
+}
+
+export interface RecommendedSkillItem {
+  skill: Skill;
+  match_score: number;
+  reason: string;
+  stage_number: number;
+}
+
+export interface AIRecommendationResponse {
+  success: boolean;
+  is_ai_powered: boolean;
+  goal_query: string;
+  summary: string;
+  difficulty_level: string;
+  estimated_time: string;
+  target_technologies: string[];
+  roadmap: RoadmapStage[];
+  recommended_skills: RecommendedSkillItem[];
+  ai_tips: string[];
+}
