@@ -19,8 +19,8 @@ class Settings(BaseSettings):
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7  # 7 days
 
-    # CORS — comma-separated origins via env, defaults to permissive for local dev
-    CORS_ORIGINS: str = os.getenv("CORS_ORIGINS", "http://localhost:5173,http://localhost:3000")
+    # CORS — comma-separated origins via env, defaults to permissive for all local & cloud environments
+    CORS_ORIGINS: str = os.getenv("CORS_ORIGINS", "*")
 
     # API Keys & Credentials
     GITHUB_TOKEN: Optional[str] = None
