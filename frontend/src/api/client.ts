@@ -317,13 +317,54 @@ export const api = {
     return res.json();
   },
 
-  generateSceneImage: async (prompt: string, sceneNumber: number = 1): Promise<SceneImageResponse> => {
+  generateSceneImage: async (
+    prompt: string,
+    sceneNumber: number = 1,
+    aspectRatio: '9:16' | '16:9' = '9:16',
+  ): Promise<SceneImageResponse> => {
     const res = await fetch(`${API_BASE}/studio/scene/image`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-      body: JSON.stringify({ prompt, scene_number: sceneNumber }),
+      body: JSON.stringify({ prompt, scene_number: sceneNumber, aspect_ratio: aspectRatio }),
     });
     if (!res.ok) throw new Error('Failed to generate scene visual');
     return res.json();
+  },
+
+  captureGitHubRepository: async (repositoryUrl: string): Promise<{
+    github_capture_frames: string[];
+    image_url: string;
+    cursor_actions: Array<{ at: number; x: number; y: number; type: 'move' | 'click' | 'scroll' | 'highlight'; frame_index?: number }>;
+    capture_status: 'captured';
+  }> => {
+    const res = await fetch(`${API_BASE}/studio/github/capture`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+      body: JSON.stringify({ repository_url: repositoryUrl }),
+    });
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({ detail: 'GitHub capture failed' }));
+      throw new Error(error.detail || 'GitHub capture failed');
+    }
+    return res.json();
+  },
+
+  renderSkillVideo: async (data: {
+    storyboard: VideoStoryboard;
+    tts_result: TTSResult;
+    skill_title: string;
+    skill_stats: { stars?: number; forks?: number; language?: string };
+    show_captions: boolean;
+  }): Promise<Blob> => {
+    const res = await fetch(`${API_BASE}/studio/video/render`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({ detail: 'Failed to render MP4 video' }));
+      throw new Error(error.detail || 'Failed to render MP4 video');
+    }
+    return res.blob();
   }
 };

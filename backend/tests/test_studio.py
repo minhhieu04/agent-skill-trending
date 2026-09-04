@@ -1,8 +1,15 @@
+import base64
+import io
+import wave
+
 import pytest
 from fastapi.testclient import TestClient
 from main import app
 from database import Base, engine, SessionLocal
 from models.skill import Skill
+from api.studio import VideoSceneItem
+from services.blog_video_service import BlogVideoService
+from services.tts_service import TTSService
 
 @pytest.fixture(scope="module", autouse=True)
 def setup_db():
@@ -11,9 +18,9 @@ def setup_db():
     skill = db.query(Skill).first()
     if not skill:
         skill = Skill(
-            name="google-deepmind/antigravity-agent-skills",
-            title="Google Antigravity Customizations",
-            repository_url="https://github.com/google-deepmind/antigravity-agent-skills",
+            name="google/skills",
+            title="Google Agent Skills & Antigravity Plugins",
+            repository_url="https://github.com/google/skills",
             category="skill-file",
             tags=["antigravity", "gemini"],
             runtimes=["Google Antigravity", "Cursor"],
@@ -105,9 +112,108 @@ def test_generate_storyboard_scenes():
         assert "duration_seconds" in scene
         assert scene["duration_seconds"] > 0
 
+
+def test_storyboard_schema_preserves_rich_visual_fields():
+    scene = VideoSceneItem(
+        scene_number=2,
+        scene_type="github",
+        title="Repository walkthrough",
+        voiceover_text="Open the real repository and inspect its README.",
+        visual_description="GitHub browser walkthrough with cursor actions.",
+        duration_seconds=8,
+        repository_url="https://github.com/example/verified-skill",
+        repository_owner="example",
+        repository_name="verified-skill",
+        stars_count=321,
+        cursor_actions=[{"at": 0.4, "x": 0.5, "y": 0.3, "type": "click"}],
+    ).model_dump()
+    assert scene["scene_type"] == "github"
+    assert scene["repository_url"].endswith("verified-skill")
+    assert scene["stars_count"] == 321
+    assert scene["cursor_actions"][0]["type"] == "click"
+
+
+def test_curated_storyboard_uses_verified_skill_data():
+    storyboard = BlogVideoService._generate_curated_storyboard(
+        "Verified Skill",
+        target_duration=60,
+        aspect_ratio="9:16",
+        language="vi",
+        skill_data={
+            "name": "example/verified-skill",
+            "repository_url": "https://github.com/example/verified-skill",
+            "description": "A repository-backed workflow skill.",
+            "readme_preview": "# Verified Skill\n\n```bash\ngit clone https://github.com/example/verified-skill\n```",
+            "primary_language": "Python",
+            "stars": 321,
+            "forks": 12,
+            "open_issues": 4,
+            "trending_score": 87.5,
+            "use_cases": ["Repository review", "Safe setup"],
+            "runtimes": ["Codex"],
+        },
+    )
+    github_scene = next(scene for scene in storyboard["scenes"] if scene["scene_type"] == "github")
+    stat_scene = next(scene for scene in storyboard["scenes"] if scene["scene_type"] == "stat")
+    terminal_scene = next(scene for scene in storyboard["scenes"] if scene["scene_type"] == "terminal")
+    assert storyboard["total_duration"] == 60
+    assert github_scene["repository_name"] == "verified-skill"
+    assert stat_scene["stars_count"] == 321
+    assert "45,000" not in stat_scene["voiceover_text"]
+    assert terminal_scene["terminal_command"] == "git clone https://github.com/example/verified-skill"
+
+
+def test_long_storyboard_adds_distinct_deep_dive_scenes():
+    storyboard = BlogVideoService._generate_curated_storyboard(
+        "Long Skill Review",
+        target_duration=180,
+        aspect_ratio="9:16",
+        language="vi",
+        skill_data={
+            "repository_url": "https://github.com/google/skills",
+            "description": "Agent skills for Google products and technologies.",
+            "primary_language": "Python",
+            "use_cases": ["Cloud onboarding", "Repository review", "Agent setup"],
+            "runtimes": ["Codex", "Antigravity"],
+            "security_rating": "review_required",
+        },
+    )
+    titles = [scene["title"] for scene in storyboard["scenes"]]
+    assert storyboard["total_duration"] == 180
+    assert len(storyboard["scenes"]) == 16
+    assert len(titles) == len(set(titles))
+    assert any(scene["scene_type"] == "security" for scene in storyboard["scenes"])
+
+
+def test_tts_timing_uses_encoded_audio_duration_and_scene_segments():
+    wav_buffer = io.BytesIO()
+    with wave.open(wav_buffer, "wb") as wav_file:
+        wav_file.setnchannels(1)
+        wav_file.setsampwidth(2)
+        wav_file.setframerate(8000)
+        wav_file.writeframes(b"\x00\x00" * 16000)
+
+    result = TTSService._finalize_timing(
+        {
+            "audio_base64": base64.b64encode(wav_buffer.getvalue()).decode("ascii"),
+            "duration_seconds": 1.0,
+            "subtitle_entries": [
+                {"text": "xin", "start_ms": 0, "end_ms": 350},
+                {"text": "chào", "start_ms": 350, "end_ms": 800},
+                {"text": "github", "start_ms": 900, "end_ms": 1500},
+            ],
+            "timing_quality": "word",
+        },
+        ["xin chào", "github"],
+    )
+    assert result["duration_seconds"] == pytest.approx(2.0, abs=0.02)
+    assert result["scene_segments"][0]["end_ms"] == 900
+    assert result["scene_segments"][1]["end_ms"] == pytest.approx(2000, abs=20)
+
 def test_synthesize_tts_success():
     payload = {
-        "text": "Kiểm thử hệ thống giọng đọc AI Hoài My.",
+        "text": "Kiểm thử hệ thống. Giọng đọc AI Hoài My.",
+        "scene_texts": ["Kiểm thử hệ thống.", "Giọng đọc AI Hoài My."],
         "voice": "vi-VN-HoaiMyNeural",
         "rate": "+0%"
     }
@@ -119,6 +225,8 @@ def test_synthesize_tts_success():
     assert "subtitle_entries" in data
     assert data["duration_seconds"] > 0
     assert isinstance(data["subtitle_entries"], list)
+    assert len(data["scene_segments"]) == 2
+    assert data["scene_segments"][-1]["end_ms"] == pytest.approx(data["duration_seconds"] * 1000, abs=2)
 
 def test_synthesize_tts_empty_validation():
     payload = {
@@ -164,5 +272,3 @@ def test_synthesize_gemini_2_native_audio():
     data = res.json()
     assert "audio_base64" in data
     assert "subtitle_entries" in data
-
-
