@@ -239,6 +239,7 @@ chmod +x deploy.sh
 - 📚 **Swagger Docs**: [http://localhost:8899/docs](http://localhost:8899/docs)
 - 🪐 **Matrix View**: [http://localhost:8899/health/matrix](http://localhost:8899/health/matrix)
 - 🗄️ **PostgreSQL**: `localhost:5433` (user: `agent_admin`, db: `agent_skills`)
+- 🧭 **Adminer DB Web**: [http://localhost:8088](http://localhost:8088)
 
 ---
 
