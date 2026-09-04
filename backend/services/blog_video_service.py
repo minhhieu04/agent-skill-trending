@@ -9,6 +9,56 @@ from config import settings
 
 logger = logging.getLogger("BlogVideoService")
 
+
+def _first_code_block(markdown: str) -> str:
+    """Returns a short, source-backed code sample from a README preview."""
+    if not markdown:
+        return ""
+    match = re.search(r"```[^\n]*\n([\s\S]*?)```", markdown)
+    if not match:
+        return ""
+    lines = [line.rstrip() for line in match.group(1).strip().splitlines()]
+    return "\n".join(lines[:8])
+
+
+def _compact_text(value: Any, limit: int = 220) -> str:
+    text = re.sub(r"\s+", " ", str(value or "")).strip()
+    if len(text) <= limit:
+        return text
+    return text[: limit - 1].rstrip() + "…"
+
+
+def _repository_parts(repository_url: str, fallback_name: str) -> tuple[str, str]:
+    clean_url = (repository_url or "").rstrip("/")
+    slug = clean_url.rsplit("/", 2)[-2:] if clean_url else []
+    if len(slug) == 2:
+        return slug[0], slug[1].removesuffix(".git")
+    fallback = (fallback_name or "skill").split("/")
+    return (fallback[-2], fallback[-1]) if len(fallback) > 1 else ("community", fallback[-1])
+
+
+def _fit_scene_durations(scenes: List[Dict[str, Any]], target_duration: int) -> None:
+    """Scales curated scene weights to the requested duration without timing drift."""
+    if not scenes:
+        return
+    target = max(len(scenes) * 3, int(target_duration))
+    weights = [max(1, int(scene.get("duration_seconds", 5))) for scene in scenes]
+    weight_total = sum(weights)
+    durations = [max(3, round(target * weight / weight_total)) for weight in weights]
+    durations[-1] += target - sum(durations)
+    if durations[-1] < 3:
+        deficit = 3 - durations[-1]
+        durations[-1] = 3
+        for index in range(len(durations) - 2, -1, -1):
+            reducible = max(0, durations[index] - 3)
+            delta = min(reducible, deficit)
+            durations[index] -= delta
+            deficit -= delta
+            if deficit == 0:
+                break
+    for scene, duration in zip(scenes, durations):
+        scene["duration_seconds"] = duration
+
 def _parse_gemini_error(e: Exception) -> Dict[str, Any]:
     """Classifies Gemini API exceptions into quota, auth, or generic errors."""
     err_str = str(e)
@@ -356,6 +406,7 @@ Integrating **{title}** into your daily workflow transforms AI assistants from s
 
     @staticmethod
     async def generate_storyboard(
+
         content: str,
         skill_data: Optional[Dict[str, Any]] = None,
         target_duration: int = 60,
@@ -368,6 +419,31 @@ Integrating **{title}** into your daily workflow transforms AI assistants from s
         """
         skill_name = skill_data.get("name", "AI Agent Skill") if skill_data else "AI Agent Skill"
         skill_title = skill_data.get("title", skill_name) if skill_data else skill_name
+        skill_desc = skill_data.get("description", "") if skill_data else ""
+        skill_lang = skill_data.get("primary_language", "TypeScript / Python") if skill_data else "TypeScript"
+
+        # Determine target scene count based on duration
+
+        if target_duration <= 35:
+            target_scene_count = 6
+        elif target_duration <= 75:
+            target_scene_count = 8
+        elif target_duration <= 130:
+            target_scene_count = 12
+        else:
+            target_scene_count = 16
+
+        # Auto-enrich context if user provided minimal text
+        rich_content = content.strip()
+        if len(rich_content) < 100 and skill_data:
+            rich_content = f"""
+            Chủ đề công nghệ: {skill_title}
+            Tên thư viện/công cụ: {skill_name}
+            Mô tả: {skill_desc}
+            Ngôn ngữ lập trình: {skill_lang}
+            Runtimes đã ghi nhận: {', '.join(skill_data.get('runtimes', []) or []) or 'Chưa cập nhật'}
+            Chỉ sử dụng các facts có trong phần mô tả; không suy diễn benchmark hoặc khả năng chưa được cung cấp.
+            """
         
         # Try Gemini API for high context storyboard
         if settings.GEMINI_API_KEY:
@@ -375,40 +451,73 @@ Integrating **{title}** into your daily workflow transforms AI assistants from s
                 from google import genai
                 client = genai.Client(api_key=settings.GEMINI_API_KEY)
                 
-                lang_note = "Toàn bộ voiceover_text phải là Tiếng Việt tự nhiên, cuốn hút như video TikTok review công nghệ triệu view." if language == "vi" else "All voiceover_text must be crisp, engaging English for tech shorts."
-                
+                lang_note = (
+                    "Toàn bộ voiceover_text phải là Tiếng Việt tự nhiên, rõ ràng, dồn dập, nhiều thông tin và con số thực tế như video review triệu view. "
+                    "Không dùng từ rỗng như 'Chào mừng', 'Hãy cùng tìm hiểu' — thay bằng facts cụ thể, số liệu và câu lệnh thực tế."
+                ) if language == "vi" else (
+                    "All voiceover_text must be punchy, high-energy, information-dense English for viral tech shorts. "
+                    "Skip filler phrases — use concrete facts, numbers and real code commands."
+                )
+
                 prompt = f"""
-                Bạn là một Video Producer chuyên sản xuất video ngắn triệu view trên TikTok, YouTube Shorts và Tech Vlog.
-                Nhiệm vụ: Chuyển nội dung dưới đây thành Kịch bản phân cảnh Video Storyboard ({target_duration} giây, tỉ lệ {aspect_ratio}).
-                
-                Nội dung bài viết:
-                {content[:2000]}
-                
-                Yêu cầu:
-                {lang_note}
-                Trả về DUY NHẤT một chuỗi JSON hợp lệ theo format:
-                {{
-                  "total_duration": {target_duration},
-                  "aspect_ratio": "{aspect_ratio}",
-                  "scenes": [
-                    {{
-                      "scene_number": 1,
-                      "title": "Hook Mở Đầu",
-                      "voiceover_text": "Đoạn lời thoại thu hút sự chú ý trong 5-8 giây đầu...",
-                      "visual_description": "Hiệu ứng Matrix Cyberpunk phát sáng kèm logo skill",
-                      "duration_seconds": 8,
-                      "code_snippet": "const future = await AI.empower();"
-                    }}
-                  ]
-                }}
-                Phân bổ khoảng 4-5 phân cảnh (Hook, Problem, Solution/Code, Security/Advantage, Call-to-action).
-                """
-                
+You are a senior motion video director producing a viral, high-energy developer video (TikTok, YouTube Shorts, Reels) about modern AI Agent tech.
+Target Duration: {target_duration} seconds ({aspect_ratio} aspect ratio).
+Required Scene Count: EXACTLY {target_scene_count} scenes.
+
+Source Context:
+{rich_content[:3500]}
+
+STRICT DIRECTIVES:
+{lang_note}
+You MUST use these scene types across the {target_scene_count} scenes in logical narrative order:
+1. "intro" - Hook title, trending rank, explosive first 6-8 seconds.
+2. "comparison" - Pain point / The Old Broken Way vs The New AI Agent Way.
+3. "stat" - Real numbers (stars_count, forks_count, contributors, +400% growth).
+4. "architecture" - Multi-agent orchestrator / MCP protocol flow.
+5. "code" - Working code snippet (5-8 lines) in {skill_lang}.
+6. "terminal" - CLI installation command (terminal_command) and logs (terminal_output).
+7. "features" - 4 core capabilities matrix (feature_items: array of 4 objects with icon, title, desc).
+8. "outro" - Strong call to action, GitHub star, 1-click export.
+
+Return ONLY a single valid JSON string with no markdown formatting:
+{{
+  "total_duration": {target_duration},
+  "aspect_ratio": "{aspect_ratio}",
+  "scenes": [
+    {{
+      "scene_number": 1,
+      "scene_type": "intro",
+      "title": "Hook Mở Đầu",
+      "voiceover_text": "30-50 từ tiếng Việt dồn dập, nêu bật sự bùng nổ của {skill_title}...",
+      "visual_description": "Logo 3D Hologram phát sáng cyberpunk với badge TOP #1 Trending",
+      "visual_prompt": "Hyperrealistic 3D glowing hologram of AI Agent {skill_title}, cyberpunk neon lighting, volumetric mist, 8k render",
+      "duration_seconds": {max(6, target_duration // target_scene_count)},
+      "code_snippet": null
+    }}
+  ]
+}}
+
+RULES:
+- Total scenes in "scenes" array MUST be EXACTLY {target_scene_count}.
+- scene_type MUST be one of: "intro", "comparison", "stat", "architecture", "code", "terminal", "features", "outro".
+- Each voiceover_text: 25-50 words packed with specific developer knowledge.
+- Never invent stars, forks, growth percentages, benchmarks, install commands, security claims or supported runtimes.
+- If the source context does not contain a fact, omit it instead of guessing.
+- Add "source_ref" to every scene using "source context" or "editor context".
+- Include real fields for each scene type:
+  * For "stat": include "stars_count", "forks_count", "contributors" numbers.
+  * For "code": include "code_snippet" with 5-7 lines of realistic code.
+  * For "terminal": include "terminal_command" and "terminal_output" array of 4 log lines.
+  * For "features": include "feature_items" array of 4 objects with icon, title, and desc.
+- visual_prompt must be detailed (25+ words) for AI image generation.
+"""
+
+
                 response = client.models.generate_content(
                     model='gemini-2.5-flash',
                     contents=prompt
                 )
-                
+
                 if response and response.text:
                     cleaned_json = response.text.strip()
                     cleaned_json = re.sub(r"^```json\s*", "", cleaned_json)
@@ -419,7 +528,6 @@ Integrating **{title}** into your daily workflow transforms AI assistants from s
                     try:
                         parsed = json.loads(cleaned_json)
                     except json.JSONDecodeError as json_err:
-                        # Detect if JSON is truncated due to token exhaustion
                         _log_gemini_audit("gemini_token_truncated_json_fallback", {
                             "type": "storyboard",
                             "topic": skill_title,
@@ -441,12 +549,51 @@ Integrating **{title}** into your daily workflow transforms AI assistants from s
                         "https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=1200&auto=format&fit=crop&q=80",
                         "https://images.unsplash.com/photo-1509228468518-180dd4864904?w=1200&auto=format&fit=crop&q=80",
                         "https://images.unsplash.com/photo-1518770660439-4636190af475?w=1200&auto=format&fit=crop&q=80",
+                        "https://images.unsplash.com/photo-1550751827-4bd374c3f58b?w=1200&auto=format&fit=crop&q=80",
+                        "https://images.unsplash.com/photo-1542838132-92c53300491e?w=1200&auto=format&fit=crop&q=80",
+                        "https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=1200&auto=format&fit=crop&q=80",
                     ]
                     for _i, _scene in enumerate(parsed.get("scenes", [])):
                         if not _scene.get("image_url"):
                             _scene["image_url"] = _fallback_images[_i % len(_fallback_images)]
                         if not _scene.get("visual_prompt"):
                             _scene["visual_prompt"] = _scene.get("visual_description", "")
+
+                    # Replace claim-heavy scenes with locally assembled, verified repository data.
+                    if skill_data and parsed.get("scenes"):
+                        verified_storyboard = BlogVideoService._generate_curated_storyboard(
+                            skill_title,
+                            target_duration,
+                            aspect_ratio,
+                            language,
+                            skill_data=skill_data,
+                        )
+                        verified_by_type = {
+                            scene.get("scene_type"): scene
+                            for scene in verified_storyboard["scenes"]
+                        }
+                        generated_scenes = parsed["scenes"]
+                        for index, scene in enumerate(generated_scenes):
+                            scene_type = scene.get("scene_type")
+                            if scene_type in {"stat", "terminal"} and scene_type in verified_by_type:
+                                verified_scene = verified_by_type[scene_type]
+                                generated_scenes[index] = {
+                                    **scene,
+                                    **verified_scene,
+                                    "image_url": scene.get("image_url") or verified_scene.get("image_url"),
+                                    "visual_prompt": scene.get("visual_prompt") or verified_scene.get("visual_prompt"),
+                                }
+                        if "github" in verified_by_type and not any(
+                            scene.get("scene_type") == "github" for scene in generated_scenes
+                        ):
+                            replace_index = 1 if len(generated_scenes) > 2 else 0
+                            generated_scenes[replace_index] = verified_by_type["github"]
+                        for index, scene in enumerate(generated_scenes):
+                            scene["scene_number"] = index + 1
+                        _fit_scene_durations(generated_scenes, target_duration)
+                        parsed["total_duration"] = sum(
+                            scene["duration_seconds"] for scene in generated_scenes
+                        )
                     
                     parsed["provider"] = "google_gemini_2.5_flash"
                     parsed["fallback_used"] = False
@@ -465,8 +612,14 @@ Integrating **{title}** into your daily workflow transforms AI assistants from s
                 })
                 logger.warning(f"[GEMINI] Storyboard fallback triggered: {err_info['reason']}")
 
-        # Curated Default Storyboard
-        fallback_sb = BlogVideoService._generate_curated_storyboard(skill_title, target_duration, aspect_ratio, language)
+        # Curated Default Storyboard (8 high-impact scenes)
+        fallback_sb = BlogVideoService._generate_curated_storyboard(
+            skill_title,
+            target_duration,
+            aspect_ratio,
+            language,
+            skill_data=skill_data,
+        )
         fallback_sb["provider"] = "curated_offline_engine"
         fallback_sb["fallback_used"] = True
         fallback_sb["finish_reason"] = "COMPLETE_OFFLINE"
@@ -475,114 +628,329 @@ Integrating **{title}** into your daily workflow transforms AI assistants from s
         return fallback_sb
 
     @staticmethod
-    def _generate_curated_storyboard(title: str, target_duration: int, aspect_ratio: str, language: str) -> Dict[str, Any]:
-        """Generates dynamic scenes with high-res AI visuals tailored for 9:16 or 16:9 videos."""
+    def _generate_curated_storyboard(
+        title: str,
+        target_duration: int,
+        aspect_ratio: str,
+        language: str,
+        skill_data: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        """Creates a local, source-backed storyboard without invented repository claims."""
+        data = skill_data or {}
+        repository_url = str(data.get("repository_url") or "")
+        owner, repository_name = _repository_parts(repository_url, str(data.get("name") or title))
+        description = _compact_text(data.get("description") or data.get("ai_summary") or title, 260)
+        readme_excerpt = _compact_text(data.get("readme_preview"), 260)
+        primary_language = str(data.get("primary_language") or "Unknown")
+        runtimes = [str(value) for value in (data.get("runtimes") or []) if value]
+        use_cases = [str(value) for value in (data.get("use_cases") or []) if value]
+        tags = [str(value) for value in (data.get("tags") or []) if value]
+        stars = int(data.get("stars") or 0)
+        forks = int(data.get("forks") or 0)
+        open_issues = int(data.get("open_issues") or 0)
+        trending_score = float(data.get("trending_score") or 0)
+        source_ref = repository_url or "skill database"
+        code_sample = _first_code_block(str(data.get("readme_preview") or ""))
+        clone_command = f"git clone {repository_url}" if repository_url else f"# Open {title} from Agent Skill Trending"
+
+        metric_parts = []
+        if stars:
+            metric_parts.append(f"{stars:,} stars")
+        if forks:
+            metric_parts.append(f"{forks:,} forks")
+        if open_issues:
+            metric_parts.append(f"{open_issues:,} open issues")
+        metrics_text = ", ".join(metric_parts)
+
+        feature_sources = use_cases or runtimes or tags or [description]
+        feature_items = []
+        feature_icons = ["🧩", "⚡", "🔌", "🛠️"]
+        for index, item in enumerate(feature_sources[:4]):
+            feature_items.append({
+                "icon": feature_icons[index],
+                "title": _compact_text(item, 34),
+                "desc": _compact_text(description, 72),
+            })
+        while len(feature_items) < 4:
+            label = runtimes[len(feature_items) % len(runtimes)] if runtimes else primary_language
+            feature_items.append({
+                "icon": feature_icons[len(feature_items)],
+                "title": _compact_text(label, 34),
+                "desc": "Thông tin được tổng hợp từ hồ sơ skill" if language == "vi" else "Sourced from the skill profile",
+            })
+
         if language == "vi":
+            intro_metrics = f" Repository hiện ghi nhận {metrics_text}." if metrics_text else ""
+            stat_voice = (
+                f"Dữ liệu hiện tại của repository ghi nhận {metrics_text}. "
+                f"Trending score trên hệ thống là {trending_score:.1f} điểm."
+                if metrics_text
+                else f"Skill này dùng {primary_language}; dữ liệu cộng đồng chưa đủ để đưa ra claim tăng trưởng, nên video chỉ trình bày thông tin đã xác minh."
+            )
             scenes = [
                 {
-                    "scene_number": 1,
-                    "title": "⚡ The Hook (Gây Chú Ý)",
-                    "voiceover_text": f"Dừng lại 30 giây! Nếu bạn vẫn dùng AI để gõ code thủ công thì bạn đang bỏ lỡ siêu công cụ {title} cực hot này.",
-                    "visual_description": "Logo phát sáng neon, hiệu ứng 3D Hologram AI và badge trending triệu view.",
-                    "visual_prompt": f"Hyperrealistic 3D glowing hologram of AI Agent {title}, cyberpunk neon lighting, volumetric mist, 8k render",
+                    "scene_type": "intro",
+                    "title": f"⚡ {title}",
+                    "voiceover_text": f"{title} là một skill mới dành cho developer. {description}.{intro_metrics}",
+                    "visual_description": "Hook chuyển động nhanh với tên skill, ngôn ngữ và dữ liệu repository đã xác minh.",
+                    "visual_prompt": f"Vertical developer technology launch poster for {title}, premium dark interface, layered depth, cinematic light, safe center composition, no fake metrics",
                     "image_url": "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=1200&auto=format&fit=crop&q=80",
-                    "duration_seconds": 10,
-                    "code_snippet": "// 🚀 2026 AI Agent Revolution\nimport { Antigravity } from '@deepmind/agent';"
+                    "duration_seconds": 7,
+                    "source_ref": source_ref,
+                    "asset_type": "motion_graphics",
                 },
                 {
-                    "scene_number": 2,
-                    "title": "🔍 Vấn Đề Lớn Của Lập Trình Viên",
-                    "voiceover_text": "Mỗi khi mở chat mới, bạn mệt mỏi vì phải gõ lại hướng dẫn kiến trúc, còn AI thì liên tục sinh code ảo và import thư viện cũ?",
-                    "visual_description": "Giao diện browser cảnh báo màu đỏ với mã lỗi hallucination và đồng hồ đếm ngược lãng phí thời gian.",
-                    "visual_prompt": "Futuristic matrix computer terminal glitching with red warning error codes, cinematic dark mood, octanerender",
+                    "scene_type": "github",
+                    "title": "🔎 Khám Phá Repository Thật",
+                    "voiceover_text": f"Đây là repository {owner}/{repository_name}. Mình mở README, xem cấu trúc dự án và tập trung vào phần mô tả: {readme_excerpt or description}.",
+                    "visual_description": "GitHub walkthrough với con trỏ di chuyển, click README, cuộn nội dung và highlight metrics thật.",
+                    "duration_seconds": 9,
+                    "source_ref": source_ref,
+                    "asset_type": "github_walkthrough",
+                    "repository_url": repository_url,
+                    "repository_owner": owner,
+                    "repository_name": repository_name,
+                    "readme_excerpt": readme_excerpt or description,
+                    "stars_count": stars,
+                    "forks_count": forks,
+                    "open_issues": open_issues,
+                    "cursor_actions": [
+                        {"at": 0.08, "x": 0.18, "y": 0.22, "type": "move"},
+                        {"at": 0.28, "x": 0.30, "y": 0.42, "type": "click"},
+                        {"at": 0.55, "x": 0.72, "y": 0.67, "type": "scroll"},
+                        {"at": 0.78, "x": 0.57, "y": 0.33, "type": "highlight"},
+                    ],
+                },
+                {
+                    "scene_type": "comparison",
+                    "title": "⚖️ Skill Này Giải Quyết Gì?",
+                    "voiceover_text": f"Thay vì mô tả chung chung, hãy nhìn vào mục tiêu thực tế: {description}. Phần so sánh này chỉ dùng use case và giới hạn được lưu trong hồ sơ skill.",
+                    "visual_description": "So sánh quy trình trước và sau bằng các bước cụ thể, không dùng benchmark bịa đặt.",
+                    "visual_prompt": "Clean before and after developer workflow board, realistic steps, premium dark UI, no invented numbers, vertical safe layout",
                     "image_url": "https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=1200&auto=format&fit=crop&q=80",
-                    "duration_seconds": 12,
-                    "code_snippet": "// ❌ Vấn đề: Mất ngữ cảnh và hallucination\nconst badCode = AI.generateWithoutContext();"
+                    "duration_seconds": 7,
+                    "source_ref": "skill database",
+                    "before_text": _compact_text(data.get("comparison_notes") or "Quy trình thủ công, thiếu hướng dẫn theo skill", 90),
+                    "after_text": _compact_text(use_cases[0] if use_cases else description, 90),
                 },
                 {
-                    "scene_number": 3,
-                    "title": "🧠 Giải Pháp Đột Phá & Code Demo",
-                    "voiceover_text": f"Đừng lo, {title} tự động nạp cấu hình thông minh 1 chạm, kiểm tra bảo mật sandbox và tăng tốc độ xử lý gấp mười lần.",
-                    "visual_description": "Màn hình code IDE tự động refactor mượt mà, điểm benchmark nhảy vọt và huy hiệu Security Shield sáng xanh.",
-                    "visual_prompt": "Clean aesthetic ultra-wide developer workstation setup, triple monitor showing VS Code with glowing syntax highlighting, neon ambient light",
-                    "image_url": "https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=1200&auto=format&fit=crop&q=80",
-                    "duration_seconds": 18,
-                    "code_snippet": "const result = await AgentSkill.execute({\n  rules: 'antigravity-spec-v3',\n  sandbox: true\n});"
-                },
-                {
-                    "scene_number": 4,
-                    "title": "🛡️ Trực Quan Hoá Điểm Số Radar",
-                    "voiceover_text": "Hệ thống đã được kiểm định bảo mật nghiêm ngặt, đạt điểm trending cao nhất trên cộng đồng lập trình toàn cầu.",
-                    "visual_description": "Biểu đồ radar 5 trục hiển thị chỉ số Star Velocity, Quality Score và AI Guardrails.",
-                    "visual_prompt": "Abstract glowing neural network mesh interconnected nodes data visualization, blue and emerald energy pulses, sci-fi HUD interface",
+                    "scene_type": "stat",
+                    "title": "📊 Dữ Liệu Đã Xác Minh",
+                    "voiceover_text": stat_voice,
+                    "visual_description": "Dashboard chỉ hiển thị stars, forks, issues và trending score có trong database.",
+                    "visual_prompt": "Verified GitHub metrics dashboard, dark premium developer UI, clear counters, vertical video safe area, no speculative growth claims",
                     "image_url": "https://images.unsplash.com/photo-1509228468518-180dd4864904?w=1200&auto=format&fit=crop&q=80",
-                    "duration_seconds": 10,
-                    "code_snippet": "// Trending Score: 98.5/100 | Zero-Vulnerability Verified"
+                    "duration_seconds": 7,
+                    "source_ref": "skill database",
+                    "stars_count": stars,
+                    "forks_count": forks,
+                    "open_issues": open_issues,
+                    "trending_score": trending_score,
                 },
                 {
-                    "scene_number": 5,
-                    "title": "🎯 Call To Action (Kêu Gọi Hành Động)",
-                    "voiceover_text": "Truy cập ngay Agent Skill Trending để xuất cấu hình một chạm cho Cursor, Claude và Antigravity nhé!",
-                    "visual_description": "Nút bấm 1-Click Export phát sáng cùng địa chỉ web và QR code tải cấu hình.",
-                    "visual_prompt": "Futuristic rocket launching into a neon cyber city sky, high energy trail, inspiring dawn light, cinematic 8k",
+                    "scene_type": "code",
+                    "title": "💻 Đọc Code / README",
+                    "voiceover_text": f"Phần demo lấy trực tiếp từ README hoặc lệnh truy cập repository. Ngôn ngữ chính được ghi nhận là {primary_language}; bạn có thể kiểm tra từng dòng trước khi sử dụng.",
+                    "visual_description": "Code editor zoom theo từng dòng với syntax highlighting và caret gõ tự nhiên.",
+                    "duration_seconds": 8,
+                    "source_ref": source_ref,
+                    "asset_type": "code_focus",
+                    "code_snippet": code_sample or clone_command,
+                },
+                {
+                    "scene_type": "terminal",
+                    "title": "⌨️ Mở Skill Từ Terminal",
+                    "voiceover_text": "Terminal chỉ trình diễn lệnh git clone của repository và các bước kiểm tra an toàn; video không tự chạy script lạ từ dự án.",
+                    "visual_description": "Terminal gõ lệnh clone thật, sau đó hiển thị các bước inspect README và file tree.",
+                    "duration_seconds": 7,
+                    "source_ref": source_ref,
+                    "asset_type": "terminal_transcript",
+                    "terminal_command": clone_command,
+                    "terminal_output": [
+                        f"→ repository: {owner}/{repository_name}",
+                        f"→ primary language: {primary_language}",
+                        "→ inspect README and file tree before running code",
+                        "✓ source metadata loaded",
+                    ],
+                },
+                {
+                    "scene_type": "features",
+                    "title": "🧩 Use Case & Runtime",
+                    "voiceover_text": f"Các điểm đáng chú ý được lấy từ hồ sơ skill: {', '.join(feature_sources[:4])}. Runtime được ghi nhận gồm {', '.join(runtimes) or 'chưa cập nhật'}.",
+                    "visual_description": "Bốn thẻ nội dung xuất hiện theo nhịp giọng, dùng use case và runtime thật.",
+                    "duration_seconds": 7,
+                    "source_ref": "skill database",
+                    "feature_items": feature_items,
+                },
+                {
+                    "scene_type": "outro",
+                    "title": "🎯 Xem Nguồn Trước Khi Cài",
+                    "voiceover_text": f"Bạn có thể mở {owner}/{repository_name}, đọc README và kiểm tra code trước khi thêm {title} vào workflow của mình.",
+                    "visual_description": "CTA mở repository và lưu skill, không dùng tuyên bố marketing chưa kiểm chứng.",
+                    "visual_prompt": "Premium GitHub repository call to action, dark developer interface, subtle motion, vertical social video, trustworthy visual style",
                     "image_url": "https://images.unsplash.com/photo-1518770660439-4636190af475?w=1200&auto=format&fit=crop&q=80",
-                    "duration_seconds": 10,
-                    "code_snippet": "// Trải nghiệm ngay tại agent-skill-trending.vercel.app"
-                }
+                    "duration_seconds": 6,
+                    "source_ref": source_ref,
+                },
             ]
         else:
+            intro_metrics = f" The repository currently records {metrics_text}." if metrics_text else ""
+            stat_voice = (
+                f"Verified repository data currently shows {metrics_text}, with a trending score of {trending_score:.1f}."
+                if metrics_text
+                else f"The recorded primary language is {primary_language}. Community metrics are not available, so this video avoids speculative growth claims."
+            )
             scenes = [
-                {
-                    "scene_number": 1,
-                    "title": "⚡ The Hook",
-                    "voiceover_text": f"Stop scrolling! If you are still using basic AI autocompletion, you are missing out on {title}.",
-                    "visual_description": "Glowing cyberpunk matrix background with animated neon badge.",
-                    "visual_prompt": f"Hyperrealistic 3D glowing hologram of AI Agent {title}, cyberpunk neon lighting, volumetric mist, 8k render",
-                    "image_url": "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=1200&auto=format&fit=crop&q=80",
-                    "duration_seconds": 10,
-                    "code_snippet": "import { DeepMind } from '@agent/trending';"
-                },
-                {
-                    "scene_number": 2,
-                    "title": "🔍 The Problem",
-                    "voiceover_text": "Context decay and hallucinated imports cost developers hours of debugging every single sprint.",
-                    "visual_description": "Warning UI highlighting lost context and broken dependency trees.",
-                    "visual_prompt": "Futuristic matrix computer terminal glitching with red warning error codes, cinematic dark mood, octanerender",
-                    "image_url": "https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=1200&auto=format&fit=crop&q=80",
-                    "duration_seconds": 12,
-                    "code_snippet": "// ❌ Bug: Context lost across files"
-                },
-                {
-                    "scene_number": 3,
-                    "title": "🧠 The Breakthrough",
-                    "voiceover_text": f"{title} injects deterministic runtime rules and executes sandbox-verified subagents seamlessly.",
-                    "visual_description": "Smooth IDE code generation with automated tests passing instantly.",
-                    "visual_prompt": "Clean aesthetic ultra-wide developer workstation setup, triple monitor showing VS Code with glowing syntax highlighting, neon ambient light",
-                    "image_url": "https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=1200&auto=format&fit=crop&q=80",
-                    "duration_seconds": 18,
-                    "code_snippet": "await AgentEngine.run({ mode: 'autonomous', sandbox: true });"
-                },
-                {
-                    "scene_number": 4,
-                    "title": "🎯 Call To Action",
-                    "voiceover_text": "Level up your developer velocity today with 1-click export on Agent Skill Trending!",
-                    "visual_description": "1-Click export modal demo for Antigravity, Cursor and Codex.",
-                    "visual_prompt": "Futuristic rocket launching into a neon cyber city sky, high energy trail, inspiring dawn light, cinematic 8k",
-                    "image_url": "https://images.unsplash.com/photo-1518770660439-4636190af475?w=1200&auto=format&fit=crop&q=80",
-                    "duration_seconds": 10,
-                    "code_snippet": "// Export ready at agent-skill-trending.vercel.app"
-                }
+                {"scene_type": "intro", "title": f"⚡ {title}", "voiceover_text": f"{title} is a newly tracked developer skill. {description}.{intro_metrics}", "visual_description": "Fast source-backed hook with verified repository metadata.", "duration_seconds": 7, "source_ref": source_ref, "asset_type": "motion_graphics"},
+                {"scene_type": "github", "title": "🔎 Real Repository Walkthrough", "voiceover_text": f"This is {owner}/{repository_name}. We open the README, inspect the project structure, and focus on its recorded purpose: {readme_excerpt or description}.", "visual_description": "GitHub walkthrough with cursor movement, README navigation and verified metrics.", "duration_seconds": 9, "source_ref": source_ref, "asset_type": "github_walkthrough", "repository_url": repository_url, "repository_owner": owner, "repository_name": repository_name, "readme_excerpt": readme_excerpt or description, "stars_count": stars, "forks_count": forks, "open_issues": open_issues, "cursor_actions": [{"at": 0.08, "x": 0.18, "y": 0.22, "type": "move"}, {"at": 0.28, "x": 0.30, "y": 0.42, "type": "click"}, {"at": 0.58, "x": 0.72, "y": 0.67, "type": "scroll"}, {"at": 0.78, "x": 0.57, "y": 0.33, "type": "highlight"}]},
+                {"scene_type": "comparison", "title": "⚖️ What Does It Solve?", "voiceover_text": f"Instead of generic promises, the practical goal is: {description}. This comparison uses only use cases and limitations stored in the skill profile.", "visual_description": "Source-backed before and after workflow without invented benchmarks.", "duration_seconds": 7, "source_ref": "skill database", "before_text": _compact_text(data.get("comparison_notes") or "Manual workflow without skill guidance", 90), "after_text": _compact_text(use_cases[0] if use_cases else description, 90)},
+                {"scene_type": "stat", "title": "📊 Verified Data", "voiceover_text": stat_voice, "visual_description": "Dashboard of database-backed repository metrics.", "duration_seconds": 7, "source_ref": "skill database", "stars_count": stars, "forks_count": forks, "open_issues": open_issues, "trending_score": trending_score},
+                {"scene_type": "code", "title": "💻 README / Code Focus", "voiceover_text": f"The demo uses a README sample or the repository clone command. The recorded primary language is {primary_language}, and every line remains visible for review.", "visual_description": "Code editor zoom with source-backed content.", "duration_seconds": 8, "source_ref": source_ref, "asset_type": "code_focus", "code_snippet": code_sample or clone_command},
+                {"scene_type": "terminal", "title": "⌨️ Open It Safely", "voiceover_text": "The terminal demonstrates the real repository clone command and safe inspection steps without automatically executing untrusted project scripts.", "visual_description": "Terminal types the real clone command and inspection checklist.", "duration_seconds": 7, "source_ref": source_ref, "asset_type": "terminal_transcript", "terminal_command": clone_command, "terminal_output": [f"→ repository: {owner}/{repository_name}", f"→ primary language: {primary_language}", "→ inspect README and file tree before running code", "✓ source metadata loaded"]},
+                {"scene_type": "features", "title": "🧩 Use Cases & Runtimes", "voiceover_text": f"Recorded highlights include {', '.join(feature_sources[:4])}. Supported runtimes listed in the profile are {', '.join(runtimes) or 'not yet recorded'}.", "visual_description": "Four cards populated from real use-case and runtime fields.", "duration_seconds": 7, "source_ref": "skill database", "feature_items": feature_items},
+                {"scene_type": "outro", "title": "🎯 Review The Source", "voiceover_text": f"Open {owner}/{repository_name}, read the README, and review the code before adding {title} to your workflow.", "visual_description": "Repository CTA without unverified marketing claims.", "duration_seconds": 6, "source_ref": source_ref},
             ]
 
-        total_sec = sum(s["duration_seconds"] for s in scenes)
+        if target_duration > 75:
+            scenes[-1:-1] = [
+                {
+                    "scene_type": "architecture",
+                    "title": "🧠 Luồng Hoạt Động" if language == "vi" else "🧠 How It Works",
+                    "voiceover_text": (
+                        f"Luồng sử dụng đi từ đầu vào, qua skill và runtime {', '.join(runtimes) or 'chưa được ghi nhận'}, rồi trả kết quả về workflow của developer."
+                        if language == "vi"
+                        else f"The flow moves from input through the skill and {', '.join(runtimes) or 'an unrecorded runtime'}, then returns a result to the developer workflow."
+                    ),
+                    "visual_description": "Source-backed architecture flow with one directional pass.",
+                    "duration_seconds": 8,
+                    "source_ref": "skill database",
+                },
+                {
+                    "scene_type": "features",
+                    "title": "🧭 Use Case Cụ Thể" if language == "vi" else "🧭 Concrete Use Cases",
+                    "voiceover_text": (
+                        f"Các tình huống được hồ sơ ghi nhận gồm {', '.join(use_cases[:4]) or description}. Mỗi use case được tách thành một phần riêng."
+                        if language == "vi"
+                        else f"Recorded use cases include {', '.join(use_cases[:4]) or description}. Each use case gets a separate section."
+                    ),
+                    "visual_description": "Use-case cards driven by recorded profile fields.",
+                    "duration_seconds": 8,
+                    "source_ref": "skill database",
+                    "feature_items": feature_items,
+                },
+                {
+                    "scene_type": "security",
+                    "title": "🛡️ Kiểm Tra Trước Khi Chạy" if language == "vi" else "🛡️ Review Before Running",
+                    "voiceover_text": (
+                        f"Security rating hiện được ghi nhận là {data.get('security_rating') or 'unknown'}. Hãy đọc README, dependency và quyền truy cập trước khi chạy skill."
+                        if language == "vi"
+                        else f"The recorded security rating is {data.get('security_rating') or 'unknown'}. Review the README, dependencies, and permissions before running the skill."
+                    ),
+                    "visual_description": "Security review checklist without fabricated guarantees.",
+                    "duration_seconds": 8,
+                    "source_ref": "skill database",
+                    "feature_items": [
+                        {"icon": "📖", "title": "README", "desc": "Review documented behavior"},
+                        {"icon": "📦", "title": "Dependencies", "desc": "Inspect packages before install"},
+                        {"icon": "🔐", "title": "Permissions", "desc": "Limit filesystem and network access"},
+                        {"icon": "🧪", "title": "Sandbox", "desc": "Test outside production first"},
+                    ],
+                },
+                {
+                    "scene_type": "comparison",
+                    "title": "🚧 Giới Hạn Cần Biết" if language == "vi" else "🚧 Limits To Know",
+                    "voiceover_text": (
+                        f"Video không suy diễn khả năng ngoài nguồn. Ghi chú hiện có là: {_compact_text(data.get('comparison_notes') or 'chưa có benchmark độc lập', 180)}."
+                        if language == "vi"
+                        else f"The video does not infer capabilities beyond the source. The current note is: {_compact_text(data.get('comparison_notes') or 'no independent benchmark is recorded', 180)}."
+                    ),
+                    "visual_description": "Known-versus-unknown comparison with explicit limits.",
+                    "duration_seconds": 8,
+                    "source_ref": "skill database",
+                    "before_text": "Nguồn đã xác minh" if language == "vi" else "Verified source",
+                    "after_text": "Bỏ claim chưa có dữ liệu" if language == "vi" else "Unknown claims omitted",
+                },
+            ]
+
+        if target_duration > 130:
+            scenes[-1:-1] = [
+                {
+                    "scene_type": "code",
+                    "title": "🔬 Đọc Kỹ File Chính" if language == "vi" else "🔬 Inspect The Main File",
+                    "voiceover_text": (
+                        f"Phần deep dive giữ nguyên nội dung nguồn để xem cấu trúc chính bằng {primary_language}. Không có đoạn code minh họa bịa thêm."
+                        if language == "vi"
+                        else f"The deep dive keeps source content intact to inspect the main {primary_language} structure. No illustrative code is invented."
+                    ),
+                    "visual_description": "Second code focus using source material.",
+                    "duration_seconds": 8,
+                    "source_ref": source_ref,
+                    "code_snippet": code_sample or clone_command,
+                },
+                {
+                    "scene_type": "terminal",
+                    "title": "🧪 Checklist Sandbox" if language == "vi" else "🧪 Sandbox Checklist",
+                    "voiceover_text": (
+                        "Clone vào thư mục tạm, đọc dependency, kiểm tra quyền mạng, rồi mới thử một tác vụ nhỏ."
+                        if language == "vi"
+                        else "Clone into a temporary directory, inspect dependencies, review network access, then try one small task."
+                    ),
+                    "visual_description": "Terminal safety checklist distinct from installation.",
+                    "duration_seconds": 8,
+                    "source_ref": source_ref,
+                    "terminal_command": clone_command,
+                    "terminal_output": ["→ create isolated workspace", "→ inspect dependencies", "→ restrict network and files", "✓ run one small test"],
+                },
+                {
+                    "scene_type": "stat",
+                    "title": "📈 Đọc Số Liệu Đúng Cách" if language == "vi" else "📈 Read Metrics Carefully",
+                    "voiceover_text": (
+                        "Stars và forks phản ánh sự quan tâm, không tự động chứng minh chất lượng hay hiệu năng."
+                        if language == "vi"
+                        else "Stars and forks reflect community interest; they do not automatically prove quality or performance."
+                    ),
+                    "visual_description": "Metrics interpretation without a repeating growth animation.",
+                    "duration_seconds": 8,
+                    "source_ref": "skill database",
+                    "stars_count": stars,
+                    "forks_count": forks,
+                    "open_issues": open_issues,
+                    "trending_score": trending_score,
+                },
+                {
+                    "scene_type": "content",
+                    "title": "✅ Quyết Định Có Nên Dùng" if language == "vi" else "✅ Decide Whether To Use It",
+                    "voiceover_text": (
+                        f"Đối chiếu use case của bạn với {', '.join(use_cases[:3]) or description}, runtime hỗ trợ và mức quyền cần cấp trước khi cài."
+                        if language == "vi"
+                        else f"Compare your use case with {', '.join(use_cases[:3]) or description}, supported runtimes, and required permissions before installing."
+                    ),
+                    "visual_description": "Decision checklist with one progressive reveal.",
+                    "duration_seconds": 8,
+                    "source_ref": "skill database",
+                },
+            ]
+
+        if target_duration <= 35:
+            keep_types = {"intro", "github", "comparison", "code", "terminal", "outro"}
+            scenes = [scene for scene in scenes if scene["scene_type"] in keep_types]
+
+        for index, scene in enumerate(scenes):
+            scene["scene_number"] = index + 1
+            scene.setdefault("code_snippet", None)
+        _fit_scene_durations(scenes, target_duration)
         return {
-            "total_duration": total_sec,
+            "total_duration": sum(scene["duration_seconds"] for scene in scenes),
             "aspect_ratio": aspect_ratio,
-            "scenes": scenes
+            "scenes": scenes,
         }
 
     @staticmethod
-    async def generate_scene_image(prompt: str, scene_number: int = 1) -> Dict[str, Any]:
+    async def generate_scene_image(
+        prompt: str,
+        scene_number: int = 1,
+        aspect_ratio: str = "9:16",
+    ) -> Dict[str, Any]:
         """
         Generates high-res visual artwork for video scenes.
         Tries Gemini Imagen 3 if GEMINI_API_KEY is configured.
@@ -606,7 +974,7 @@ Integrating **{title}** into your daily workflow transforms AI assistants from s
                     prompt=prompt,
                     config=genai_types.GenerateImagesConfig(
                         number_of_images=1,
-                        aspect_ratio="16:9",
+                        aspect_ratio=aspect_ratio if aspect_ratio in {"9:16", "16:9"} else "9:16",
                         safety_filter_level="block_low_and_above",
                     ),
                 )

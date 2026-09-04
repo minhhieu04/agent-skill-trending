@@ -99,18 +99,35 @@ def seed_initial_curated_skills():
             db.add(default_pref)
             db.commit()
 
+        stale_antigravity_skill = db.query(Skill).filter(
+            Skill.repository_url == "https://github.com/google-deepmind/antigravity-agent-skills"
+        ).first()
+        if stale_antigravity_skill:
+            logger.info("Repairing stale Antigravity placeholder repository with the live Google Skills source...")
+            stale_antigravity_skill.name = "google/skills"
+            stale_antigravity_skill.title = "Google Agent Skills & Antigravity Plugins"
+            stale_antigravity_skill.repository_url = "https://github.com/google/skills"
+            stale_antigravity_skill.author = "google"
+            stale_antigravity_skill.description = "Agent Skills and plugins for Google products and technologies, including Google Cloud and Antigravity-compatible agent harnesses."
+            stale_antigravity_skill.ai_summary = "Kho Agent Skills chính thức của Google với SKILL.md, plugins và hướng dẫn cài đặt cho Codex, Antigravity CLI và các agent harness tương thích."
+            stale_antigravity_skill.readme_preview = "# Agent Skills\n\nThis repository contains Agent Skills for Google products and technologies, including Google Cloud.\n\n```bash\nnpx skills add google/skills\n```"
+            stale_antigravity_skill.stars = 18700
+            stale_antigravity_skill.forks = 1500
+            db.commit()
+
         count = db.query(Skill).count()
         if count == 0:
             logger.info("Seeding rich curated AI Agent Skills & Solutions with Antigravity and Codex...")
 
+
             curated = [
                 {
-                    "name": "google-deepmind/antigravity-agent-skills",
-                    "title": "Google Antigravity Customizations & Subagent Protocol",
-                    "repository_url": "https://github.com/google-deepmind/antigravity-agent-skills",
-                    "author": "google-deepmind",
-                    "description": "Comprehensive guide, subagent communication standards, planning mode workflows, and declarative SKILL.md specs for Google Antigravity & Gemini CLI.",
-                    "ai_summary": "Bộ quy chuẩn xây dựng Subagents và Skills cho Google Antigravity: cấu hình SKILL.md, quy trình planning mode, sandbox tool calls và reactive wakeup không cần loop polling.",
+                    "name": "google/skills",
+                    "title": "Google Agent Skills & Antigravity Plugins",
+                    "repository_url": "https://github.com/google/skills",
+                    "author": "google",
+                    "description": "Agent Skills and plugins for Google products and technologies, including Google Cloud and Antigravity-compatible agent harnesses.",
+                    "ai_summary": "Kho Agent Skills chính thức của Google với SKILL.md, plugins và hướng dẫn cài đặt cho Codex, Antigravity CLI và các agent harness tương thích.",
                     "use_cases": [
                         "Xây dựng và triệu hồi Autonomous Subagents theo kiến trúc Google Deepmind",
                         "Chuẩn hóa file SKILL.md với đầy đủ frontmatter, scripts và references",
@@ -118,14 +135,14 @@ def seed_initial_curated_skills():
                     ],
                     "comparison_notes": "Chuẩn mở chính thức của Google cho Agentic Coding thế hệ mới, tối ưu cho ngữ cảnh lớn và phân rã task phức tạp.",
                     "target_audience": "AI Engineers & Antigravity Power Users",
-                    "readme_preview": "# Antigravity Customization Skills\n\n```markdown\n---\nname: my-skill\ndescription: Procedural agent instructions\n---\n```",
+                    "readme_preview": "# Agent Skills\n\nThis repository contains Agent Skills for Google products and technologies, including Google Cloud.\n\n```bash\nnpx skills add google/skills\n```",
                     "category": "skill-file",
                     "tags": ["antigravity", "google", "gemini", "subagents", "agentic-coding", "skills"],
                     "runtimes": ["Google Antigravity", "Gemini CLI", "Cursor", "Claude Code"],
                     "difficulty": "advanced",
                     "primary_language": "Python",
-                    "stars": 16800,
-                    "forks": 1420,
+                    "stars": 18700,
+                    "forks": 1500,
                     "quality_score": 99.5,
                     "trending_score": 99.0,
                     "is_featured": True,

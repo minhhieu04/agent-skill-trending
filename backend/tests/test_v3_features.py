@@ -13,9 +13,9 @@ def setup_db():
     skill = db.query(Skill).first()
     if not skill:
         skill = Skill(
-            name="google-deepmind/antigravity-agent-skills",
-            title="Google Antigravity Customizations",
-            repository_url="https://github.com/google-deepmind/antigravity-agent-skills",
+            name="google/skills",
+            title="Google Agent Skills & Antigravity Plugins",
+            repository_url="https://github.com/google/skills",
             category="skill-file",
             tags=["antigravity", "gemini"],
             runtimes=["Google Antigravity", "Cursor"],

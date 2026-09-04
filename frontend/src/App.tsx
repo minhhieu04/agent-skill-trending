@@ -19,10 +19,13 @@ import { PreferencesPage } from './pages/PreferencesPage';
 import { LoginPage } from './pages/LoginPage';
 import { BundlesPage } from './pages/BundlesPage';
 import { PlaygroundPage } from './pages/PlaygroundPage';
-import { VideoBlogStudio } from './pages/VideoBlogStudio';
 import { SkillDetailModal } from './components/SkillDetailModal';
 import { TriggerCollectorModal } from './components/TriggerCollectorModal';
 import { ErrorBoundary } from './components/ErrorBoundary';
+
+const VideoBlogStudio = React.lazy(() =>
+  import('./pages/VideoBlogStudio').then(module => ({ default: module.VideoBlogStudio })),
+);
 
 const AppContent: React.FC = () => {
   const queryClient = useQueryClient();
@@ -268,10 +271,12 @@ const AppContent: React.FC = () => {
               )}
 
               {activeTab === 'studio' && (
-                <VideoBlogStudio
-                  skills={trendingSkills}
-                  initialSkill={studioSkill}
-                />
+                <React.Suspense fallback={<div className="p-8 text-center text-sm text-slate-400">Loading Video Studio…</div>}>
+                  <VideoBlogStudio
+                    skills={trendingSkills}
+                    initialSkill={studioSkill}
+                  />
+                </React.Suspense>
               )}
 
               {activeTab === 'personalized' && (

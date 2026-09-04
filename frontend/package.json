@@ -7,25 +7,35 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "render:skill": "node scripts/render-skill-video.mjs",
+    "render:smoke": "node scripts/smoke-render.mjs",
+    "render:smoke-long": "node scripts/smoke-render-long.mjs"
   },
   "dependencies": {
+    "@remotion/bundler": "4.0.516",
+    "@remotion/google-fonts": "4.0.516",
+    "@remotion/media-utils": "4.0.516",
+    "@remotion/player": "4.0.516",
+    "@remotion/renderer": "4.0.516",
+    "@remotion/transitions": "4.0.516",
+    "@tanstack/react-query": "^5.56.2",
+    "clsx": "^2.1.1",
+    "lucide-react": "^0.441.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.26.2",
-    "@tanstack/react-query": "^5.56.2",
-    "lucide-react": "^0.441.0",
-    "clsx": "^2.1.1",
+    "remotion": "4.0.516",
     "tailwind-merge": "^2.5.2"
   },
   "devDependencies": {
     "@types/react": "^18.3.5",
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^4.3.1",
-    "typescript": "^5.5.3",
-    "vite": "^5.4.2",
-    "tailwindcss": "^3.4.11",
+    "autoprefixer": "^10.4.20",
     "postcss": "^8.4.45",
-    "autoprefixer": "^10.4.20"
+    "tailwindcss": "^3.4.11",
+    "typescript": "^5.5.3",
+    "vite": "^5.4.2"
   }
 }

@@ -1,5 +1,11 @@
+import asyncio
 import base64
+import io
 import logging
+import subprocess
+import tempfile
+import wave
+from pathlib import Path
 from typing import Dict, Any, List, Optional
 from config import settings
 
@@ -195,7 +201,8 @@ class TTSService:
         voice: str = "vi-VN-HoaiMyNeural",
         rate: str = "+0%",
         pitch: str = "+0Hz",
-        provider: str = "edge_tts"
+        provider: str = "edge_tts",
+        scene_texts: Optional[List[str]] = None,
     ) -> Dict[str, Any]:
         """
         Synthesizes text to speech using selected AI audio engine:
@@ -210,25 +217,124 @@ class TTSService:
                 "duration_seconds": 0.0,
                 "subtitle_entries": [],
                 "voice": voice,
-                "status": "empty_text"
+                "status": "empty_text",
+                "timing_quality": "estimated",
             }
+
+        # Limit text length to avoid excessive API cost and timeouts
+        if len(clean_text) > 5000:
+            logger.warning(f"TTS input truncated from {len(clean_text)} to 5000 chars")
+            clean_text = clean_text[:5000]
+
 
         # 1. Gemini 2.0 Native Audio path
         if provider == "gemini_audio" or voice.startswith("gemini-"):
             result = await TTSService._synthesize_gemini_audio(clean_text, voice, rate, pitch)
             if result:
-                return result
+                return TTSService._finalize_timing(result, scene_texts)
             logger.info("Gemini 2.0 Native Audio unavailable, falling back to Edge-TTS")
 
         # 2. Google Cloud TTS path
         if provider == "google_tts":
             result = await TTSService._synthesize_google_cloud(clean_text, voice, rate, pitch)
             if result:
-                return result
+                return TTSService._finalize_timing(result, scene_texts)
             logger.info("Google Cloud TTS unavailable, falling back to Edge-TTS")
 
         # 3. Edge-TTS path (primary or reliable fallback)
-        return await TTSService._synthesize_edge_tts(clean_text, voice, rate, pitch)
+        result = await TTSService._synthesize_edge_tts(clean_text, voice, rate, pitch)
+        return TTSService._finalize_timing(result, scene_texts)
+
+    @staticmethod
+    def _probe_audio_duration(audio_base64: str) -> Optional[float]:
+        if not audio_base64:
+            return None
+        try:
+            audio_bytes = base64.b64decode(audio_base64)
+            try:
+                with wave.open(io.BytesIO(audio_bytes), "rb") as wav_file:
+                    frame_rate = wav_file.getframerate()
+                    frame_count = wav_file.getnframes()
+                    if frame_rate > 0 and frame_count > 0:
+                        return frame_count / frame_rate
+            except (EOFError, wave.Error):
+                # Edge-TTS and cloud providers generally return compressed audio.
+                # Let ffprobe handle those formats when it is available.
+                pass
+
+            with tempfile.TemporaryDirectory(prefix="agent-skill-audio-") as temp_dir:
+                audio_path = Path(temp_dir) / "voice-track"
+                audio_path.write_bytes(audio_bytes)
+                completed = subprocess.run(
+                    [
+                        "ffprobe", "-v", "error",
+                        "-show_entries", "format=duration",
+                        "-of", "default=noprint_wrappers=1:nokey=1",
+                        str(audio_path),
+                    ],
+                    check=True,
+                    capture_output=True,
+                    text=True,
+                    timeout=20,
+                )
+                duration = float(completed.stdout.strip())
+                return duration if duration > 0 else None
+        except (OSError, ValueError, subprocess.SubprocessError):
+            return None
+
+    @staticmethod
+    def _finalize_timing(result: Dict[str, Any], scene_texts: Optional[List[str]]) -> Dict[str, Any]:
+        """Lock video timing to the encoded audio and expose explicit scene boundaries."""
+        actual_duration = TTSService._probe_audio_duration(result.get("audio_base64", ""))
+        if actual_duration:
+            result["duration_seconds"] = round(actual_duration, 3)
+
+        duration_ms = int(round(float(result.get("duration_seconds") or 0) * 1000))
+        subtitles = result.get("subtitle_entries") or []
+        timing_quality = result.get("timing_quality") or "estimated"
+        if timing_quality == "estimated" and actual_duration:
+            result["subtitle_entries"] = TTSService._generate_synthetic_timings(
+                " ".join(scene_texts or []) or " ".join(item.get("text", "") for item in subtitles),
+                actual_duration,
+            )
+            subtitles = result["subtitle_entries"]
+
+        normalized_scenes = [(text or "").strip() for text in (scene_texts or [])]
+        if normalized_scenes:
+            segments: List[Dict[str, int]] = []
+            subtitle_cursor = 0
+            for scene_index, scene_text in enumerate(normalized_scenes):
+                word_count = max(1, len(scene_text.split()))
+                subtitle_start = subtitle_cursor
+                subtitle_end = len(subtitles) if scene_index == len(normalized_scenes) - 1 else min(
+                    len(subtitles), subtitle_start + word_count
+                )
+                start_ms = 0 if scene_index == 0 else (
+                    subtitles[subtitle_start].get("start_ms", 0)
+                    if subtitle_start < len(subtitles)
+                    else segments[-1]["end_ms"]
+                )
+                next_start = subtitles[subtitle_end].get("start_ms") if subtitle_end < len(subtitles) else None
+                end_ms = duration_ms if scene_index == len(normalized_scenes) - 1 else int(
+                    next_start
+                    if next_start is not None
+                    else subtitles[subtitle_end - 1].get("end_ms", start_ms + 1)
+                    if subtitle_end > subtitle_start
+                    else start_ms + 1
+                )
+                end_ms = max(int(start_ms) + 1, min(duration_ms or end_ms, end_ms))
+                segments.append({
+                    "scene_index": scene_index,
+                    "start_ms": int(start_ms),
+                    "end_ms": end_ms,
+                    "subtitle_start_index": subtitle_start,
+                    "subtitle_end_index": subtitle_end,
+                })
+                subtitle_cursor = subtitle_end
+            result["scene_segments"] = segments
+
+        result["timing_quality"] = timing_quality
+        return result
 
     @staticmethod
     async def _synthesize_gemini_audio(
@@ -252,19 +358,23 @@ class TTSService:
             client = genai.Client(api_key=settings.GEMINI_API_KEY)
             prompt = f"Please read the following text aloud with natural intonation, clear pronunciation, and expressive emotion. Do not include any explanations or intro text, only speak the exact words:\n\n{text}"
 
-            response = client.models.generate_content(
-                model="gemini-2.0-flash",
-                contents=prompt,
-                config=genai_types.GenerateContentConfig(
-                    response_modalities=["AUDIO"],
-                    speech_config=genai_types.SpeechConfig(
-                        voice_config=genai_types.VoiceConfig(
-                            prebuilt_voice_config=genai_types.PrebuiltVoiceConfig(
-                                voice_name=voice_name
-                            )
+            config = genai_types.GenerateContentConfig(
+                response_modalities=["AUDIO"],
+                speech_config=genai_types.SpeechConfig(
+                    voice_config=genai_types.VoiceConfig(
+                        prebuilt_voice_config=genai_types.PrebuiltVoiceConfig(
+                            voice_name=voice_name
                         )
                     )
                 )
+            )
+
+            # Use asyncio.to_thread to avoid blocking the event loop
+            response = await asyncio.to_thread(
+                client.models.generate_content,
+                model="gemini-2.0-flash",
+                contents=prompt,
+                config=config
             )
 
             if response.candidates and response.candidates[0].content.parts:
@@ -274,7 +384,8 @@ class TTSService:
                         if isinstance(audio_data, bytes):
                             audio_b64 = base64.b64encode(audio_data).decode("utf-8")
                         else:
-                            audio_b64 = str(audio_data)
+                            logger.warning("Gemini audio data is not bytes, skipping")
+                            continue
 
                         words = text.split()
                         estimated_duration = max(2.0, len(words) * 0.38)
@@ -286,7 +397,8 @@ class TTSService:
                             "subtitle_entries": subtitle_entries,
                             "voice": voice,
                             "status": "success",
-                            "message": f"Gemini 2.0 Native Audio ({voice_name})"
+                            "message": f"Gemini 2.0 Native Audio ({voice_name})",
+                            "timing_quality": "estimated",
                         }
 
         except Exception as e:
@@ -294,6 +406,7 @@ class TTSService:
             return None
 
         return None
+
 
     @staticmethod
     async def _synthesize_google_cloud(
@@ -344,8 +457,12 @@ class TTSService:
                 pitch=pitch_semitones,
             )
 
-            response = client.synthesize_speech(
-                input=synthesis_input, voice=voice_params, audio_config=audio_config
+            # Use asyncio.to_thread to avoid blocking the event loop
+            response = await asyncio.to_thread(
+                client.synthesize_speech,
+                input=synthesis_input,
+                voice=voice_params,
+                audio_config=audio_config
             )
             audio_base64 = base64.b64encode(response.audio_content).decode("utf-8")
 
@@ -359,7 +476,8 @@ class TTSService:
                 "subtitle_entries": subtitle_entries,
                 "voice": voice,
                 "status": "success",
-                "message": "Google Cloud TTS WaveNet"
+                "message": "Google Cloud TTS WaveNet",
+                "timing_quality": "estimated",
             }
 
         except ImportError:
@@ -421,7 +539,8 @@ class TTSService:
                 "duration_seconds": round(duration_sec, 2),
                 "subtitle_entries": subtitle_entries,
                 "voice": voice,
-                "status": "success"
+                "status": "success",
+                "timing_quality": "word",
             }
 
         except Exception as e:
@@ -435,7 +554,8 @@ class TTSService:
                 "subtitle_entries": synthetic_subtitles,
                 "voice": voice,
                 "status": "fallback_simulated",
-                "message": f"TTS synthesis note: {str(e)}"
+                "message": f"TTS synthesis note: {str(e)}",
+                "timing_quality": "estimated",
             }
 
     @staticmethod
@@ -445,16 +565,16 @@ class TTSService:
         if not words:
             return []
 
-        total_ms = int(total_duration_sec * 1000)
-        word_duration = total_ms // len(words)
+        total_ms = total_duration_sec * 1000
+        word_duration = total_ms / len(words)  # float division to avoid zero duration
 
         entries = []
-        current_time = 0
+        current_time = 0.0
         for w in words:
             entries.append({
                 "text": w,
-                "start_ms": current_time,
-                "end_ms": current_time + word_duration
+                "start_ms": int(current_time),
+                "end_ms": int(current_time + word_duration)
             })
             current_time += word_duration
 

@@ -211,7 +211,46 @@ export interface VideoScene {
   image_url?: string;
   duration_seconds: number;
   code_snippet?: string;
+  scene_type?:
+    | 'intro'
+    | 'github'
+    | 'pain'
+    | 'architecture'
+    | 'stat'
+    | 'code'
+    | 'terminal'
+    | 'comparison'
+    | 'features'
+    | 'security'
+    | 'content'
+    | 'outro';
+  stars_count?: number;
+  forks_count?: number;
+  contributors?: number;
+  terminal_command?: string;
+  terminal_output?: string[];
+  before_text?: string;
+  after_text?: string;
+  feature_items?: { icon: string; title: string; desc: string }[];
+  source_ref?: string;
+  asset_type?: string;
+  repository_url?: string;
+  repository_name?: string;
+  repository_owner?: string;
+  readme_excerpt?: string;
+  open_issues?: number;
+  trending_score?: number;
+  cursor_actions?: Array<{
+    at: number;
+    x: number;
+    y: number;
+    type: 'move' | 'click' | 'scroll' | 'highlight';
+    frame_index?: number;
+  }>;
+  github_capture_frames?: string[];
+  capture_status?: 'captured' | 'unavailable';
 }
+
 
 export interface VideoStoryboard {
   total_duration: number;
@@ -232,6 +271,14 @@ export interface TTSResult {
   voice: string;
   status: string;
   message?: string;
+  scene_segments?: Array<{
+    scene_index: number;
+    start_ms: number;
+    end_ms: number;
+    subtitle_start_index: number;
+    subtitle_end_index: number;
+  }>;
+  timing_quality?: 'word' | 'estimated';
 }
 
 export interface BlogGenerateRequest {
@@ -252,6 +299,7 @@ export interface StoryboardRequest {
 
 export interface TTSRequest {
   text: string;
+  scene_texts?: string[];
   voice?: string;
   rate?: string;
   pitch?: string;

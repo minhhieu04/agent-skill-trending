@@ -19,20 +19,19 @@ import {
   Sliders,
   ChevronRight,
   RefreshCw,
-  Star,
-  GitFork,
-  ShieldCheck,
   Zap,
-  Terminal,
-  AlertTriangle,
   Flame,
-  ArrowRight,
-  Globe,
-  FolderGit2,
-  FileCode,
-  Film
+  Film,
+  Trash2,
+  Plus,
+  ArrowUp,
+  ArrowDown
 } from 'lucide-react';
+
+
 import { useQuery, useMutation } from '@tanstack/react-query';
+import { Player, PlayerRef } from '@remotion/player';
+import { SkillVideoComposition } from '../compositions/SkillVideoComposition';
 import { api } from '../api/client';
 import { 
   Skill, 
@@ -49,6 +48,18 @@ interface VideoBlogStudioProps {
   initialSkill?: Skill | null;
 }
 
+// Constants outside component to avoid re-computation on each render
+const VIDEO_FPS = 30;
+
+const formatSRTTime = (ms: number): string => {
+  const totalSeconds = Math.floor(ms / 1000);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  const milliseconds = ms % 1000;
+  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')},${String(milliseconds).padStart(3, '0')}`;
+};
+
 export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({ 
   skills = [], 
   initialSkill = null 
@@ -60,7 +71,7 @@ export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({
 
   const [selectedSkillId, setSelectedSkillId] = useState<number | ''>(initialSkill ? initialSkill.id : '');
   const [customTopic, setCustomTopic] = useState<string>(
-    initialSkill ? (initialSkill.title || initialSkill.name) : 'Google Antigravity & Kỹ Năng Lập Trình AI 2026'
+    initialSkill ? (initialSkill.title || initialSkill.name) : 'Xu Hướng Kỹ Năng Lập Trình AI & Agent Skills 2026'
   );
   const [tone, setTone] = useState<string>('professional');
   const [targetDuration, setTargetDuration] = useState<number>(60);
@@ -80,10 +91,10 @@ export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({
   const [isMuted, setIsMuted] = useState<boolean>(false);
   const [volume, setVolume] = useState<number>(1);
   const [currentSceneIndex, setCurrentSceneIndex] = useState<number>(0);
-  const [currentWordIndex, setCurrentWordIndex] = useState<number>(0);
-  const [playbackTimeMs, setPlaybackTimeMs] = useState<number>(0);
   const [copiedScript, setCopiedScript] = useState<boolean>(false);
+  const [showCaptions, setShowCaptions] = useState<boolean>(true);
   const [isExportingVideo, setIsExportingVideo] = useState<boolean>(false);
+
   const [exportProgress, setExportProgress] = useState<number>(0);
   const [isGeneratingImages, setIsGeneratingImages] = useState<boolean>(false);
   const [previewingVoiceId, setPreviewingVoiceId] = useState<string | null>(null);
@@ -91,6 +102,43 @@ export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const previewAudioRef = useRef<HTMLAudioElement | null>(null);
   const videoContainerRef = useRef<HTMLDivElement | null>(null);
+  const playerRef = useRef<PlayerRef | null>(null);
+  const currentSceneIndexRef = React.useRef(0);
+
+  // audioBlobUrl: useEffect with cleanup to prevent Blob URL memory leaks
+  const [audioBlobUrl, setAudioBlobUrl] = React.useState<string | undefined>(undefined);
+  React.useEffect(() => {
+    if (!ttsResult?.audio_base64) {
+      setAudioBlobUrl(undefined);
+      return;
+    }
+    try {
+      const byteCharacters = atob(ttsResult.audio_base64);
+      const byteArray = new Uint8Array(byteCharacters.length);
+      for (let i = 0; i < byteCharacters.length; i++) {
+        byteArray[i] = byteCharacters.charCodeAt(i);
+      }
+      const blob = new Blob([byteArray], { type: 'audio/mp3' });
+      const url = URL.createObjectURL(blob);
+      setAudioBlobUrl(url);
+      return () => URL.revokeObjectURL(url); // cleanup on unmount or ttsResult change
+    } catch (e) {
+      console.error('Error creating audio blob:', e);
+      setAudioBlobUrl(undefined);
+    }
+  }, [ttsResult?.audio_base64]);
+
+  const totalDurationInFrames = React.useMemo(() => {
+    if (ttsResult?.duration_seconds && ttsResult.duration_seconds > 0) {
+      return Math.max(VIDEO_FPS * 2, Math.round(ttsResult.duration_seconds * VIDEO_FPS));
+    }
+    if (!storyboard?.scenes || storyboard.scenes.length === 0) {
+      return VIDEO_FPS * 20;
+    }
+    const totalSec = storyboard.scenes.reduce((acc, s) => acc + (s.duration_seconds || 5), 0);
+    return Math.max(VIDEO_FPS * 5, Math.round(totalSec * VIDEO_FPS));
+  }, [ttsResult?.duration_seconds, storyboard?.scenes]);
+
 
   const currentSkill = skills.find(s => s.id === Number(selectedSkillId)) || initialSkill;
 
@@ -141,10 +189,32 @@ export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({
 
   const storyboardMutation = useMutation({
     mutationFn: api.generateStoryboard,
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
       setStoryboard(data);
       setCurrentSceneIndex(0);
-      showToast(language === 'vi' ? 'Đã sinh kịch bản video phân cảnh kèm ảnh AI!' : 'Video storyboard & AI visuals generated!');
+      const captures = new Map<string, Awaited<ReturnType<typeof api.captureGitHubRepository>> | null>();
+      const enrichedScenes = [];
+      for (const scene of data.scenes) {
+        if ((scene.scene_type === 'github' || scene.asset_type === 'github_walkthrough') && scene.repository_url) {
+          if (!captures.has(scene.repository_url)) {
+            try {
+              captures.set(scene.repository_url, await api.captureGitHubRepository(scene.repository_url));
+            } catch {
+              captures.set(scene.repository_url, null);
+            }
+          }
+          const capture = captures.get(scene.repository_url);
+          enrichedScenes.push(capture ? { ...scene, ...capture } : { ...scene, capture_status: 'unavailable' as const });
+        } else {
+          enrichedScenes.push(scene);
+        }
+      }
+      setStoryboard({ ...data, scenes: enrichedScenes });
+      const captureFailed = enrichedScenes.some(scene => scene.scene_type === 'github' && scene.capture_status === 'unavailable');
+      showToast(captureFailed
+        ? (language === 'vi' ? 'Kịch bản đã tạo, nhưng repository nguồn không capture được. Hãy kiểm tra URL GitHub.' : 'Storyboard created, but the repository source could not be captured. Check its GitHub URL.')
+        : (language === 'vi' ? 'Đã tạo kịch bản và capture GitHub thật!' : 'Storyboard and real GitHub capture generated!'),
+        captureFailed ? 'error' : 'success');
     },
     onError: (err: any) => {
       showToast(err.message || 'Lỗi khi sinh storyboard', 'error');
@@ -153,7 +223,7 @@ export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({
 
   const sceneImageMutation = useMutation({
     mutationFn: ({ prompt, sceneNumber }: { prompt: string; sceneNumber: number }) => 
-      api.generateSceneImage(prompt, sceneNumber),
+      api.generateSceneImage(prompt, sceneNumber, aspectRatio),
     onSuccess: (data) => {
       if (storyboard) {
         const updatedScenes = storyboard.scenes.map(s => 
@@ -194,8 +264,11 @@ export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({
       const updatedScenes = [...storyboard.scenes];
       for (let i = 0; i < updatedScenes.length; i++) {
         const scene = updatedScenes[i];
+        if (scene.scene_type === 'github' || scene.asset_type === 'github_walkthrough') {
+          continue;
+        }
         const targetPrompt = scene.visual_prompt || scene.visual_description || 'AI Coding Assistant';
-        const res = await api.generateSceneImage(targetPrompt, scene.scene_number);
+        const res = await api.generateSceneImage(targetPrompt, scene.scene_number, aspectRatio);
         updatedScenes[i] = { ...scene, image_url: res.image_url };
         setStoryboard(prev => prev ? { ...prev, scenes: [...updatedScenes] } : prev);
       }
@@ -207,24 +280,83 @@ export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({
     }
   };
 
-  const handleGenerateAll = () => {
+  const handleGenerateAll = async () => {
     const skillId = selectedSkillId ? Number(selectedSkillId) : undefined;
-    blogMutation.mutate({
-      skill_id: skillId,
-      topic: customTopic,
-      tone,
-      language: language as 'vi' | 'en',
-      custom_notes: customNotes
-    });
-
-    storyboardMutation.mutate({
-      skill_id: skillId,
-      content: customTopic,
-      target_duration: targetDuration,
-      aspect_ratio: aspectRatio,
-      language: language as 'vi' | 'en'
-    });
+    const skill = skills.find(s => s.id === skillId);
+    try {
+      const generatedBlog = await blogMutation.mutateAsync({
+        skill_id: skillId,
+        topic: customTopic,
+        tone,
+        language: language as 'vi' | 'en',
+        custom_notes: customNotes,
+      });
+      const skillContext = skill
+        ? `${skill.title || skill.name}: ${skill.description || skill.ai_summary || ''}`
+        : customTopic;
+      await storyboardMutation.mutateAsync({
+        skill_id: skillId,
+        content: `${skillContext}\n\n${generatedBlog.content}`,
+        target_duration: targetDuration,
+        aspect_ratio: aspectRatio,
+        language: language as 'vi' | 'en',
+      });
+    } catch {
+      // Mutations already surface their specific errors through onError.
+    }
   };
+
+  const handleAddScene = (type: any = 'content') => {
+    if (!storyboard) return;
+    const nextNum = storyboard.scenes.length + 1;
+    const newScene = {
+      scene_number: nextNum,
+      scene_type: type,
+      title: type === 'github' ? '🐙 Khám Phá Repository' :
+             type === 'code' ? '💻 Demo Code Thực Tế' :
+             type === 'comparison' ? '⚖️ So Sánh Before & After' :
+             type === 'architecture' ? '🧠 Kiến Trúc Multi-Agent' :
+             type === 'stat' ? '📊 Số Liệu Benchmark' :
+             type === 'terminal' ? '⚡ Cài Đặt 1 Dòng Lệnh' :
+             type === 'features' ? '🧩 4 Trụ Cột Tính Năng' :
+             type === 'outro' ? '🎯 Kêu Gọi Hành Động' : '✨ Phân Cảnh Nội Dung',
+      voiceover_text: 'Đoạn lời thoại chi tiết cung cấp facts công nghệ cụ thể cho phân cảnh này.',
+      visual_description: 'Hiệu ứng chuyển động trực quan với các layer đồ họa công nghệ cao.',
+      duration_seconds: 8,
+      image_url: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=1200&auto=format&fit=crop&q=80',
+    };
+    const updated = [...storyboard.scenes, newScene].map((s, idx) => ({ ...s, scene_number: idx + 1 }));
+    setStoryboard({ ...storyboard, scenes: updated });
+    showToast(language === 'vi' ? `Đã thêm phân cảnh (Scene ${updated.length})` : `Added Scene ${updated.length}`);
+  };
+
+  const handleDeleteScene = (sceneIndex: number) => {
+    if (!storyboard || storyboard.scenes.length <= 1) {
+      showToast(language === 'vi' ? 'Video phải có ít nhất 1 phân cảnh' : 'Video must have at least 1 scene', 'error');
+      return;
+    }
+    const updated = storyboard.scenes.filter((_, i) => i !== sceneIndex).map((s, idx) => ({ ...s, scene_number: idx + 1 }));
+    setStoryboard({ ...storyboard, scenes: updated });
+    showToast(language === 'vi' ? 'Đã xóa phân cảnh' : 'Scene deleted');
+  };
+
+  const handleUpdateScene = (sceneIndex: number, patch: Partial<any>) => {
+    if (!storyboard) return;
+    const updated = storyboard.scenes.map((s, i) => i === sceneIndex ? { ...s, ...patch } : s);
+    setStoryboard({ ...storyboard, scenes: updated });
+  };
+
+  const handleMoveScene = (sceneIndex: number, direction: 'up' | 'down') => {
+    if (!storyboard) return;
+    const targetIndex = direction === 'up' ? sceneIndex - 1 : sceneIndex + 1;
+    if (targetIndex < 0 || targetIndex >= storyboard.scenes.length) return;
+    const copy = [...storyboard.scenes];
+    const [moved] = copy.splice(sceneIndex, 1);
+    copy.splice(targetIndex, 0, moved);
+    const updated = copy.map((s, idx) => ({ ...s, scene_number: idx + 1 }));
+    setStoryboard({ ...storyboard, scenes: updated });
+  };
+
 
   const handlePreviewVoice = async (voice: VoiceOption) => {
     // If currently previewing this exact voice, toggle stop
@@ -296,6 +428,7 @@ export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({
     const fullScript = storyboard.scenes.map(s => s.voiceover_text).join(' ');
     ttsMutation.mutate({
       text: fullScript,
+      scene_texts: storyboard.scenes.map(s => s.voiceover_text),
       voice: selectedVoice,
       provider: currentVoiceObj?.provider || 'edge_tts',
       rate: readingSpeed,
@@ -310,16 +443,12 @@ export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({
       audioRef.current.load();
       audioRef.current.volume = volume;
       audioRef.current.muted = isMuted;
-      setPlaybackTimeMs(0);
       setCurrentSceneIndex(0);
-      setCurrentWordIndex(0);
       setIsPlaying(false);
     }
   }, [ttsResult]);
 
   const togglePlay = () => {
-    if (!audioRef.current) return;
-
     if (!ttsResult?.audio_base64) {
       if (storyboard && storyboard.scenes.length > 0) {
         showToast(language === 'vi' ? 'Đang tự động tạo giọng đọc AI cho toàn bộ video...' : 'Synthesizing AI voiceover for video...');
@@ -330,6 +459,18 @@ export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({
       return;
     }
 
+    if (playerRef.current) {
+      if (playerRef.current.isPlaying()) {
+        playerRef.current.pause();
+        setIsPlaying(false);
+      } else {
+        playerRef.current.play();
+        setIsPlaying(true);
+      }
+      return;
+    }
+
+    if (!audioRef.current) return;
     if (isPlaying) {
       audioRef.current.pause();
       setIsPlaying(false);
@@ -343,49 +484,95 @@ export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({
     }
   };
 
-  const handleTimeUpdate = () => {
+  const handleTimeUpdate = React.useCallback(() => {
     if (!audioRef.current) return;
     const currentMs = audioRef.current.currentTime * 1000;
-    setPlaybackTimeMs(currentMs);
+    const scenes = storyboard?.scenes || [];
+    const subtitles = ttsResult?.subtitle_entries || [];
 
-    if (storyboard && storyboard.scenes.length > 0) {
+    if (scenes.length === 0) return;
+
+    let newSceneIdx = scenes.length - 1;
+    const sceneSegments = ttsResult?.scene_segments || [];
+
+    if (sceneSegments.length === scenes.length) {
+      const matchingSegment = sceneSegments.find(segment => currentMs >= segment.start_ms && currentMs < segment.end_ms);
+      newSceneIdx = matchingSegment?.scene_index ?? scenes.length - 1;
+    } else if (subtitles.length > 0) {
+      // Use real TTS timestamps for accurate scene boundary detection
+      let curSubIdx = 0;
+      for (let sIdx = 0; sIdx < scenes.length; sIdx++) {
+        const words = (scenes[sIdx].voiceover_text || '').trim().split(/\s+/).filter(Boolean);
+        const isLast = sIdx === scenes.length - 1;
+        const endIdx = isLast ? subtitles.length : Math.min(subtitles.length, curSubIdx + words.length);
+        const sceneSubs = subtitles.slice(curSubIdx, endIdx);
+        curSubIdx = endIdx;
+        if (sceneSubs.length > 0) {
+          const sceneEndMs = isLast ? Infinity : sceneSubs[sceneSubs.length - 1].end_ms;
+          if (currentMs <= sceneEndMs) {
+            newSceneIdx = sIdx;
+            break;
+          }
+        }
+      }
+    } else {
+      // Fallback: use duration_seconds
       let accumulatedSec = 0;
-      const currentElapsedSec = currentMs / 1000;
-      for (let i = 0; i < storyboard.scenes.length; i++) {
-        accumulatedSec += storyboard.scenes[i].duration_seconds;
-        if (currentElapsedSec <= accumulatedSec) {
-          setCurrentSceneIndex(i);
+      for (let i = 0; i < scenes.length; i++) {
+        accumulatedSec += scenes[i].duration_seconds || 5;
+        if (currentMs / 1000 <= accumulatedSec) {
+          newSceneIdx = i;
           break;
         }
       }
     }
 
-    if (ttsResult?.subtitle_entries && ttsResult.subtitle_entries.length > 0) {
-      for (let w = 0; w < ttsResult.subtitle_entries.length; w++) {
-        const entry = ttsResult.subtitle_entries[w];
-        if (currentMs >= entry.start_ms && currentMs <= entry.end_ms) {
-          setCurrentWordIndex(w);
-          break;
-        }
-      }
+    // Only setState when scene actually changes (avoids 60fps re-renders)
+    if (newSceneIdx !== currentSceneIndexRef.current) {
+      currentSceneIndexRef.current = newSceneIdx;
+      setCurrentSceneIndex(newSceneIdx);
     }
-  };
+  }, [storyboard, ttsResult]);
 
   const handleAudioEnded = () => {
     setIsPlaying(false);
-    setPlaybackTimeMs(0);
+    currentSceneIndexRef.current = 0;
     setCurrentSceneIndex(0);
-    setCurrentWordIndex(0);
   };
 
   const handleSeekScene = (sceneIdx: number) => {
     if (!storyboard || !storyboard.scenes[sceneIdx]) return;
+    const subtitles = ttsResult?.subtitle_entries || [];
+    const sceneSegments = ttsResult?.scene_segments || [];
+    const scenes = storyboard.scenes;
     let targetSec = 0;
-    for (let i = 0; i < sceneIdx; i++) {
-      targetSec += storyboard.scenes[i].duration_seconds;
+
+    if (sceneSegments[sceneIdx]) {
+      targetSec = sceneSegments[sceneIdx].start_ms / 1000;
+    } else if (subtitles.length > 0) {
+      // Use real subtitle timestamps
+      let curSubIdx = 0;
+      for (let sIdx = 0; sIdx < sceneIdx; sIdx++) {
+        const words = (scenes[sIdx].voiceover_text || '').trim().split(/\s+/).filter(Boolean);
+        const endIdx = Math.min(subtitles.length, curSubIdx + words.length);
+        if (endIdx > curSubIdx && subtitles[endIdx - 1]) {
+          curSubIdx = endIdx;
+        }
+      }
+      if (curSubIdx < subtitles.length) {
+        targetSec = subtitles[curSubIdx].start_ms / 1000;
+      }
+    } else {
+      for (let i = 0; i < sceneIdx; i++) {
+        targetSec += scenes[i].duration_seconds || 5;
+      }
     }
+
+    currentSceneIndexRef.current = sceneIdx;
     setCurrentSceneIndex(sceneIdx);
-    setPlaybackTimeMs(targetSec * 1000);
+    if (playerRef.current) {
+      playerRef.current.seekTo(Math.round(targetSec * VIDEO_FPS));
+    }
     if (audioRef.current) {
       audioRef.current.currentTime = targetSec;
     }
@@ -399,7 +586,39 @@ export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({
 
     setIsExportingVideo(true);
     setExportProgress(0);
-    showToast(language === 'vi' ? '🎬 Đang ghi hình video với hiệu ứng chuyển cảnh...' : '🎬 Recording video with scene transitions...');
+    showToast(language === 'vi' ? '🎬 Đang render MP4 từ chính video preview...' : '🎬 Rendering MP4 from the preview composition...');
+
+    if (storyboard) {
+      try {
+        setExportProgress(12);
+        const mp4Blob = await api.renderSkillVideo({
+          storyboard,
+          tts_result: ttsResult,
+          skill_title: blogPost?.title || customTopic || currentSkill?.title || currentSkill?.name || 'AI Agent Skill',
+          skill_stats: {
+            stars: currentSkill?.stars,
+            forks: currentSkill?.forks,
+            language: currentSkill?.primary_language,
+          },
+          show_captions: showCaptions,
+        });
+        if (mp4Blob.size < 1024) throw new Error('Rendered MP4 is empty');
+        setExportProgress(100);
+        const mp4Url = URL.createObjectURL(mp4Blob);
+        const download = document.createElement('a');
+        download.href = mp4Url;
+        download.download = `ai_video_${(currentSkill?.name || 'skill').replace(/\s+/g, '_')}_${Date.now()}.mp4`;
+        download.click();
+        URL.revokeObjectURL(mp4Url);
+        setIsExportingVideo(false);
+        showToast(language === 'vi' ? '🎬 Xuất MP4 thành công — hình ảnh giống video preview!' : '🎬 MP4 exported successfully with preview-quality visuals!');
+        return;
+      } catch (renderError) {
+        console.warn('Remotion MP4 render failed, using browser WebM fallback:', renderError);
+        setExportProgress(0);
+        showToast(language === 'vi' ? 'MP4 renderer chưa sẵn sàng, đang dùng WebM dự phòng...' : 'MP4 renderer unavailable, using WebM fallback...', 'error');
+      }
+    }
 
     try {
       // Decode audio
@@ -448,15 +667,33 @@ export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({
       const totalMs = Math.ceil(ttsResult.duration_seconds * 1000);
       const scenes = storyboard?.scenes || [];
       const subtitles = ttsResult.subtitle_entries || [];
+      const explicitSegments = ttsResult.scene_segments || [];
       const title = blogPost?.title || customTopic || 'AI Video';
       const exportStart = Date.now();
 
-      // Scene timing
+      // Scene timing dynamically mapped to real TTS audio word timestamps
       const sceneTimings: { start: number; end: number }[] = [];
-      let acc = 0;
-      scenes.forEach(s => {
-        sceneTimings.push({ start: acc * 1000, end: (acc + s.duration_seconds) * 1000 });
-        acc += s.duration_seconds;
+      let curSubIdx = 0;
+      scenes.forEach((s, sIdx) => {
+        const explicitSegment = explicitSegments.find(segment => segment.scene_index === sIdx);
+        if (explicitSegment) {
+          sceneTimings.push({ start: explicitSegment.start_ms, end: explicitSegment.end_ms });
+          return;
+        }
+        const words = (s.voiceover_text || '').trim().split(/\s+/).filter(Boolean);
+        const isLast = sIdx === scenes.length - 1;
+        const endIdx = isLast ? subtitles.length : Math.min(subtitles.length, curSubIdx + words.length);
+        const sceneSubs = subtitles.slice(curSubIdx, endIdx);
+        curSubIdx = endIdx;
+
+        if (sceneSubs.length > 0) {
+          const start = sceneSubs[0].start_ms;
+          const end = isLast ? totalMs : sceneSubs[sceneSubs.length - 1].end_ms;
+          sceneTimings.push({ start, end: Math.max(start + 500, end) });
+        } else {
+          const perSceneMs = totalMs / Math.max(1, scenes.length);
+          sceneTimings.push({ start: sIdx * perSceneMs, end: (sIdx + 1) * perSceneMs });
+        }
       });
 
       // Scene gradient colors
@@ -489,8 +726,11 @@ export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({
 
       // Animation render loop
       let animId: number;
+      let audioStartTime = 0;
       const renderFrame = () => {
-        const elapsedMs = (audioCtx.currentTime * 1000) || (Date.now() - exportStart);
+        const elapsedMs = audioStartTime > 0
+          ? Math.max(0, (audioCtx.currentTime - audioStartTime) * 1000)
+          : Date.now() - exportStart;
         const progress = Math.min(1, elapsedMs / totalMs);
 
         // Determine current scene
@@ -548,7 +788,7 @@ export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({
         ctx.fillStyle = '#e2e8f0';
         ctx.textAlign = 'left';
         ctx.textBaseline = 'middle';
-        ctx.fillText('AGENT SKILLS RADAR', 42, 28);
+        ctx.fillText('AGENT SKILLS TRENDING', 42, 28);
         // Scene badge
         ctx.textAlign = 'right';
         ctx.font = `bold ${Math.round(W / 55)}px monospace`;
@@ -640,12 +880,13 @@ export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({
         ctx.fill();
 
         // Find current subtitle word
-        let currentSubIdx = 0;
+        let currentSubIdx = -1;
         for (let w = 0; w < subtitles.length; w++) {
           if (elapsedMs >= subtitles[w].start_ms && elapsedMs <= subtitles[w].end_ms) {
             currentSubIdx = w;
             break;
           }
+          if (elapsedMs >= subtitles[w].start_ms) currentSubIdx = w;
         }
         // Render ±4 words
         const subFont = `bold ${Math.round(W / 42)}px sans-serif`;
@@ -741,6 +982,7 @@ export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({
       // Start recording + animation
       recorder.start(200);
       source.start(0);
+      audioStartTime = audioCtx.currentTime;
       animId = requestAnimationFrame(renderFrame);
 
       // Auto-stop after audio finishes
@@ -819,14 +1061,6 @@ export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({
     showToast(t('downloaded_file'));
   };
 
-  const formatSRTTime = (ms: number) => {
-    const totalSec = Math.floor(ms / 1000);
-    const hours = Math.floor(totalSec / 3600).toString().padStart(2, '0');
-    const minutes = Math.floor((totalSec % 3600) / 60).toString().padStart(2, '0');
-    const seconds = (totalSec % 60).toString().padStart(2, '0');
-    const millis = (ms % 1000).toString().padStart(3, '0');
-    return `${hours}:${minutes}:${seconds},${millis}`;
-  };
 
   const handleDownloadMarkdown = () => {
     if (!blogPost) return;
@@ -839,14 +1073,6 @@ export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({
     URL.revokeObjectURL(url);
     showToast(t('downloaded_file'));
   };
-
-  const currentScene = storyboard?.scenes[currentSceneIndex] || null;
-  const totalDurationSec = ttsResult?.duration_seconds || (storyboard?.total_duration || targetDuration);
-  const progressPercent = Math.min(100, Math.max(0, ((playbackTimeMs / 1000) / totalDurationSec) * 100));
-
-  const currentSceneSubtitles = ttsResult?.subtitle_entries
-    ? ttsResult.subtitle_entries.filter((_entry, idx) => Math.abs(idx - currentWordIndex) <= 5)
-    : [];
 
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
@@ -1104,55 +1330,158 @@ export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({
                   </div>
                 </div>
 
-                <div className="space-y-3 max-h-[420px] overflow-y-auto pr-1">
-                  {storyboard.scenes.map((scene) => (
-                    <div
-                      key={scene.scene_number}
-                      className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-950/80 border border-slate-200 dark:border-slate-800/80 space-y-3 hover:border-indigo-500/40 transition-all"
-                    >
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="font-extrabold text-indigo-500 font-mono">
-                          Scene {scene.scene_number}: {scene.title}
-                        </span>
-                        <span className="px-2 py-0.5 text-[10px] font-mono bg-slate-200 dark:bg-slate-800 rounded font-bold">
-                          ⏱️ ~{scene.duration_seconds}s
-                        </span>
-                      </div>
+                <div className="space-y-3 max-h-[480px] overflow-y-auto pr-1">
+                  {storyboard.scenes.map((scene, idx) => {
+                    const sceneTypeColors: Record<string, string> = {
+                      intro: 'bg-rose-500/15 text-rose-400 border-rose-500/40',
+                      github: 'bg-blue-500/15 text-blue-400 border-blue-500/40',
+                      comparison: 'bg-red-500/15 text-red-400 border-red-500/40',
+                      stat: 'bg-amber-500/15 text-amber-400 border-amber-500/40',
+                      architecture: 'bg-purple-500/15 text-purple-400 border-purple-500/40',
+                      code: 'bg-sky-500/15 text-sky-400 border-sky-500/40',
+                      terminal: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/40',
+                      features: 'bg-cyan-500/15 text-cyan-400 border-cyan-500/40',
+                      outro: 'bg-indigo-500/15 text-indigo-400 border-indigo-500/40',
+                      content: 'bg-slate-500/15 text-slate-300 border-slate-500/40',
+                    };
+                    const typeColor = sceneTypeColors[scene.scene_type || 'content'] || sceneTypeColors.content;
 
-                      {scene.image_url && (
-                        <div className="relative h-28 rounded-xl overflow-hidden border border-slate-800 group/img">
-                          <img
-                            src={scene.image_url}
-                            alt={`Scene ${scene.scene_number}`}
-                            className="w-full h-full object-cover group-hover/img:scale-105 transition-transform duration-500"
-                          />
-                          <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent flex items-end justify-between p-2">
-                            <span className="text-[10px] font-mono text-slate-300 font-bold bg-slate-900/80 px-2 py-0.5 rounded backdrop-blur-sm border border-slate-700/60">
-                              🎨 Google Imagen 3 (4K)
+                    return (
+                      <div
+                        key={scene.scene_number || idx}
+                        className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-950/80 border border-slate-200 dark:border-slate-800/80 space-y-3 hover:border-indigo-500/40 transition-all"
+                      >
+                        <div className="flex items-center justify-between text-xs gap-2">
+                          <div className="flex items-center gap-2">
+                            <span className="font-extrabold text-indigo-500 font-mono">
+                              Scene {scene.scene_number}:
                             </span>
-                            <button
-                              onClick={() => handleRegenerateSceneImage(scene.scene_number)}
-                              disabled={sceneImageMutation.isPending}
-                              className="px-2 py-1 text-[10px] font-bold rounded-lg bg-slate-900/90 text-slate-200 hover:text-white border border-slate-700/80 backdrop-blur-sm flex items-center gap-1"
+                            <input
+                              type="text"
+                              value={scene.title}
+                              onChange={(e) => handleUpdateScene(idx, { title: e.target.value })}
+                              className="font-bold bg-transparent text-slate-900 dark:text-slate-100 border-b border-transparent hover:border-slate-700 focus:border-indigo-500 focus:outline-none text-xs px-1"
+                            />
+                          </div>
+
+                          <div className="flex items-center gap-1.5">
+                            {/* Scene Type Selector */}
+                            <select
+                              value={scene.scene_type || 'content'}
+                              onChange={(e) => handleUpdateScene(idx, { scene_type: e.target.value as any })}
+                              className={`px-2 py-0.5 text-[10px] font-bold rounded-lg border focus:outline-none ${typeColor}`}
                             >
-                              <Sparkles className="w-2.5 h-2.5 text-rose-400" />
-                              <span>{language === 'vi' ? 'Đổi Ảnh AI' : 'New Image'}</span>
+                              <option value="intro">🌟 Hook Intro</option>
+                              <option value="github">🐙 GitHub Walkthrough</option>
+                              <option value="comparison">⚖️ So Sánh (Before/After)</option>
+                              <option value="stat">📊 Số Liệu (Stats)</option>
+                              <option value="architecture">🧠 Kiến Trúc Flow</option>
+                              <option value="code">💻 Code Demo</option>
+                              <option value="terminal">⚡ Terminal CLI</option>
+                              <option value="features">🧩 4 Tính Năng</option>
+                              <option value="content">✨ Nội Dung</option>
+                              <option value="outro">🎯 Kêu Gọi (Outro)</option>
+                            </select>
+
+                            <button
+                              type="button"
+                              onClick={() => handleMoveScene(idx, 'up')}
+                              disabled={idx === 0}
+                              className="p-1 rounded-md text-slate-400 hover:text-white hover:bg-slate-800 disabled:opacity-30"
+                              title="Move Up"
+                            >
+                              <ArrowUp className="w-3 h-3" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleMoveScene(idx, 'down')}
+                              disabled={idx === storyboard.scenes.length - 1}
+                              className="p-1 rounded-md text-slate-400 hover:text-white hover:bg-slate-800 disabled:opacity-30"
+                              title="Move Down"
+                            >
+                              <ArrowDown className="w-3 h-3" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteScene(idx)}
+                              className="p-1 rounded-md text-rose-400 hover:bg-rose-500/10"
+                              title="Delete Scene"
+                            >
+                              <Trash2 className="w-3 h-3" />
                             </button>
                           </div>
                         </div>
-                      )}
 
-                      <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed font-medium">
-                        🎙️ <span className="font-semibold text-rose-500">Lời thoại:</span> "{scene.voiceover_text}"
-                      </p>
-                      <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                        🎬 <span className="font-semibold text-teal-400">Visual:</span> {scene.visual_description}
-                      </p>
+                        {scene.image_url && (
+                          <div className="relative h-24 rounded-xl overflow-hidden border border-slate-800 group/img">
+                            <img
+                              src={scene.image_url}
+                              alt={`Scene ${scene.scene_number}`}
+                              className="w-full h-full object-cover group-hover/img:scale-105 transition-transform duration-500"
+                            />
+                            <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent flex items-end justify-between p-2">
+                              <span className="text-[9px] font-mono text-slate-300 font-bold bg-slate-900/80 px-2 py-0.5 rounded backdrop-blur-sm border border-slate-700/60">
+                                🎨 AI Visual Layer
+                              </span>
+                              <button
+                                onClick={() => handleRegenerateSceneImage(scene.scene_number)}
+                                disabled={sceneImageMutation.isPending}
+                                className="px-2 py-0.5 text-[9px] font-bold rounded-lg bg-slate-900/90 text-slate-200 hover:text-white border border-slate-700/80 backdrop-blur-sm flex items-center gap-1"
+                              >
+                                <Sparkles className="w-2.5 h-2.5 text-rose-400" />
+                                <span>{language === 'vi' ? 'Đổi Ảnh AI' : 'New Image'}</span>
+                              </button>
+                            </div>
+                          </div>
+                        )}
+
+                        <div className="space-y-1.5">
+                          <div className="text-[11px] text-slate-700 dark:text-slate-300">
+                            🎙️ <span className="font-semibold text-rose-500">Lời thoại:</span>
+                            <textarea
+                              value={scene.voiceover_text}
+                              onChange={(e) => handleUpdateScene(idx, { voiceover_text: e.target.value })}
+                              rows={2}
+                              className="w-full mt-1 p-2 text-xs rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  {/* Add Scene Toolbar */}
+                  <div className="p-3 rounded-2xl bg-indigo-500/5 border border-indigo-500/20 flex flex-wrap items-center justify-between gap-2">
+                    <span className="text-xs font-bold text-indigo-400">
+                      {language === 'vi' ? '+ Thêm phân cảnh nhanh:' : '+ Quick add scene:'}
+                    </span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {[
+                        { type: 'github', label: '🐙 GitHub' },
+                        { type: 'comparison', label: '⚖️ So Sánh' },
+                        { type: 'stat', label: '📊 Số Liệu' },
+                        { type: 'architecture', label: '🧠 Kiến Trúc' },
+                        { type: 'code', label: '💻 Code Demo' },
+                        { type: 'terminal', label: '⚡ Terminal' },
+                        { type: 'features', label: '🧩 Tính Năng' },
+                        { type: 'outro', label: '🎯 Kêu Gọi' },
+                      ].map((item) => (
+                        <button
+                          key={item.type}
+                          type="button"
+                          onClick={() => handleAddScene(item.type)}
+                          className="px-2 py-1 text-[10px] font-bold rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 transition-all flex items-center gap-1"
+                        >
+                          <Plus className="w-2.5 h-2.5" />
+                          {item.label}
+                        </button>
+                      ))}
                     </div>
-                  ))}
+                  </div>
                 </div>
               </div>
             )}
+
 
             <div className="bg-white dark:bg-slate-900/90 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
               <div className="flex items-center justify-between">
@@ -1461,239 +1790,42 @@ export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({
 
               <div
                 ref={videoContainerRef}
-                className={`relative z-10 transition-all duration-300 rounded-3xl overflow-hidden border border-slate-700/80 shadow-2xl bg-gradient-to-b from-slate-900/95 via-slate-950/95 to-slate-900/95 flex flex-col justify-between p-4 md:p-6 ${
+                className={`relative z-10 transition-all duration-300 rounded-3xl overflow-hidden border border-slate-700/80 shadow-2xl bg-slate-950 flex flex-col justify-center items-center ${
                   aspectRatio === '9:16'
                     ? 'w-[320px] sm:w-[360px] h-[580px]'
-                    : 'w-full max-w-[760px] h-[450px]'
+                    : 'w-full max-w-[780px] h-[440px]'
                 }`}
               >
-                {/* Google Imagen 3 Cinematic Background Layer */}
-                {currentScene?.image_url && (
-                  <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
-                    <img
-                      src={currentScene.image_url}
-                      alt="AI Cinematic Scene"
-                      className="w-full h-full object-cover opacity-25 scale-105 transition-transform duration-1000 group-hover:scale-110"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-b from-slate-950/85 via-slate-950/75 to-slate-950/90" />
-                  </div>
-                )}
-
-                <div className="relative z-10 flex items-center justify-between text-xs pb-2.5 border-b border-slate-800/80 shrink-0">
-                  <div className="flex items-center gap-2">
-                    <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-ping" />
-                    <span className="font-extrabold text-[11px] tracking-wider text-slate-200 font-mono">
-                      AGENT SKILLS RADAR
-                    </span>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <span className="px-2 py-0.5 text-[10px] font-mono rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 font-bold">
-                      Scene {currentSceneIndex + 1}/{storyboard?.scenes.length || 5}
-                    </span>
-                    <span className="px-2 py-0.5 text-[10px] font-mono rounded-full bg-slate-800 text-emerald-400 font-bold">
-                      ⏱️ {(playbackTimeMs / 1000).toFixed(1)}s / {totalDurationSec.toFixed(0)}s
-                    </span>
-                  </div>
-                </div>
-
-                <div className="relative z-10 my-auto py-2 space-y-3 overflow-hidden flex flex-col justify-center flex-1">
-                  
-                  {currentSceneIndex === 0 && (
-                    <div className="space-y-3 text-center animate-in fade-in zoom-in-95 duration-300">
-                      <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-500/20 border border-rose-500/40 text-rose-300 font-extrabold text-xs font-mono shadow-lg shadow-rose-500/20">
-                        <Flame className="w-3.5 h-3.5 text-rose-400 animate-bounce" />
-                        {currentScene?.title || 'Hot Trending Skill 2026'}
-                      </div>
-
-                      <h2 className="text-base sm:text-xl font-black text-transparent bg-clip-text bg-gradient-to-r from-white via-indigo-200 to-rose-300 leading-tight drop-shadow-md">
-                        {blogPost?.title || customTopic}
-                      </h2>
-
-                      <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
-                        <div className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-slate-900/90 border border-slate-800 text-[11px] font-mono text-amber-400 font-bold shadow-sm">
-                          <Star className="w-3.5 h-3.5 fill-current" />
-                          <span>{currentSkill?.stars.toLocaleString() || '4,280'} Stars</span>
-                        </div>
-                        <div className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-slate-900/90 border border-slate-800 text-[11px] font-mono text-indigo-400 font-bold shadow-sm">
-                          <GitFork className="w-3.5 h-3.5" />
-                          <span>{currentSkill?.forks.toLocaleString() || '320'} Forks</span>
-                        </div>
-                        <div className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-[11px] font-mono text-emerald-400 font-bold shadow-sm">
-                          <Zap className="w-3.5 h-3.5" />
-                          <span>{currentSkill?.primary_language || 'TypeScript'}</span>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {currentSceneIndex === 1 && (
-                    <div className="space-y-2 animate-in slide-in-from-bottom-3 duration-300 text-left">
-                      <div className="bg-slate-950 rounded-2xl border border-slate-800 overflow-hidden shadow-2xl">
-                        <div className="bg-slate-900/90 px-3 py-1.5 border-b border-slate-800 flex items-center justify-between">
-                          <div className="flex items-center gap-1.5">
-                            <span className="w-2.5 h-2.5 rounded-full bg-rose-500" />
-                            <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
-                            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
-                          </div>
-                          <div className="flex items-center gap-1.5 px-3 py-0.5 rounded-lg bg-slate-950 text-[9px] font-mono text-slate-400 border border-slate-800">
-                            <Globe className="w-2.5 h-2.5 text-slate-500" />
-                            <span>https://agent.local/debugger</span>
-                          </div>
-                          <span className="text-[9px] font-mono text-rose-400 font-bold animate-pulse">
-                            ⚠️ 3 ISSUES
-                          </span>
-                        </div>
-
-                        <div className="p-3 space-y-1.5 font-mono text-[10px]">
-                          <div className="flex items-center gap-2 p-1.5 rounded bg-rose-500/10 border border-rose-500/20 text-rose-300">
-                            <AlertTriangle className="w-3.5 h-3.5 text-rose-400 shrink-0" />
-                            <span>[FATAL] 8192/8192 Context Overflow in Session</span>
-                          </div>
-                          <div className="flex items-center gap-2 p-1.5 rounded bg-amber-500/10 border border-amber-500/20 text-amber-300">
-                            <AlertTriangle className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                            <span>[WARN] Manual Prompt Injection: 45m wasted/day</span>
-                          </div>
-                          <div className="flex items-center gap-2 p-1.5 rounded bg-slate-900 border border-slate-800 text-slate-400">
-                            <span>[INFO] High LLM API Cost Spike: +$240/mo</span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {currentSceneIndex === 2 && (
-                    <div className="space-y-2 animate-in fade-in zoom-in-95 duration-300 text-left">
-                      <div className="bg-slate-900/90 rounded-2xl p-3 border border-indigo-500/40 shadow-xl space-y-2">
-                        <div className="flex items-center justify-between text-[11px] font-mono border-b border-slate-800 pb-1.5">
-                          <div className="flex items-center gap-1.5 text-indigo-300 font-bold">
-                            <FolderGit2 className="w-3.5 h-3.5 text-indigo-400" />
-                            <span>github.com/{currentSkill?.author || 'google'}/{currentSkill?.name || 'agent-skill'}</span>
-                          </div>
-                          <span className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 text-[9px] font-bold">
-                            v2026.1
-                          </span>
-                        </div>
-
-                        <div className="grid grid-cols-12 gap-2 text-[10px] font-mono">
-                          <div className="col-span-4 bg-slate-950/80 p-2 rounded-lg border border-slate-800/80 space-y-1 text-slate-400">
-                            <div className="text-emerald-400 font-bold flex items-center gap-1">
-                              <FileCode className="w-3 h-3" /> SKILL.md
-                            </div>
-                            <div className="flex items-center gap-1">
-                              <FileCode className="w-3 h-3" /> index.ts
-                            </div>
-                            <div className="flex items-center gap-1">
-                              <FileCode className="w-3 h-3" /> config.json
-                            </div>
-                          </div>
-
-                          <div className="col-span-8 bg-slate-950 p-2 rounded-lg border border-slate-800 font-mono text-[9px] space-y-1">
-                            <div className="text-slate-500 flex items-center gap-1">
-                              <Terminal className="w-2.5 h-2.5 text-emerald-400" />
-                              <span>$ agy install {currentSkill?.name || 'agent-skill'}</span>
-                            </div>
-                            <div className="text-emerald-300 whitespace-pre-wrap leading-tight">
-                              {currentScene?.code_snippet || `import { Agent } from '@agy/core';\nconst bot = new Agent({ mode: 'ultra' });`}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {currentSceneIndex === 3 && (
-                    <div className="space-y-2.5 animate-in slide-in-from-right-3 duration-300 text-left">
-                      <div className="bg-slate-950/90 rounded-2xl p-2.5 border border-sky-500/30">
-                        <div className="text-[10px] font-mono text-sky-400 font-bold mb-1 flex items-center gap-1">
-                          <Zap className="w-3 h-3" />
-                          <span>ARCHITECTURE PIPELINE (SUBAGENT ORCHESTRATION)</span>
-                        </div>
-                        <div className="flex items-center justify-between text-[9px] font-mono gap-1 text-center">
-                          <div className="flex-1 p-1 rounded bg-slate-900 border border-slate-800 text-slate-300">Prompt</div>
-                          <span className="text-sky-400 font-bold">➡️</span>
-                          <div className="flex-1 p-1 rounded bg-indigo-500/20 border border-indigo-500/40 text-indigo-300 font-bold">Subagent</div>
-                          <span className="text-sky-400 font-bold">➡️</span>
-                          <div className="flex-1 p-1 rounded bg-teal-500/20 border border-teal-500/40 text-teal-300 font-bold">AST Safe</div>
-                          <span className="text-sky-400 font-bold">➡️</span>
-                          <div className="flex-1 p-1 rounded bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 font-bold">10x Speed</div>
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-2">
-                        <div className="bg-slate-950/80 p-2.5 rounded-xl border border-slate-800 space-y-1">
-                          <div className="text-[9px] text-slate-400 font-mono">Code Quality Score</div>
-                          <div className="text-sm font-extrabold text-emerald-400 font-mono">
-                            {currentSkill?.quality_score ? `${currentSkill.quality_score}/100` : '98.5 / 100'}
-                          </div>
-                        </div>
-                        <div className="bg-slate-950/80 p-2.5 rounded-xl border border-slate-800 space-y-1">
-                          <div className="text-[9px] text-slate-400 font-mono">AST Security</div>
-                          <div className="text-sm font-extrabold text-teal-300 font-mono flex items-center gap-1">
-                            <ShieldCheck className="w-3.5 h-3.5 text-teal-400" /> 100% SAFE
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {currentSceneIndex === 4 && (
-                    <div className="space-y-3 text-center animate-in zoom-in-95 duration-300">
-                      <div className="inline-block p-2 rounded-2xl bg-gradient-to-br from-rose-500/20 to-indigo-500/20 border border-indigo-500/40">
-                        <Sparkles className="w-6 h-6 text-rose-400 mx-auto animate-spin" style={{ animationDuration: '6s' }} />
-                      </div>
-
-                      <h3 className="text-sm sm:text-base font-extrabold text-white">
-                        {currentScene?.title || 'Trải Nghiệm Kỹ Năng Này Ngay Hôm Nay'}
-                      </h3>
-
-                      <div className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-rose-500 to-indigo-600 text-white font-extrabold text-xs shadow-lg shadow-rose-500/30">
-                        <span>Cài Đặt Qua Antigravity Radar</span>
-                        <ArrowRight className="w-3.5 h-3.5" />
-                      </div>
-                    </div>
-                  )}
-
-                </div>
-
-                <div className="space-y-2 pt-1 shrink-0">
-                  <div className="min-h-[44px] bg-black/85 backdrop-blur-md rounded-xl px-3 py-1.5 border border-white/10 flex items-center justify-center text-center">
-                    {currentSceneSubtitles.length > 0 ? (
-                      <p className="text-xs sm:text-sm font-extrabold drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] leading-snug tracking-wide flex flex-wrap items-center justify-center gap-1">
-                        {currentSceneSubtitles.map((sub, idx) => {
-                          const originalIdx = ttsResult?.subtitle_entries.indexOf(sub) ?? -1;
-                          const isActive = currentWordIndex === originalIdx && isPlaying;
-                          const isPast = originalIdx < currentWordIndex && isPlaying;
-                          return (
-                            <span
-                              key={idx}
-                              className={`transition-all duration-100 px-1 py-0.5 rounded ${
-                                isActive
-                                  ? 'bg-amber-400 text-slate-950 scale-110 shadow-lg shadow-amber-400/50 font-black'
-                                  : isPast
-                                  ? 'text-amber-200 opacity-90'
-                                  : 'text-slate-400 opacity-60'
-                              }`}
-                            >
-                              {sub.text}
-                            </span>
-                          );
-                        })}
-                      </p>
-                    ) : (
-                      <p className="text-xs sm:text-sm font-extrabold text-amber-300 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] leading-snug tracking-wide">
-                        {currentScene ? `"${currentScene.voiceover_text}"` : 'Agent Skill Trending 2026'}
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="w-full bg-slate-800/80 h-1.5 rounded-full overflow-hidden">
-                    <div 
-                      className="bg-gradient-to-r from-rose-500 via-indigo-500 to-emerald-400 h-full transition-all duration-100"
-                      style={{ width: `${progressPercent}%` }}
-                    />
-                  </div>
-                </div>
+                <Player
+                  ref={playerRef}
+                  component={SkillVideoComposition}
+                  inputProps={{
+                    storyboard,
+                    ttsResult,
+                    audioSrc: audioBlobUrl,
+                    skillTitle: blogPost?.title || customTopic || 'AI Autonomous Agent',
+                    skillStats: currentSkill ? {
+                      stars: currentSkill.stars,
+                      forks: currentSkill.forks,
+                      language: currentSkill.primary_language,
+                    } : {
+                      stars: 4280,
+                      forks: 340,
+                      language: 'TypeScript / AI Agent',
+                    },
+                    showCaptions,
+                  }}
+                  durationInFrames={totalDurationInFrames}
+                  compositionWidth={aspectRatio === '9:16' ? 720 : 1280}
+                  compositionHeight={aspectRatio === '9:16' ? 1280 : 720}
+                  fps={VIDEO_FPS}
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                  }}
+                  controls
+                  loop={false}
+                />
               </div>
 
               {!ttsResult?.audio_base64 && (
@@ -1729,10 +1861,10 @@ export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({
               <div className="w-full max-w-xl mt-4 flex items-center justify-between gap-3 bg-slate-900/90 p-3 rounded-2xl border border-slate-800 shadow-lg">
                 <button
                   onClick={() => {
+                    if (playerRef.current) playerRef.current.seekTo(0);
                     if (audioRef.current) audioRef.current.currentTime = 0;
-                    setPlaybackTimeMs(0);
                     setCurrentSceneIndex(0);
-                    setCurrentWordIndex(0);
+                    setIsPlaying(false);
                   }}
                   className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
                   title="Reset"
@@ -1790,25 +1922,41 @@ export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({
                   />
                 </div>
 
-                <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800">
+                <div className="flex items-center gap-1.5">
                   <button
-                    onClick={() => setAspectRatio('9:16')}
-                    className={`p-1.5 rounded-lg text-xs font-semibold transition-all ${
-                      aspectRatio === '9:16' ? 'bg-indigo-500 text-white' : 'text-slate-400 hover:text-slate-200'
+                    type="button"
+                    onClick={() => setShowCaptions(!showCaptions)}
+                    className={`px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all border ${
+                      showCaptions
+                        ? 'bg-rose-500/15 border-rose-500/40 text-rose-400 font-extrabold shadow-sm'
+                        : 'border-slate-800 text-slate-500 hover:text-slate-300'
                     }`}
+                    title={showCaptions ? 'Tắt phụ đề' : 'Bật phụ đề'}
                   >
-                    <Smartphone className="w-4 h-4" />
+                    💬 {showCaptions ? 'CC ON' : 'CC OFF'}
                   </button>
-                  <button
-                    onClick={() => setAspectRatio('16:9')}
-                    className={`p-1.5 rounded-lg text-xs font-semibold transition-all ${
-                      aspectRatio === '16:9' ? 'bg-indigo-500 text-white' : 'text-slate-400 hover:text-slate-200'
-                    }`}
-                  >
-                    <Monitor className="w-4 h-4" />
-                  </button>
+
+                  <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800">
+                    <button
+                      onClick={() => setAspectRatio('9:16')}
+                      className={`p-1.5 rounded-lg text-xs font-semibold transition-all ${
+                        aspectRatio === '9:16' ? 'bg-indigo-500 text-white' : 'text-slate-400 hover:text-slate-200'
+                      }`}
+                    >
+                      <Smartphone className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => setAspectRatio('16:9')}
+                      className={`p-1.5 rounded-lg text-xs font-semibold transition-all ${
+                        aspectRatio === '16:9' ? 'bg-indigo-500 text-white' : 'text-slate-400 hover:text-slate-200'
+                      }`}
+                    >
+                      <Monitor className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
               </div>
+
             </div>
           </div>
 
@@ -1913,27 +2061,44 @@ export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({
                   <span>{language === 'vi' ? 'Nhảy Nhanh Phân Cảnh:' : 'Jump to Scene:'}</span>
                   <span className="text-[10px] font-mono text-slate-400">Click to seek</span>
                 </div>
-                <div className="space-y-1.5 max-h-[190px] overflow-y-auto pr-1">
-                  {storyboard?.scenes.map((s, idx) => (
-                    <div
-                      key={s.scene_number}
-                      onClick={() => handleSeekScene(idx)}
-                      className={`px-3 py-2 rounded-xl text-[11px] font-mono cursor-pointer transition-all flex items-center justify-between border ${
-                        currentSceneIndex === idx
-                          ? 'bg-rose-500/15 text-rose-400 border-rose-500/40 font-bold shadow-sm'
-                          : 'bg-slate-50 dark:bg-slate-950 text-slate-600 dark:text-slate-400 border-transparent hover:border-slate-700'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2 truncate">
-                        <span className="w-5 h-5 rounded-lg bg-slate-200 dark:bg-slate-800 flex items-center justify-center text-[10px] font-bold shrink-0">
-                          {s.scene_number}
-                        </span>
-                        <span className="truncate">{s.title}</span>
+                <div className="space-y-1.5 max-h-[240px] overflow-y-auto pr-1">
+                  {storyboard?.scenes.map((s, idx) => {
+                    const sceneIcons: Record<string, string> = {
+                      intro: '🌟',
+                      github: '🐙',
+                      comparison: '⚖️',
+                      stat: '📊',
+                      architecture: '🧠',
+                      code: '💻',
+                      terminal: '⚡',
+                      features: '🧩',
+                      outro: '🎯',
+                      content: '✨',
+                    };
+                    const icon = sceneIcons[s.scene_type || 'content'] || '✨';
+
+                    return (
+                      <div
+                        key={s.scene_number || idx}
+                        onClick={() => handleSeekScene(idx)}
+                        className={`px-3 py-2 rounded-xl text-[11px] font-mono cursor-pointer transition-all flex items-center justify-between border ${
+                          currentSceneIndex === idx
+                            ? 'bg-rose-500/15 text-rose-400 border-rose-500/40 font-bold shadow-sm'
+                            : 'bg-slate-50 dark:bg-slate-950 text-slate-600 dark:text-slate-400 border-transparent hover:border-slate-700'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 truncate">
+                          <span className="w-5 h-5 rounded-lg bg-slate-200 dark:bg-slate-800 flex items-center justify-center text-[10px] font-bold shrink-0">
+                            {icon}
+                          </span>
+                          <span className="truncate">{s.title}</span>
+                        </div>
+                        <span className="text-[10px] opacity-70 shrink-0">~{s.duration_seconds}s</span>
                       </div>
-                      <span className="text-[10px] opacity-70 shrink-0">~{s.duration_seconds}s</span>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
+
               </div>
             </div>
           </div>
