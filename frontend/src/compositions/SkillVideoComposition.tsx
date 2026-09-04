@@ -27,6 +27,33 @@ export interface SkillVideoCompositionProps extends Record<string, unknown> {
   showCaptions?: boolean;
 }
 
+export const DEFAULT_VIDEO_SCENES: VideoStoryboard['scenes'] = [
+  {
+    scene_number: 1,
+    title: 'Khám Phá Kỹ Năng AI Trending 2026',
+    voiceover_text: 'Chào mừng bạn đến với tổng quan kỹ năng AI tự hành mới nhất.',
+    visual_description: 'Giới thiệu kỹ năng lập trình AI và hệ sinh thái.',
+    duration_seconds: 5,
+    image_url: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=1200&auto=format&fit=crop&q=80',
+  },
+  {
+    scene_number: 2,
+    title: 'Tự Động Hóa Quy Trình Với Subagent',
+    voiceover_text: 'Khả năng phối hợp đa tác tử xử lý các tác vụ phức tạp trong vài giây.',
+    visual_description: 'Sơ đồ luồng phối hợp subagent và workflow tự động hóa.',
+    duration_seconds: 6,
+    image_url: 'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=1200&auto=format&fit=crop&q=80',
+  },
+  {
+    scene_number: 3,
+    title: 'Trải Nghiệm Ngay Hôm Nay',
+    voiceover_text: 'Cài đặt và triển khai ngay vào workflow của bạn qua Agent Skills Trending.',
+    visual_description: 'Giao diện cài đặt một chạm và hướng dẫn sử dụng.',
+    duration_seconds: 5,
+    image_url: 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=1200&auto=format&fit=crop&q=80',
+  },
+];
+
 export const SkillVideoComposition: React.FC<SkillVideoCompositionProps> = ({
   storyboard,
   ttsResult,
@@ -42,35 +69,7 @@ export const SkillVideoComposition: React.FC<SkillVideoCompositionProps> = ({
     if (storyboard?.scenes && storyboard.scenes.length > 0) {
       return storyboard.scenes;
     }
-    return [
-      {
-        scene_number: 1,
-        title: 'Khám Phá Kỹ Năng AI Trending 2026',
-        voiceover_text: 'Chào mừng bạn đến với tổng quan kỹ năng AI tự hành mới nhất.',
-        visual_description: 'Giới thiệu kỹ năng lập trình AI và hệ sinh thái.',
-        duration_seconds: 5,
-        image_url:
-          'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=1200&auto=format&fit=crop&q=80',
-      },
-      {
-        scene_number: 2,
-        title: 'Tự Động Hóa Quy Trình Với Subagent',
-        voiceover_text: 'Khả năng phối hợp đa tác tử xử lý các tác vụ phức tạp trong vài giây.',
-        visual_description: 'Sơ đồ luồng phối hợp subagent và workflow tự động hóa.',
-        duration_seconds: 6,
-        image_url:
-          'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=1200&auto=format&fit=crop&q=80',
-      },
-      {
-        scene_number: 3,
-        title: 'Trải Nghiệm Ngay Hôm Nay',
-        voiceover_text: 'Cài đặt và triển khai ngay vào workflow của bạn qua Agent Skills Trending.',
-        visual_description: 'Giao diện cài đặt một chạm và hướng dẫn sử dụng.',
-        duration_seconds: 5,
-        image_url:
-          'https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=1200&auto=format&fit=crop&q=80',
-      },
-    ];
+    return DEFAULT_VIDEO_SCENES;
   }, [storyboard?.scenes]);
 
   // Audio is the only clock once narration exists. The pure timeline builder
@@ -203,6 +202,7 @@ export const SkillVideoComposition: React.FC<SkillVideoCompositionProps> = ({
                 sceneIndex={index}
                 totalScenes={scenesWithTimeline.length}
                 durationInFrames={durationFrames}
+                subtitles={sceneSubtitles}
               />
             )}
           </Sequence>

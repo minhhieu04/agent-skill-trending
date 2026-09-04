@@ -32,7 +32,7 @@ import {
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { Player, PlayerRef } from '@remotion/player';
 import { SkillVideoComposition } from '../compositions/SkillVideoComposition';
-import { getVideoDurationInFrames } from '../compositions/videoTimeline';
+import { buildVideoTimeline, getVideoDurationInFrames } from '../compositions/videoTimeline';
 import { api } from '../api/client';
 import { 
   Skill, 
@@ -131,6 +131,11 @@ export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({
   const totalDurationInFrames = React.useMemo(() => {
     return getVideoDurationInFrames(storyboard?.scenes || [], ttsResult, VIDEO_FPS);
   }, [ttsResult, storyboard?.scenes]);
+  const playerTimeline = React.useMemo(() => buildVideoTimeline({
+    scenes: storyboard?.scenes || [],
+    ttsResult,
+    fps: VIDEO_FPS,
+  }), [storyboard?.scenes, ttsResult]);
 
 
   const currentSkill = skills.find(s => s.id === Number(selectedSkillId)) || initialSkill;
@@ -150,12 +155,15 @@ export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({
   useEffect(() => {
     if (language === 'en' && selectedVoice.startsWith('vi-')) {
       setSelectedVoice('en-US-ChristopherNeural');
+      setTtsResult(null);
     } else if (language === 'vi' && !selectedVoice.startsWith('vi-')) {
       setSelectedVoice('vi-VN-HoaiMyNeural');
+      setTtsResult(null);
     }
   }, [language]);
 
   const applyVoicePreset = (preset: 'hype' | 'professional' | 'podcast') => {
+    setTtsResult(null);
     setVoicePreset(preset);
     if (preset === 'hype') {
       setReadingSpeed('+15%');
@@ -184,6 +192,7 @@ export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({
     mutationFn: api.generateStoryboard,
     onSuccess: async (data) => {
       setStoryboard(data);
+      setTtsResult(null);
       setCurrentSceneIndex(0);
       const captures = new Map<string, Awaited<ReturnType<typeof api.captureGitHubRepository>> | null>();
       const enrichedScenes = [];
@@ -191,7 +200,11 @@ export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({
         if ((scene.scene_type === 'github' || scene.asset_type === 'github_walkthrough') && scene.repository_url) {
           if (!captures.has(scene.repository_url)) {
             try {
-              captures.set(scene.repository_url, await api.captureGitHubRepository(scene.repository_url));
+              captures.set(scene.repository_url, await api.captureGitHubRepository(
+                scene.repository_url,
+                data.aspect_ratio as '9:16' | '16:9',
+                scene.duration_seconds,
+              ));
             } catch {
               captures.set(scene.repository_url, null);
             }
@@ -255,16 +268,23 @@ export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({
     showToast(language === 'vi' ? 'Đang tạo ảnh nghệ thuật AI cho các phân cảnh...' : 'Generating AI scene visuals...');
     try {
       const updatedScenes = [...storyboard.scenes];
-      for (let i = 0; i < updatedScenes.length; i++) {
-        const scene = updatedScenes[i];
-        if (scene.scene_type === 'github' || scene.asset_type === 'github_walkthrough') {
-          continue;
+      const pendingIndexes = updatedScenes
+        .map((scene, index) => ({ scene, index }))
+        .filter(({ scene }) => scene.scene_type !== 'github' && scene.asset_type !== 'github_walkthrough')
+        .map(({ index }) => index);
+      let nextJob = 0;
+      const worker = async () => {
+        while (nextJob < pendingIndexes.length) {
+          const index = pendingIndexes[nextJob];
+          nextJob += 1;
+          const scene = updatedScenes[index];
+          const targetPrompt = scene.visual_prompt || scene.visual_description || 'AI Coding Assistant';
+          const res = await api.generateSceneImage(targetPrompt, scene.scene_number, aspectRatio);
+          updatedScenes[index] = { ...scene, image_url: res.image_url };
+          setStoryboard(prev => prev ? { ...prev, scenes: [...updatedScenes] } : prev);
         }
-        const targetPrompt = scene.visual_prompt || scene.visual_description || 'AI Coding Assistant';
-        const res = await api.generateSceneImage(targetPrompt, scene.scene_number, aspectRatio);
-        updatedScenes[i] = { ...scene, image_url: res.image_url };
-        setStoryboard(prev => prev ? { ...prev, scenes: [...updatedScenes] } : prev);
-      }
+      };
+      await Promise.all(Array.from({ length: Math.min(3, pendingIndexes.length) }, worker));
       showToast(language === 'vi' ? '✨ Đã hoàn thành sinh toàn bộ ảnh AI!' : '✨ All AI scene visuals generated!');
     } catch (e: any) {
       showToast(e.message || 'Lỗi sinh ảnh AI', 'error');
@@ -320,6 +340,7 @@ export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({
     };
     const updated = [...storyboard.scenes, newScene].map((s, idx) => ({ ...s, scene_number: idx + 1 }));
     setStoryboard({ ...storyboard, scenes: updated });
+    setTtsResult(null);
     showToast(language === 'vi' ? `Đã thêm phân cảnh (Scene ${updated.length})` : `Added Scene ${updated.length}`);
   };
 
@@ -330,6 +351,7 @@ export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({
     }
     const updated = storyboard.scenes.filter((_, i) => i !== sceneIndex).map((s, idx) => ({ ...s, scene_number: idx + 1 }));
     setStoryboard({ ...storyboard, scenes: updated });
+    setTtsResult(null);
     showToast(language === 'vi' ? 'Đã xóa phân cảnh' : 'Scene deleted');
   };
 
@@ -337,6 +359,7 @@ export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({
     if (!storyboard) return;
     const updated = storyboard.scenes.map((s, i) => i === sceneIndex ? { ...s, ...patch } : s);
     setStoryboard({ ...storyboard, scenes: updated });
+    if (patch.voiceover_text !== undefined) setTtsResult(null);
   };
 
   const handleMoveScene = (sceneIndex: number, direction: 'up' | 'down') => {
@@ -348,6 +371,7 @@ export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({
     copy.splice(targetIndex, 0, moved);
     const updated = copy.map((s, idx) => ({ ...s, scene_number: idx + 1 }));
     setStoryboard({ ...storyboard, scenes: updated });
+    setTtsResult(null);
   };
 
 
@@ -464,13 +488,11 @@ export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({
     if (!player || activeStep !== 'player') return;
 
     const handleFrameUpdate = (event: { detail: { frame: number } }) => {
-      const currentMs = event.detail.frame / VIDEO_FPS * 1000;
-      const segments = ttsResult?.scene_segments || [];
-      const matchingSegment = segments.find((segment, index) => (
-        currentMs >= segment.start_ms
-        && (currentMs < segment.end_ms || index === segments.length - 1)
+      const matchingSegment = playerTimeline.find((segment, index) => (
+        event.detail.frame >= segment.fromFrame
+        && (event.detail.frame < segment.fromFrame + segment.durationFrames || index === playerTimeline.length - 1)
       ));
-      const newSceneIndex = matchingSegment?.scene_index ?? 0;
+      const newSceneIndex = matchingSegment?.index ?? 0;
       if (newSceneIndex !== currentSceneIndexRef.current) {
         currentSceneIndexRef.current = newSceneIndex;
         setCurrentSceneIndex(newSceneIndex);
@@ -494,40 +516,16 @@ export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({
       player.removeEventListener('pause', handlePause);
       player.removeEventListener('ended', handleEnded);
     };
-  }, [activeStep, ttsResult?.scene_segments]);
+  }, [activeStep, playerTimeline]);
 
   const handleSeekScene = (sceneIdx: number) => {
     if (!storyboard || !storyboard.scenes[sceneIdx]) return;
-    const subtitles = ttsResult?.subtitle_entries || [];
-    const sceneSegments = ttsResult?.scene_segments || [];
-    const scenes = storyboard.scenes;
-    let targetSec = 0;
-
-    if (sceneSegments[sceneIdx]) {
-      targetSec = sceneSegments[sceneIdx].start_ms / 1000;
-    } else if (subtitles.length > 0) {
-      // Use real subtitle timestamps
-      let curSubIdx = 0;
-      for (let sIdx = 0; sIdx < sceneIdx; sIdx++) {
-        const words = (scenes[sIdx].voiceover_text || '').trim().split(/\s+/).filter(Boolean);
-        const endIdx = Math.min(subtitles.length, curSubIdx + words.length);
-        if (endIdx > curSubIdx && subtitles[endIdx - 1]) {
-          curSubIdx = endIdx;
-        }
-      }
-      if (curSubIdx < subtitles.length) {
-        targetSec = subtitles[curSubIdx].start_ms / 1000;
-      }
-    } else {
-      for (let i = 0; i < sceneIdx; i++) {
-        targetSec += scenes[i].duration_seconds || 5;
-      }
-    }
+    const targetFrame = playerTimeline[sceneIdx]?.fromFrame || 0;
 
     currentSceneIndexRef.current = sceneIdx;
     setCurrentSceneIndex(sceneIdx);
     if (playerRef.current) {
-      playerRef.current.seekTo(Math.round(targetSec * VIDEO_FPS));
+      playerRef.current.seekTo(targetFrame);
     }
   };
 
@@ -1221,7 +1219,10 @@ export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({
                 return (
                   <div
                     key={voice.id}
-                    onClick={() => setSelectedVoice(voice.id)}
+                    onClick={() => {
+                      setSelectedVoice(voice.id);
+                      setTtsResult(null);
+                    }}
                     className={`p-5 rounded-2xl border transition-all cursor-pointer space-y-3 relative group ${
                       isSelected
                         ? 'bg-indigo-500/10 dark:bg-indigo-500/15 border-indigo-500 ring-2 ring-indigo-500/20 shadow-lg shadow-indigo-500/10'
@@ -1367,7 +1368,9 @@ export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({
                         ? 'bg-emerald-950/80 border-emerald-400/50 text-emerald-300'
                         : 'bg-amber-950/80 border-amber-400/50 text-amber-200'
                     }`}>
-                      {ttsResult.timing_quality === 'word' ? '● SYNC LOCK · SPEECH MARKS' : '● SYNC ASSIST · ESTIMATED'}
+                      {ttsResult.timing_quality === 'word'
+                        ? `● SYNC LOCK · ${ttsResult.actual_provider === 'edge_tts' ? 'WORD BOUNDARY' : 'SPEECH MARKS'}`
+                        : '● SYNC ASSIST · ESTIMATED'}
                     </span>
                     <span className="px-2.5 py-1 rounded-full border border-sky-400/30 bg-slate-950/75 text-sky-200 text-[9px] font-mono font-bold backdrop-blur-md">
                       AUDIO MASTER · {(ttsResult.duration_seconds || 0).toFixed(2)}s

@@ -1,5 +1,5 @@
 import React from 'react';
-import { AbsoluteFill, Img, interpolate, spring, useCurrentFrame, useVideoConfig } from 'remotion';
+import { AbsoluteFill, Img, Video, interpolate, spring, useCurrentFrame, useVideoConfig } from 'remotion';
 import { SubtitleEntry, VideoScene } from '../../types';
 import { KaraokeSubtitle } from '../elements/KaraokeSubtitle';
 
@@ -34,6 +34,7 @@ export const GitHubWalkthroughScene: React.FC<GitHubWalkthroughSceneProps> = ({
   const { fps, width, height } = useVideoConfig();
   const progress = clamp01(frame / Math.max(1, durationInFrames - 1));
   const frames = scene.github_capture_frames?.filter(Boolean) || [];
+  const recordedVideo = scene.github_capture_video;
   const actions = (scene.cursor_actions?.length ? scene.cursor_actions : DEFAULT_ACTIONS)
     .slice()
     .sort((left, right) => left.at - right.at);
@@ -67,7 +68,12 @@ export const GitHubWalkthroughScene: React.FC<GitHubWalkthroughSceneProps> = ({
   const cardHeight = screenshotHeight + browserBarHeight;
   const cardLeft = (width - cardWidth) / 2;
   const cardTop = height * 0.035;
-  const imageScale = Math.min(cardWidth / captureViewport.width, screenshotHeight / captureViewport.height);
+  const captureAspect = captureViewport.width / Math.max(1, captureViewport.height);
+  const panelAspect = cardWidth / Math.max(1, screenshotHeight);
+  const useCoverLayout = Math.abs(captureAspect - panelAspect) > 0.32;
+  const imageScale = useCoverLayout
+    ? Math.max(cardWidth / captureViewport.width, screenshotHeight / captureViewport.height)
+    : Math.min(cardWidth / captureViewport.width, screenshotHeight / captureViewport.height);
   const renderedImageWidth = captureViewport.width * imageScale;
   const renderedImageHeight = captureViewport.height * imageScale;
   const imageOffsetX = (cardWidth - renderedImageWidth) / 2;
@@ -88,6 +94,10 @@ export const GitHubWalkthroughScene: React.FC<GitHubWalkthroughSceneProps> = ({
     extrapolateRight: 'clamp',
   });
   const repositoryLabel = scene.repository_url?.replace(/^https:\/\/github\.com\//, '') || 'repository source unavailable';
+  const sceneDurationSeconds = durationInFrames / fps;
+  const recordedDurationSeconds = Math.max(0.1, scene.github_capture_duration_seconds || sceneDurationSeconds);
+  const playbackRate = Math.max(0.5, Math.min(4, recordedDurationSeconds / Math.max(0.1, sceneDurationSeconds)));
+  const hasCapture = Boolean(recordedVideo || frames.length);
 
   return (
     <AbsoluteFill style={{ backgroundColor: '#05070b', opacity: fadeOut, overflow: 'hidden' }}>
@@ -115,12 +125,29 @@ export const GitHubWalkthroughScene: React.FC<GitHubWalkthroughSceneProps> = ({
             github.com/{repositoryLabel}
           </div>
           <span style={{ color: frames.length ? '#3fb950' : '#f85149', fontSize: 12, fontWeight: 800 }}>
-            {frames.length ? '● LIVE CAPTURE' : '● SOURCE ERROR'}
+            {hasCapture
+              ? (recordedVideo
+                ? `● RECORDED${scene.github_capture_source_revision ? ` @ ${scene.github_capture_source_revision.slice(0, 7)}` : ' SOURCE'}`
+                : '● CAPTURE FALLBACK')
+              : '● SOURCE ERROR'}
           </span>
         </div>
 
         <div style={{ position: 'relative', height: screenshotHeight, overflow: 'hidden', background: '#0d1117' }}>
-          {frames.length ? frames.map((src, index) => (
+          {recordedVideo ? (
+            <Video
+              src={recordedVideo}
+              muted
+              playbackRate={playbackRate}
+              style={{
+                position: 'absolute',
+                inset: 0,
+                width: '100%',
+                height: '100%',
+                objectFit: 'cover',
+              }}
+            />
+          ) : frames.length ? frames.map((src, index) => (
             <Img
               key={`${src.slice(0, 48)}-${index}`}
               src={src}
@@ -145,7 +172,7 @@ export const GitHubWalkthroughScene: React.FC<GitHubWalkthroughSceneProps> = ({
         </div>
       </div>
 
-      {frames.length > 0 && (
+      {frames.length > 0 && !recordedVideo && (
         <div style={{ position: 'absolute', left: cursorX, top: cursorY, zIndex: 60, transform: `translate(-3px, -3px) scale(${1 + clickPulse * 0.12})`, filter: 'drop-shadow(0 4px 5px rgba(0,0,0,0.75))' }}>
           {clickPulse > 0.01 && <div style={{ position: 'absolute', left: -20, top: -20, width: 44, height: 44, borderRadius: '50%', border: '4px solid rgba(47,129,247,0.95)', transform: `scale(${1 + clickPulse * 0.65})`, opacity: clickPulse }} />}
           <svg width="34" height="44" viewBox="0 0 34 44" aria-hidden="true">
@@ -154,7 +181,7 @@ export const GitHubWalkthroughScene: React.FC<GitHubWalkthroughSceneProps> = ({
         </div>
       )}
 
-      {frames.length > 0 && latestAction.label && (
+      {hasCapture && latestAction.label && (
         <div style={{
           position: 'absolute',
           top: cardTop + cardHeight + 18,
@@ -178,7 +205,7 @@ export const GitHubWalkthroughScene: React.FC<GitHubWalkthroughSceneProps> = ({
             {String(previousIndex + 1).padStart(2, '0')} / {String(actions.length).padStart(2, '0')}
           </span>
           <span style={{ flex: 1 }}>{latestAction.label}</span>
-          <span style={{ color: '#3fb950', fontSize: 13 }}>REAL CAPTURE</span>
+          <span style={{ color: '#3fb950', fontSize: 13 }}>{recordedVideo ? 'REAL BROWSER CLIP' : 'CAPTURE FALLBACK'}</span>
         </div>
       )}
 

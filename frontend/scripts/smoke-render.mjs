@@ -25,16 +25,22 @@ const createSilentWavDataUrl = (durationSeconds = 2, sampleRate = 8000) => {
 
 const outputLocation = process.argv[2] || resolve(tmpdir(), 'agent-skill-video-smoke.mp4');
 const captureDir = process.argv[3];
+const aspectRatio = process.argv[4] === '16:9' ? '16:9' : '9:16';
 const captureFrames = captureDir
   ? await Promise.all(['github-root.png', 'github-readme.png'].map(async (filename) => {
     const buffer = await readFile(resolve(captureDir, filename));
     return `data:image/png;base64,${buffer.toString('base64')}`;
   }))
   : [];
+const captureVideo = captureDir
+  ? await readFile(resolve(captureDir, 'github-walkthrough.mp4'))
+    .then((buffer) => `data:video/mp4;base64,${buffer.toString('base64')}`)
+    .catch(() => undefined)
+  : undefined;
 const inputProps = {
   storyboard: {
     total_duration: 8,
-    aspect_ratio: '9:16',
+    aspect_ratio: aspectRatio,
     scenes: [{
       scene_number: 1,
       scene_type: 'github',
@@ -50,7 +56,10 @@ const inputProps = {
       forks_count: 12,
       open_issues: 4,
       github_capture_frames: captureFrames,
-      capture_status: captureFrames.length ? 'captured' : 'unavailable',
+      github_capture_video: captureVideo,
+      github_capture_duration_seconds: captureVideo ? 4 : undefined,
+      github_capture_fps: captureVideo ? 12 : undefined,
+      capture_status: captureVideo || captureFrames.length ? 'captured' : 'unavailable',
       cursor_actions: [
         { at: 0.08, x: 0.50, y: 0.10, type: 'move', frame_index: 0 },
         { at: 0.27, x: 0.24, y: 0.42, type: 'click', frame_index: 0 },

@@ -5,7 +5,7 @@ import {
   useCurrentFrame,
   useVideoConfig,
 } from 'remotion';
-import { VideoScene } from '../../types';
+import { SubtitleEntry, VideoScene } from '../../types';
 
 interface SceneInformationDeckProps {
   scene: VideoScene;
@@ -13,6 +13,7 @@ interface SceneInformationDeckProps {
   sceneIndex: number;
   totalScenes: number;
   durationInFrames: number;
+  subtitles?: SubtitleEntry[];
 }
 
 interface InformationFact {
@@ -25,6 +26,24 @@ interface InformationFact {
 const FACT_COLORS = ['#38bdf8', '#c084fc', '#34d399', '#fbbf24'];
 
 const cleanText = (value?: string) => value?.replace(/\s+/g, ' ').trim() || '';
+const normalizedWord = (value: string) => value.toLocaleLowerCase().replace(/[^\p{L}\p{N}]+/gu, '');
+
+const resolveBeatStartMs = (
+  beat: NonNullable<VideoScene['visual_beats']>[number],
+  subtitles: SubtitleEntry[],
+  durationMs: number,
+) => {
+  const anchorWords = cleanText(beat.anchor_text).split(/\s+/).map(normalizedWord).filter(Boolean);
+  const subtitleWords = subtitles.map((subtitle) => normalizedWord(subtitle.text));
+  if (anchorWords.length > 0) {
+    for (let index = 0; index <= subtitleWords.length - anchorWords.length; index += 1) {
+      if (anchorWords.every((word, offset) => subtitleWords[index + offset] === word)) {
+        return subtitles[index].start_ms;
+      }
+    }
+  }
+  return Math.max(0, Math.min(durationMs, beat.at * durationMs));
+};
 
 const truncate = (value: string, maxLength: number) => (
   value.length > maxLength ? `${value.slice(0, maxLength - 1).trimEnd()}…` : value
@@ -129,17 +148,23 @@ export const SceneInformationDeck: React.FC<SceneInformationDeckProps> = React.m
   sceneIndex,
   totalScenes,
   durationInFrames,
+  subtitles = [],
 }) => {
   const frame = useCurrentFrame();
   const { fps, width, height } = useVideoConfig();
   const isVertical = height > width;
-  const sceneProgress = Math.max(0, Math.min(1, frame / Math.max(1, durationInFrames - 1)));
+  const currentMs = frame / fps * 1000;
   const visualBeats = React.useMemo(
-    () => (scene.visual_beats || []).slice().sort((left, right) => left.at - right.at),
-    [scene.visual_beats],
+    () => (scene.visual_beats || [])
+      .map((beat) => ({
+        ...beat,
+        startMs: resolveBeatStartMs(beat, subtitles, durationInFrames / fps * 1000),
+      }))
+      .sort((left, right) => left.startMs - right.startMs),
+    [scene.visual_beats, subtitles, durationInFrames, fps],
   );
   const activeBeat = visualBeats.reduce(
-    (current, beat) => (beat.at <= sceneProgress ? beat : current),
+    (current, beat) => (beat.startMs <= currentMs ? beat : current),
     visualBeats[0],
   );
   const facts = React.useMemo(
@@ -247,7 +272,7 @@ export const SceneInformationDeck: React.FC<SceneInformationDeckProps> = React.m
                 height: 4,
                 flex: 1,
                 borderRadius: 99,
-                background: active ? '#38bdf8' : beat.at < sceneProgress ? 'rgba(56,189,248,0.38)' : 'rgba(148,163,184,0.18)',
+                background: active ? '#38bdf8' : beat.startMs < currentMs ? 'rgba(56,189,248,0.38)' : 'rgba(148,163,184,0.18)',
                 boxShadow: active ? '0 0 12px rgba(56,189,248,0.75)' : 'none',
               }} />
             );

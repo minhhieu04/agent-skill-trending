@@ -69,6 +69,11 @@ class VideoSceneItem(BaseModel):
     feature_items: Optional[List[Dict[str, str]]] = None
     cursor_actions: Optional[List[Dict[str, Any]]] = None
     github_capture_frames: Optional[List[str]] = None
+    github_capture_video: Optional[str] = None
+    github_capture_duration_seconds: Optional[float] = None
+    github_capture_fps: Optional[int] = None
+    github_capture_source_revision: Optional[str] = None
+    github_capture_captured_at: Optional[str] = None
     github_capture_viewport: Optional[Dict[str, int]] = None
     capture_status: Optional[Literal["captured", "unavailable"]] = None
     visual_beats: Optional[List[Dict[str, Any]]] = None
@@ -93,7 +98,7 @@ class StoryboardGenerateResponse(BaseModel):
     target_word_budget: Optional[int] = None
 
 class TTSRequest(BaseModel):
-    text: str
+    text: str = Field(min_length=1, max_length=5000)
     scene_texts: Optional[List[str]] = None
     voice: str = "vi-VN-HoaiMyNeural"
     rate: str = "+0%"
@@ -126,6 +131,11 @@ class TTSResponse(BaseModel):
     audio_duration_ms: Optional[int] = None
     caption_lead_ms: int = 90
     sync_diagnostics: Optional[Dict[str, Any]] = None
+    narration_revision: Optional[str] = None
+    rate: str = "+0%"
+    pitch: str = "+0Hz"
+    requested_provider: Optional[str] = None
+    actual_provider: Optional[str] = None
 
 
 class VideoRenderRequest(BaseModel):
@@ -150,6 +160,8 @@ class SceneImageResponse(BaseModel):
 
 class GitHubCaptureRequest(BaseModel):
     repository_url: str
+    aspect_ratio: Literal["9:16", "16:9"] = "9:16"
+    duration_seconds: float = Field(default=8.0, ge=4.0, le=20.0)
 
 
 def _skill_to_content_data(skill: Skill) -> Dict[str, Any]:
@@ -191,7 +203,11 @@ def _validated_github_repository_url(raw_url: Optional[str]) -> Optional[str]:
     return f"https://github.com/{path_parts[0]}/{path_parts[1]}"
 
 
-async def _capture_github_repository(repository_url: Optional[str]) -> Optional[Dict[str, Any]]:
+async def _capture_github_repository(
+    repository_url: Optional[str],
+    aspect_ratio: str = "9:16",
+    duration_seconds: float = 8.0,
+) -> Optional[Dict[str, Any]]:
     """Capture a public GitHub repository locally with a fixed, allowlisted URL shape."""
     safe_url = _validated_github_repository_url(repository_url)
     if not safe_url:
@@ -213,6 +229,10 @@ async def _capture_github_repository(repository_url: Optional[str]) -> Optional[
                 safe_url,
                 "--output-dir",
                 str(capture_dir),
+                "--aspect-ratio",
+                aspect_ratio,
+                "--duration-seconds",
+                str(max(4.0, min(20.0, duration_seconds))),
             ],
             cwd=frontend_dir,
             check=True,
@@ -236,13 +256,26 @@ async def _capture_github_repository(repository_url: Optional[str]) -> Optional[
             encoded_frames.append(f"data:image/png;base64,{encoded}")
         if not encoded_frames:
             return None
-        return {
+        capture: Dict[str, Any] = {
             "github_capture_frames": encoded_frames,
             "image_url": encoded_frames[0],
             "cursor_actions": manifest.get("cursor_actions") or [],
             "github_capture_viewport": manifest.get("viewport") or {},
             "capture_status": "captured",
+            "github_capture_source_revision": manifest.get("source_revision"),
+            "github_capture_captured_at": manifest.get("captured_at"),
         }
+        video_path = manifest.get("video")
+        if video_path:
+            resolved_video = Path(video_path).resolve()
+            if capture_dir.resolve() in resolved_video.parents and resolved_video.is_file():
+                encoded_video = base64.b64encode(resolved_video.read_bytes()).decode("ascii")
+                capture.update({
+                    "github_capture_video": f"data:video/mp4;base64,{encoded_video}",
+                    "github_capture_duration_seconds": float(manifest.get("duration_seconds") or duration_seconds),
+                    "github_capture_fps": int(manifest.get("fps") or 12),
+                })
+        return capture
     except (subprocess.SubprocessError, OSError, ValueError, json.JSONDecodeError):
         return None
     finally:
@@ -255,12 +288,17 @@ async def _attach_github_captures(storyboard: Dict[str, Any]) -> Dict[str, Any]:
     for scene in scenes:
         if scene.get("scene_type") != "github" and scene.get("asset_type") != "github_walkthrough":
             continue
-        if scene.get("github_capture_frames"):
+        if scene.get("github_capture_video") or scene.get("github_capture_frames"):
             continue
         repository_url = _validated_github_repository_url(scene.get("repository_url"))
-        if repository_url not in capture_by_url:
-            capture_by_url[repository_url or ""] = await _capture_github_repository(repository_url)
-        capture = capture_by_url.get(repository_url or "")
+        capture_key = f"{repository_url or ''}|{storyboard.get('aspect_ratio') or '9:16'}|{scene.get('duration_seconds') or 8}"
+        if capture_key not in capture_by_url:
+            capture_by_url[capture_key] = await _capture_github_repository(
+                repository_url,
+                storyboard.get("aspect_ratio") or "9:16",
+                float(scene.get("duration_seconds") or 8),
+            )
+        capture = capture_by_url.get(capture_key)
         if capture:
             scene.update(capture)
         else:
@@ -278,14 +316,17 @@ async def synthesize_tts(payload: TTSRequest):
     if not payload.text or not payload.text.strip():
         raise HTTPException(status_code=400, detail="Text cannot be empty")
     
-    result = await TTSService.synthesize(
-        text=payload.text,
-        voice=payload.voice,
-        rate=payload.rate,
-        pitch=payload.pitch,
-        provider=payload.provider or "edge_tts",
-        scene_texts=payload.scene_texts,
-    )
+    try:
+        result = await TTSService.synthesize(
+            text=payload.text,
+            voice=payload.voice,
+            rate=payload.rate,
+            pitch=payload.pitch,
+            provider=payload.provider or "edge_tts",
+            scene_texts=payload.scene_texts,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     return result
 
 @router.post("/scene/image", response_model=SceneImageResponse)
@@ -301,7 +342,11 @@ async def generate_scene_image(payload: SceneImageRequest):
 
 @router.post("/github/capture")
 async def capture_github_repository(payload: GitHubCaptureRequest):
-    capture = await _capture_github_repository(payload.repository_url)
+    capture = await _capture_github_repository(
+        payload.repository_url,
+        payload.aspect_ratio,
+        payload.duration_seconds,
+    )
     if not capture:
         raise HTTPException(status_code=422, detail="Repository is unavailable or could not be captured")
     return capture
@@ -359,8 +404,27 @@ async def render_video(payload: VideoRenderRequest):
     render_dir = Path(tempfile.mkdtemp(prefix="agent-skill-video-"))
     props_path = render_dir / "props.json"
     output_path = render_dir / "skill-video.mp4"
-    storyboard_payload = await _attach_github_captures(payload.storyboard.model_dump())
+    storyboard_payload = payload.storyboard.model_dump()
     scene_texts = [str(scene.get("voiceover_text") or "") for scene in storyboard_payload.get("scenes") or []]
+    expected_revision = TTSService.narration_revision(
+        scene_texts,
+        payload.tts_result.voice,
+        payload.tts_result.rate,
+        payload.tts_result.pitch,
+    )
+    if not payload.tts_result.narration_revision:
+        shutil.rmtree(render_dir, ignore_errors=True)
+        raise HTTPException(
+            status_code=409,
+            detail="Narration audio is missing its script revision. Synthesize the voice again before export.",
+        )
+    if payload.tts_result.narration_revision != expected_revision:
+        shutil.rmtree(render_dir, ignore_errors=True)
+        raise HTTPException(
+            status_code=409,
+            detail="Storyboard or voice settings changed after synthesis. Regenerate narration before export.",
+        )
+    storyboard_payload = await _attach_github_captures(storyboard_payload)
     # Never trust stale browser timings during export. Probe the submitted audio
     # again and rebuild every scene boundary before Remotion receives the props.
     tts_payload = TTSService._finalize_timing(payload.tts_result.model_dump(), scene_texts)

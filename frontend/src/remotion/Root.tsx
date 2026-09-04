@@ -1,6 +1,6 @@
 import React from 'react';
 import { CalculateMetadataFunction, Composition } from 'remotion';
-import { SkillVideoComposition, SkillVideoCompositionProps } from '../compositions/SkillVideoComposition';
+import { DEFAULT_VIDEO_SCENES, SkillVideoComposition, SkillVideoCompositionProps } from '../compositions/SkillVideoComposition';
 import { getVideoDurationInFrames } from '../compositions/videoTimeline';
 
 const FPS = 30;
@@ -16,7 +16,7 @@ const defaultProps: SkillVideoCompositionProps = {
 
 const calculateMetadata: CalculateMetadataFunction<SkillVideoCompositionProps> = ({ props }) => {
   const aspectRatio = props.storyboard?.aspect_ratio || '9:16';
-  const scenes = props.storyboard?.scenes || [];
+  const scenes = props.storyboard?.scenes?.length ? props.storyboard.scenes : DEFAULT_VIDEO_SCENES;
   return {
     durationInFrames: getVideoDurationInFrames(scenes, props.ttsResult, FPS),
     width: aspectRatio === '9:16' ? 1080 : 1920,

@@ -120,11 +120,25 @@ def _cap_narration_to_target(
     }
 
 
+def _spoken_anchor(voiceover: str, fraction: float, size: int = 4) -> str:
+    """Return an exact phrase from narration for post-TTS beat alignment."""
+    words = re.findall(r"\S+", voiceover or "")
+    if not words:
+        return ""
+    start = min(len(words) - 1, max(0, round((len(words) - 1) * fraction)))
+    return " ".join(words[start:start + size])
+
+
 def _add_visual_beats(scenes: List[Dict[str, Any]], language: str) -> None:
     """Give every scene distinct editorial beats without inventing new claims."""
     is_vi = language == "vi"
     for scene in scenes:
-        if scene.get("visual_beats"):
+        voiceover = str(scene.get("voiceover_text") or "")
+        existing_beats = scene.get("visual_beats") or []
+        if existing_beats:
+            for index, beat in enumerate(existing_beats):
+                fraction = float(beat.get("at", (0.04, 0.38, 0.72)[min(index, 2)]))
+                beat["anchor_text"] = _spoken_anchor(voiceover, fraction)
             continue
         scene_type = scene.get("scene_type") or "content"
         source = _compact_text(scene.get("source_ref") or scene.get("repository_url") or "editor context", 100)
@@ -162,18 +176,21 @@ def _add_visual_beats(scenes: List[Dict[str, Any]], language: str) -> None:
         scene["visual_beats"] = [
             {
                 "at": 0.04,
+                "anchor_text": _spoken_anchor(voiceover, 0.04),
                 "badge": "HOOK" if scene_type == "intro" else "CONTEXT",
                 "title": _compact_text(scene.get("title"), 76),
                 "detail": primary_detail,
             },
             {
                 "at": 0.38,
+                "anchor_text": _spoken_anchor(voiceover, 0.38),
                 "badge": "DEMO" if scene_type in {"github", "code", "terminal"} else "KEY POINT",
                 "title": "Chi tiết thực tế" if is_vi else "Practical detail",
                 "detail": secondary_detail,
             },
             {
                 "at": 0.72,
+                "anchor_text": _spoken_anchor(voiceover, 0.72),
                 "badge": "SOURCE",
                 "title": "Nguồn kiểm chứng" if is_vi else "Verification source",
                 "detail": source,
@@ -616,9 +633,9 @@ Return ONLY a single valid JSON string with no markdown formatting:
       "visual_prompt": "Hyperrealistic 3D glowing hologram of AI Agent {skill_title}, cyberpunk neon lighting, volumetric mist, 8k render",
       "duration_seconds": {max(6, target_duration // target_scene_count)},
       "visual_beats": [
-        {{"at": 0.04, "badge": "HOOK", "title": "Specific point", "detail": "Source-backed detail"}},
-        {{"at": 0.38, "badge": "DEMO", "title": "Practical detail", "detail": "A different source-backed fact"}},
-        {{"at": 0.72, "badge": "SOURCE", "title": "Verification source", "detail": "Repository or editor context"}}
+        {{"at": 0.04, "anchor_text": "exact phrase from voiceover", "badge": "HOOK", "title": "Specific point", "detail": "Source-backed detail"}},
+        {{"at": 0.38, "anchor_text": "exact phrase from voiceover", "badge": "DEMO", "title": "Practical detail", "detail": "A different source-backed fact"}},
+        {{"at": 0.72, "anchor_text": "exact phrase from voiceover", "badge": "SOURCE", "title": "Verification source", "detail": "Repository or editor context"}}
       ],
       "code_snippet": null
     }}
@@ -629,7 +646,7 @@ RULES:
 - Total scenes in "scenes" array MUST be EXACTLY {target_scene_count}.
 - scene_type MUST be one of: "intro", "github", "comparison", "stat", "architecture", "code", "terminal", "features", "security", "content", "outro".
 - Each voiceover_text should be about {target_words_per_scene} words so narration matches the requested duration.
-- Every scene must contain exactly 3 visual_beats at 0.04, 0.38, and 0.72 with different information; do not repeat the same card or sentence.
+- Every scene must contain exactly 3 visual_beats at 0.04, 0.38, and 0.72 with different information. anchor_text must be an exact 3-5 word phrase copied from voiceover_text; do not repeat the same card or sentence.
 - Never invent stars, forks, growth percentages, benchmarks, install commands, security claims or supported runtimes.
 - If the source context does not contain a fact, omit it instead of guessing.
 - Add "source_ref" to every scene using "source context" or "editor context".

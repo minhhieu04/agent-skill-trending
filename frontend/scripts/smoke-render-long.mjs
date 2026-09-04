@@ -30,6 +30,9 @@ const captureFrames = await Promise.all(['github-root.png', 'github-readme.png']
   const buffer = await readFile(resolve(captureDir, filename));
   return `data:image/png;base64,${buffer.toString('base64')}`;
 }));
+const captureVideo = await readFile(resolve(captureDir, 'github-walkthrough.mp4'))
+  .then((buffer) => `data:video/mp4;base64,${buffer.toString('base64')}`)
+  .catch(() => undefined);
 
 const sceneDurationMs = 7500;
 const sceneBlueprints = [
@@ -56,6 +59,9 @@ const scenes = sceneBlueprints.map(([sceneType, title, voiceover], index) => ({
   duration_seconds: sceneDurationMs / 1000,
   repository_url: sceneType === 'github' ? 'https://github.com/google/skills' : undefined,
   github_capture_frames: sceneType === 'github' ? captureFrames : undefined,
+  github_capture_video: sceneType === 'github' ? captureVideo : undefined,
+  github_capture_duration_seconds: sceneType === 'github' && captureVideo ? 4 : undefined,
+  github_capture_fps: sceneType === 'github' && captureVideo ? 12 : undefined,
   capture_status: sceneType === 'github' ? 'captured' : undefined,
   cursor_actions: sceneType === 'github' ? [
     { at: 0.08, x: 0.50, y: 0.10, type: 'move', frame_index: 0 },

@@ -10,6 +10,27 @@ interface KaraokeSubtitleProps {
   showCaptions?: boolean;
 }
 
+interface CaptionWord extends SubtitleEntry {
+  index: number;
+}
+
+export const buildCaptionPages = (subtitles: SubtitleEntry[], maxWords: number): CaptionWord[][] => {
+  const pages: CaptionWord[][] = [];
+  let page: CaptionWord[] = [];
+  subtitles.forEach((subtitle, index) => {
+    const previous = page[page.length - 1];
+    const followsPause = previous ? subtitle.start_ms - previous.end_ms >= 420 : false;
+    const followsSentence = previous ? /[.!?…]$/.test(previous.text.trim()) && page.length >= 3 : false;
+    if (page.length >= maxWords || followsPause || followsSentence) {
+      pages.push(page);
+      page = [];
+    }
+    page.push({ ...subtitle, index });
+  });
+  if (page.length) pages.push(page);
+  return pages;
+};
+
 export const KaraokeSubtitle: React.FC<KaraokeSubtitleProps> = ({
   subtitles = [],
   fallbackText,
@@ -29,9 +50,11 @@ export const KaraokeSubtitle: React.FC<KaraokeSubtitleProps> = ({
       if (currentMs >= subtitles[index].start_ms) activeIndex = index;
     }
   }
-  const halfWindow = Math.floor(maxWordsWindow / 2);
-  const windowStart = Math.max(0, Math.min(activeIndex - halfWindow, Math.max(0, subtitles.length - maxWordsWindow)));
-  const visibleSubtitles = subtitles.slice(windowStart, windowStart + maxWordsWindow);
+  const captionPages = buildCaptionPages(subtitles, Math.max(1, maxWordsWindow));
+  const activePage = captionPages.find((page) => page.some((subtitle) => subtitle.index === activeIndex))
+    || captionPages[0]
+    || [];
+  const visibleSubtitles = activePage;
   const fallbackWords = (fallbackText || '').split(/\s+/).filter(Boolean).slice(0, maxWordsWindow);
   const activeSubtitle = subtitles[activeIndex];
   const activeWordProgress = activeSubtitle
@@ -83,7 +106,7 @@ export const KaraokeSubtitle: React.FC<KaraokeSubtitleProps> = ({
     >
       <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center', lineHeight: 1.45 }}>
         {(visibleSubtitles.length > 0 ? visibleSubtitles.map(item => item.text) : fallbackWords).map((word, index) => {
-          const absoluteIndex = windowStart + index;
+          const absoluteIndex = visibleSubtitles[index]?.index ?? index;
           const isActive = visibleSubtitles.length > 0 && absoluteIndex === activeIndex;
           const isPhraseCaption = visibleSubtitles.length === 1 && word.trim().includes(' ');
           const cleanWord = word.replace(/[^a-zA-Z0-9à-ỹÀ-Ỹ%]/g, '');

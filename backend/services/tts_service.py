@@ -1,7 +1,9 @@
 import asyncio
 import base64
+import hashlib
 import html
 import io
+import json
 import logging
 import re
 import subprocess
@@ -193,6 +195,23 @@ CURATED_VOICES = [
 
 class TTSService:
     @staticmethod
+    def narration_revision(
+        scene_texts: Optional[List[str]],
+        voice: str,
+        rate: str,
+        pitch: str,
+    ) -> str:
+        """Fingerprint the exact narration inputs used to produce an audio track."""
+        payload = {
+            "scene_texts": [re.sub(r"\s+", " ", text or "").strip() for text in (scene_texts or [])],
+            "voice": voice or "",
+            "rate": rate or "+0%",
+            "pitch": pitch or "+0Hz",
+        }
+        canonical = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+        return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+    @staticmethod
     def get_available_voices() -> List[Dict[str, Any]]:
         """Returns list of curated hot voices with metadata."""
         return CURATED_VOICES
@@ -267,29 +286,43 @@ class TTSService:
                 "timing_quality": "estimated",
             }
 
-        # Limit text length to avoid excessive API cost and timeouts
+        # Never synthesize a silently truncated script: that creates an audio
+        # track whose spoken words cannot match the submitted scene list.
         if len(clean_text) > 5000:
-            logger.warning(f"TTS input truncated from {len(clean_text)} to 5000 chars")
-            clean_text = clean_text[:5000]
+            raise ValueError("TTS input exceeds the 5000 character limit")
+
+        def finalize(result: Dict[str, Any], actual_provider: str) -> Dict[str, Any]:
+            result["voice"] = voice
+            result["rate"] = rate
+            result["pitch"] = pitch
+            result["requested_provider"] = provider
+            result["actual_provider"] = actual_provider
+            result["narration_revision"] = TTSService.narration_revision(
+                scene_texts,
+                voice,
+                rate,
+                pitch,
+            )
+            return TTSService._finalize_timing(result, scene_texts)
 
 
         # 1. Gemini 2.0 Native Audio path
         if provider == "gemini_audio" or voice.startswith("gemini-"):
             result = await TTSService._synthesize_gemini_audio(clean_text, voice, rate, pitch)
             if result:
-                return TTSService._finalize_timing(result, scene_texts)
+                return finalize(result, "gemini_audio")
             logger.info("Gemini 2.0 Native Audio unavailable, falling back to Edge-TTS")
 
         # 2. Google Cloud TTS path
         if provider == "google_tts":
             result = await TTSService._synthesize_google_cloud(clean_text, voice, rate, pitch)
             if result:
-                return TTSService._finalize_timing(result, scene_texts)
+                return finalize(result, "google_tts")
             logger.info("Google Cloud TTS unavailable, falling back to Edge-TTS")
 
         # 3. Edge-TTS path (primary or reliable fallback)
         result = await TTSService._synthesize_edge_tts(clean_text, voice, rate, pitch)
-        return TTSService._finalize_timing(result, scene_texts)
+        return finalize(result, "edge_tts")
 
     @staticmethod
     def _probe_audio_duration(audio_base64: str) -> Optional[float]:
@@ -354,7 +387,11 @@ class TTSService:
         # MP3 stream (observed as a near-linear drift). Clamping only the tail
         # collapses many words into the final frame. Scale the complete stream
         # to the decoded audio clock instead.
-        if duration_ms > 0 and raw_caption_end_ms > duration_ms * 1.02:
+        if (
+            duration_ms > 0
+            and raw_caption_end_ms > 0
+            and abs(raw_caption_end_ms - duration_ms) > max(120, duration_ms * 0.02)
+        ):
             timestamp_scale = duration_ms / raw_caption_end_ms
             subtitles = [
                 {

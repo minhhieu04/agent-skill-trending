@@ -247,12 +247,19 @@ export interface VideoScene {
     type: 'move' | 'click' | 'scroll' | 'highlight';
     frame_index?: number;
     label?: string;
+    semantic_key?: 'repository' | 'readme' | 'details' | 'skill' | 'verification';
   }>;
   github_capture_frames?: string[];
+  github_capture_video?: string;
+  github_capture_duration_seconds?: number;
+  github_capture_fps?: number;
+  github_capture_source_revision?: string;
+  github_capture_captured_at?: string;
   github_capture_viewport?: { width: number; height: number; deviceScaleFactor?: number };
   capture_status?: 'captured' | 'unavailable';
   visual_beats?: Array<{
     at: number;
+    anchor_text?: string;
     title: string;
     detail: string;
     badge?: string;
@@ -302,6 +309,11 @@ export interface TTSResult {
     subtitle_count: number;
     source: 'provider_boundaries' | 'cadence_estimate';
   };
+  narration_revision?: string;
+  rate?: string;
+  pitch?: string;
+  requested_provider?: string;
+  actual_provider?: string;
 }
 
 export interface BlogGenerateRequest {

@@ -44,8 +44,12 @@ async def render_sample(output: Path) -> dict:
     if not tts_result.get("audio_base64"):
         raise RuntimeError(f"Real TTS failed: {tts_result.get('message') or tts_result.get('status')}")
 
-    capture = await _capture_github_repository(repository_url)
     github_scene = next((scene for scene in storyboard["scenes"] if scene.get("scene_type") == "github"), None)
+    capture = await _capture_github_repository(
+        repository_url,
+        storyboard["aspect_ratio"],
+        float((github_scene or {}).get("duration_seconds") or 8),
+    )
     if capture and github_scene:
         github_scene.update(capture)
 
@@ -93,10 +97,13 @@ async def render_sample(output: Path) -> dict:
         "duration_seconds": tts_result["duration_seconds"],
         "timeline_version": tts_result.get("timeline_version"),
         "timing_quality": tts_result.get("timing_quality"),
+        "actual_provider": tts_result.get("actual_provider"),
+        "narration_revision": tts_result.get("narration_revision"),
         "caption_lead_ms": tts_result.get("caption_lead_ms"),
         "sync_diagnostics": tts_result.get("sync_diagnostics"),
         "scene_segments": tts_result.get("scene_segments"),
         "github_capture": bool(capture),
+        "github_recording": bool((capture or {}).get("github_capture_video")),
         "render_diagnostics": {
             "video_codec": video_stream.get("codec_name"),
             "audio_codec": audio_stream.get("codec_name"),
