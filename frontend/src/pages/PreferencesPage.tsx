@@ -158,9 +158,9 @@ export const PreferencesPage: React.FC<PreferencesPageProps> = ({
           <button
             onClick={handleSubmit}
             disabled={saving}
-            className="flex items-center gap-2 px-4 py-2 rounded-2xl text-xs font-semibold neu-primary text-white active:scale-95 disabled:opacity-50 transition-all shrink-0 cursor-pointer"
+            className="flex items-center gap-2 px-5 py-2.5 rounded-2xl text-xs font-bold neu-primary text-white active:scale-95 disabled:opacity-50 transition-all shrink-0 cursor-pointer shadow-md"
           >
-            <Save className="w-3.5 h-3.5" />
+            <Save className="w-4 h-4 shrink-0" />
             <span>{saving ? 'Đang lưu...' : t('pref_save_btn')}</span>
           </button>
         </div>

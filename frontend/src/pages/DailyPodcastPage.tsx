@@ -888,6 +888,7 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
                     ]}
                     size="sm"
                     variant="inset"
+                    align="right"
                     searchable={false}
                   />
                 </div>

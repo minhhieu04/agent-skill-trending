@@ -31,11 +31,11 @@ export const PersonalizedFeed: React.FC<PersonalizedFeedProps> = ({
               <Sparkles className="w-5 h-5" />
             </div>
             <div>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <h2 className="text-base sm:text-lg font-bold text-[var(--text-main)]">
                   Gợi Ý Thông Minh Cho {preference?.user_name || 'Hiếu'}
                 </h2>
-                <span className="px-2.5 py-0.5 text-[10px] font-mono font-semibold rounded-full neu-inset-sm text-[var(--primary)]">
+                <span className="px-2.5 py-0.5 text-[10px] font-mono font-semibold rounded-full neu-inset-sm text-[var(--primary)] whitespace-nowrap shrink-0">
                   Personalized
                 </span>
               </div>
