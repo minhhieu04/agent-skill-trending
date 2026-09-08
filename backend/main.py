@@ -285,6 +285,33 @@ def seed_initial_curated_skills():
                     "trending_score": 99.5,
                     "is_featured": True,
                     "source_type": "github_trending_daily"
+                },
+                {
+                    "name": "trailofbits/agent-security-audit",
+                    "title": "Agent Security Audit & Sandbox Guardrails Skill",
+                    "repository_url": "https://github.com/trailofbits/agent-security-audit",
+                    "author": "trailofbits",
+                    "description": "Comprehensive security heuristics and automated audit rules for AI agents: command injection prevention, filesystem sandboxing, and tool permission guardrails.",
+                    "ai_summary": "Bộ quy chuẩn kiểm tra và đánh giá an toàn bảo mật cho AI Agent: ngăn chặn command injection, cô lập sandbox môi trường chạy và kiểm soát phân quyền tool gọi API.",
+                    "use_cases": [
+                        "Quét lỗ hổng và kiểm tra sandbox thực thi lệnh bash cho Coding Agent",
+                        "Phát hiện và ngăn ngừa prompt injection, indirect injection qua tài liệu độc hại",
+                        "Kiểm tra bảo mật và giới hạn quyền truy cập filesystem/network của Subagents"
+                    ],
+                    "comparison_notes": "Bộ quy chuẩn an toàn bảo mật số 1 cho các hệ thống Autonomous Agent triển khai thực tế.",
+                    "target_audience": "Security Engineers & Agent Developers",
+                    "readme_preview": "# Agent Security Audit\n\nAutomated vulnerability auditing and sandboxing for autonomous agents.\n\n```bash\nnpx agent-audit scan .\n```",
+                    "category": "security",
+                    "tags": ["security", "audit", "sandbox", "guardrails", "cybersecurity", "injection"],
+                    "runtimes": ["Google Antigravity", "OpenAI Codex", "Cursor", "Claude Code"],
+                    "difficulty": "advanced",
+                    "primary_language": "Python",
+                    "stars": 9850,
+                    "forks": 840,
+                    "quality_score": 99.0,
+                    "trending_score": 98.5,
+                    "is_featured": True,
+                    "source_type": "github_trending_daily"
                 }
             ]
 
