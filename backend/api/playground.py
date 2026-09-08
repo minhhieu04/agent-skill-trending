@@ -15,7 +15,7 @@ class SimulateRequest(BaseModel):
     skill_slug: Optional[str] = None
     prompt: str
     target_ide: str = "antigravity"
-    model: str = "gemini-2.5-pro"
+    model: str = "gemini-3.6-flash"
 
 class SimulateResponse(BaseModel):
     skill_name: str

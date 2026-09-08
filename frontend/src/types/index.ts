@@ -377,3 +377,144 @@ export interface AIRecommendationResponse {
   recommended_skills: RecommendedSkillItem[];
   ai_tips: string[];
 }
+
+// RAG Agent Chat Interfaces
+export interface AgentChatRecommendedSkill {
+  skill: Skill;
+  relevance_score: number;
+  match_reasons: string[];
+  quick_tip: string;
+}
+
+export interface AgentChatMessage {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  timestamp: string;
+  recommended_skills?: AgentChatRecommendedSkill[];
+  suggested_followups?: string[];
+  model_used?: string;
+  is_ai_powered?: boolean;
+}
+
+export interface AgentChatSession {
+  id: string;
+  title: string;
+  createdAt: number;
+  updatedAt: number;
+  messages: AgentChatMessage[];
+}
+
+export interface AgentChatResponse {
+  success: boolean;
+  message: string;
+  recommended_skills: AgentChatRecommendedSkill[];
+  suggested_followups: string[];
+  retrieval_stats: {
+    total_skills_scanned: number;
+    candidates_matched: number;
+    top_selected: number;
+  };
+  model_used: string;
+  is_ai_powered: boolean;
+}
+
+export interface AgentChatSuggestion {
+  title: string;
+  query: string;
+  icon: string;
+  category: string;
+}
+
+// Daily AI Podcast & Feed Interfaces
+export interface SocialMediaPost {
+  id: string;
+  skill_id: number;
+  title: string;
+  name: string;
+  author_handle: string;
+  author_name: string;
+  author_avatar_url?: string;
+  posted_time_ago: string;
+  badge?: string;
+  hook: string;
+  summary: string;
+  pain_point_story: {
+    before: string;
+    after: string;
+  };
+  core_mechanism: string;
+  key_features: string[];
+  code_example: {
+    language: string;
+    filename?: string;
+    code: string;
+    explanation?: string;
+  };
+  pros_and_cons: {
+    pros: string[];
+    cons: string[];
+  };
+  who_should_use: string;
+  discussion_prompt?: string;
+  hashtags: string[];
+  reactions: {
+    likes: number;
+    hearts: number;
+    bookmarks: number;
+    shares: number;
+  };
+  read_time_minutes: number;
+  repository_url?: string;
+}
+
+export interface SkillDigestSummary {
+  skill_id: number;
+  name: string;
+  title: string;
+  author: string;
+  repository_url: string;
+  category: string;
+  stars: number;
+  trending_score: number;
+  primary_language: string;
+  what_it_does: string;
+  pain_point_solved: string;
+  target_audience: string;
+  quick_start_prompt: string;
+  podcast_snippet: string;
+  social_post?: SocialMediaPost;
+}
+
+export interface DailyDigest {
+  id: number;
+  digest_date: string;
+  title: string;
+  summary_markdown: string;
+  podcast_script: string;
+  highlights: string[];
+  skill_summaries: SkillDigestSummary[];
+  total_skills_count: number;
+  has_audio: boolean;
+  podcast_duration_sec: number;
+  podcast_voice: string;
+  source_model: string;
+  updated_at: string;
+}
+
+export interface DailyDigestDateInfo {
+  date: string;
+  skills_count: number;
+  has_digest: boolean;
+  has_audio: boolean;
+}
+
+export interface DailyPodcastAudioResponse {
+  date: string;
+  title: string;
+  audio_base64: string;
+  duration_seconds: number;
+  voice: string;
+  cached: boolean;
+}
+

@@ -17,6 +17,8 @@ from api import (
     bundles_router,
     playground_router,
     studio_router,
+    agent_chat_router,
+    daily_digest_router,
 )
 from scheduler import start_scheduler, stop_scheduler
 from models.user_preference import UserPreference
@@ -26,6 +28,7 @@ from models.bundle import SkillBundle
 from models.collection_run import CollectionRun
 from models.audit_log import AuditLog
 from models.user import User
+from models.daily_digest import DailyDigest
 from middleware.auth import hash_password as get_password_hash
 
 logging.basicConfig(
@@ -203,10 +206,10 @@ def seed_initial_curated_skills():
                     "source_type": "github_trending_daily"
                 },
                 {
-                    "name": "uiux-pro/design-agent-skill",
+                    "name": "nextlevelbuilder/ui-ux-pro-max-skill",
                     "title": "UI/UX Pro Max: Modern Design Systems & Component Heuristics",
-                    "repository_url": "https://github.com/uiux-pro/design-agent-skill",
-                    "author": "uiux-pro",
+                    "repository_url": "https://github.com/nextlevelbuilder/ui-ux-pro-max-skill",
+                    "author": "nextlevelbuilder",
                     "description": "Strict UI/UX design heuristics for AI Agents: WCAG 2.1 accessibility, 8pt spatial grid, Tailwind CSS tokens, micro-interactions, and dark/light mode palette generation.",
                     "ai_summary": "Bộ kỹ năng thiết kế UI/UX đỉnh cao cho AI: chuẩn hóa bảng màu tương phản cao, 8pt grid, hiệu ứng mượt mà, hỗ trợ chuẩn Accessibility WCAG 2.1.",
                     "use_cases": [
@@ -222,10 +225,10 @@ def seed_initial_curated_skills():
                     "runtimes": ["Google Antigravity", "OpenAI Codex", "Cursor", "Claude Code", "Windsurf"],
                     "difficulty": "intermediate",
                     "primary_language": "TypeScript",
-                    "stars": 12400,
-                    "forks": 1350,
-                    "quality_score": 99.0,
-                    "trending_score": 98.5,
+                    "stars": 122450,
+                    "forks": 13120,
+                    "quality_score": 100.0,
+                    "trending_score": 99.8,
                     "is_featured": True,
                     "source_type": "github_trending_weekly"
                 },
@@ -435,6 +438,8 @@ app.include_router(auth_router, prefix=settings.API_V1_STR)
 app.include_router(bundles_router, prefix=settings.API_V1_STR)
 app.include_router(playground_router, prefix=settings.API_V1_STR)
 app.include_router(studio_router, prefix=settings.API_V1_STR)
+app.include_router(agent_chat_router, prefix=settings.API_V1_STR)
+app.include_router(daily_digest_router, prefix=settings.API_V1_STR)
 
 @app.get("/")
 def root():

@@ -100,10 +100,23 @@ class Categorizer:
             Respond ONLY with valid JSON.
             """
             
-            response = client.models.generate_content(
-                model="gemini-2.0-flash",
-                contents=prompt
-            )
+            response = None
+            used_model = "gemini-3.6-flash"
+            for candidate_model in ["gemini-3.6-flash", "gemini-3.5-flash-lite", "gemini-flash-latest", "gemini-3.1-flash-lite"]:
+                try:
+                    response = client.models.generate_content(
+                        model=candidate_model,
+                        contents=prompt
+                    )
+                    if response and response.text:
+                        used_model = candidate_model
+                        break
+                except Exception as me:
+                    logger.warning(f"Categorizer model {candidate_model} failed: {me}")
+
+            if not response or not response.text:
+                raise RuntimeError("No response from categorizer Gemini model")
+
             text = response.text.strip()
             if text.startswith("```json"):
                 text = text[7:]
@@ -116,7 +129,7 @@ class Categorizer:
                 "difficulty": data.get("difficulty", heuristic_res["difficulty"]),
                 "ai_summary": data.get("ai_summary", heuristic_res["ai_summary"]),
                 "runtimes": data.get("runtimes", []),
-                "provider": "google_gemini_2.0_flash"
+                "provider": f"google_{used_model.replace('-', '_').replace('.', '_')}"
             }
         except Exception as e:
             err_str = str(e)

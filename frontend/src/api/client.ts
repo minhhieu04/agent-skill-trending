@@ -20,7 +20,9 @@ import {
   StoryboardRequest,
   TTSRequest,
   SceneImageResponse,
-  AIRecommendationResponse
+  AIRecommendationResponse,
+  AgentChatResponse,
+  AgentChatSuggestion
 } from '../types';
 
 const rawBase = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace(/\/+$/, '') : '';
@@ -397,5 +399,89 @@ export const api = {
       throw new Error(err.detail || 'Không thể phân tích lộ trình AI');
     }
     return res.json();
+  },
+
+  // RAG Agent Chat
+  sendAgentChatMessage: async (
+    query: string,
+    history: Array<{ role: string; content: string }> = [],
+    language: string = 'vi'
+  ): Promise<AgentChatResponse> => {
+    const res = await fetch(`${API_BASE}/agent-chat/message`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+      body: JSON.stringify({ query, history, language }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: 'Lỗi khi gửi tin nhắn tới Agent Chat' }));
+      throw new Error(err.detail || 'Lỗi khi gửi tin nhắn tới Agent Chat');
+    }
+    return res.json();
+  },
+
+  getAgentChatSuggestions: async (language: string = 'vi'): Promise<AgentChatSuggestion[]> => {
+    const res = await fetch(`${API_BASE}/agent-chat/suggestions?language=${encodeURIComponent(language)}`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: 'Không thể lấy danh sách gợi ý' }));
+      throw new Error(err.detail || 'Không thể lấy danh sách gợi ý');
+    }
+    return res.json();
+  },
+
+  // Daily AI Podcast & Feed
+  getDailyDigestDates: async (): Promise<{ dates: import('../types').DailyDigestDateInfo[] }> => {
+    const res = await fetch(`${API_BASE}/daily-digest/dates`, {
+      headers: getAuthHeaders(),
+    });
+    if (!res.ok) throw new Error('Không thể tải danh sách ngày bản tin');
+    return res.json();
+  },
+
+  getDailyDigest: async (date: string): Promise<import('../types').DailyDigest> => {
+    const res = await fetch(`${API_BASE}/daily-digest/${encodeURIComponent(date)}`, {
+      headers: getAuthHeaders(),
+    });
+    if (!res.ok) throw new Error(`Không thể tải bản tin ngày ${date}`);
+    return res.json();
+  },
+
+  regenerateDailyDigest: async (date: string, language: string = 'vi'): Promise<import('../types').DailyDigest> => {
+    const res = await fetch(`${API_BASE}/daily-digest/${encodeURIComponent(date)}/generate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+      body: JSON.stringify({ language }),
+    });
+    if (!res.ok) throw new Error(`Không thể sinh lại bản tin ngày ${date}`);
+    return res.json();
+  },
+
+  synthesizeDailyPodcastAudio: async (
+    date: string,
+    voice: string = 'vi-VN-NamMinhNeural',
+    rate: string = '+5%',
+    forceRegenerate: boolean = false
+  ): Promise<import('../types').DailyPodcastAudioResponse> => {
+    const res = await fetch(`${API_BASE}/daily-digest/${encodeURIComponent(date)}/audio`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+      body: JSON.stringify({ voice, rate, force_regenerate: forceRegenerate }),
+    });
+    if (!res.ok) throw new Error(`Không thể tạo âm thanh podcast ngày ${date}`);
+    return res.json();
+  },
+
+  getPodcastVoices: async (): Promise<{ voices: import('../types').VoiceOption[] }> => {
+    const res = await fetch(`${API_BASE}/daily-digest/voices`, {
+      headers: getAuthHeaders(),
+    });
+    if (!res.ok) throw new Error('Không thể tải danh sách giọng đọc podcast');
+    return res.json();
+  },
+
+  getPodcastAudioStreamUrl: (date: string, voice: string, force: boolean = false): string => {
+    return `${API_BASE}/daily-digest/${encodeURIComponent(date)}/audio-stream?voice=${encodeURIComponent(voice)}${force ? '&force=true' : ''}`;
   }
 };

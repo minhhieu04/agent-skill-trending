@@ -43,14 +43,14 @@ export const ExploreCategories: React.FC<ExploreCategoriesProps> = ({
 
   return (
     <div className="space-y-6">
-      <div className="p-6 rounded-3xl bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 shadow-sm transition-colors">
-        <h2 className="text-xl font-black text-slate-900 dark:text-slate-100">{t('explore_cat_title')}</h2>
-        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+      <div className="p-5 sm:p-6 rounded-3xl neu-flat">
+        <h2 className="text-base sm:text-lg font-bold text-[var(--text-main)]">{t('explore_cat_title')}</h2>
+        <p className="text-xs text-[var(--text-muted)] mt-0.5">
           {t('explore_cat_sub')}
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 animate-fade-in">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-6 animate-fade-in">
         {categories.map((cat) => (
           <div
             key={cat.key}
@@ -63,29 +63,29 @@ export const ExploreCategories: React.FC<ExploreCategoriesProps> = ({
             }}
             role="button"
             tabIndex={0}
-            className="group p-6 rounded-3xl bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 hover:border-emerald-500/50 dark:hover:border-emerald-500/40 cursor-pointer transition-all duration-300 ease-spring shadow-sm hover:shadow-xl hover:shadow-emerald-500/10 hover:-translate-y-1.5 active:scale-[0.99] flex flex-col justify-between focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            className="group p-6 rounded-3xl neu-btn cursor-pointer transition-all flex flex-col justify-between focus:outline-none space-y-4"
           >
             <div>
               <div className="flex items-center justify-between mb-4">
-                <div className="p-3 rounded-2xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/60 group-hover:scale-110 group-hover:rotate-6 transition-transform duration-300">
+                <div className="w-12 h-12 rounded-2xl neu-inset flex items-center justify-center">
                   {getIcon(cat.icon)}
                 </div>
-                <span className="text-xs font-mono font-semibold px-2.5 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+                <span className="text-xs font-mono px-3 py-1 rounded-full neu-inset-sm text-[var(--primary)] font-bold">
                   {cat.count} skills
                 </span>
               </div>
 
-              <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors mb-2">
+              <h3 className="text-sm sm:text-base font-bold text-[var(--text-main)] group-hover:text-[var(--primary)] transition-colors mb-1.5">
                 {cat.title}
               </h3>
-              <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed font-normal">
+              <p className="text-xs text-[var(--text-muted)] leading-relaxed font-normal">
                 {cat.description}
               </p>
             </div>
 
-            <div className="pt-4 mt-4 border-t border-slate-100 dark:border-slate-800/60 flex items-center justify-between text-xs text-emerald-600 dark:text-emerald-400 font-semibold group-hover:translate-x-1 transition-transform">
+            <div className="pt-3.5 border-t border-[var(--shadow-dark)]/20 flex items-center justify-between text-xs text-[var(--text-main)] font-bold group-hover:text-[var(--primary)] transition-colors">
               <span>{t('view_skill_list')}</span>
-              <ArrowRight className="w-4 h-4" />
+              <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
             </div>
           </div>
         ))}

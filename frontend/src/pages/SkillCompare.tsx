@@ -40,14 +40,14 @@ export const SkillCompare: React.FC<SkillCompareProps> = ({
   return (
     <div className="space-y-6">
       {/* Header Banner */}
-      <div className="p-6 rounded-3xl bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4 transition-colors">
+      <div className="p-5 sm:p-6 rounded-3xl neu-flat flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="p-3 rounded-2xl bg-sky-500/10 border border-sky-500/20 text-sky-500">
-            <Scale className="w-6 h-6" />
+          <div className="w-10 h-10 rounded-2xl neu-inset text-[var(--primary)] flex items-center justify-center shrink-0">
+            <Scale className="w-5 h-5" />
           </div>
           <div>
-            <h2 className="text-xl font-black text-slate-900 dark:text-slate-100">{t('compare_title')}</h2>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+            <h2 className="text-base sm:text-lg font-bold text-[var(--text-main)]">{t('compare_title')}</h2>
+            <p className="text-xs text-[var(--text-muted)] mt-0.5">
               {t('compare_sub')}
             </p>
           </div>
@@ -58,15 +58,15 @@ export const SkillCompare: React.FC<SkillCompareProps> = ({
             <div className="relative">
               <button
                 onClick={() => setSelectorOpen(!selectorOpen)}
-                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white transition-all duration-200 shadow-md shadow-emerald-600/20 hover:scale-105 active:scale-95"
+                className="flex items-center gap-1.5 px-4 py-2 rounded-2xl text-xs font-semibold neu-primary text-white transition-all cursor-pointer"
               >
-                <Plus className="w-4 h-4" />
+                <Plus className="w-3.5 h-3.5" />
                 <span>{t('add_skill_compare')}</span>
               </button>
 
               {selectorOpen && (
-                <div className="absolute right-0 mt-2 w-72 max-h-80 overflow-y-auto rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl p-2 z-30 space-y-1 animate-scale-in">
-                  <div className="text-[11px] font-bold text-slate-400 px-3 py-1 uppercase tracking-wider">
+                <div className="absolute right-0 mt-2 w-72 max-h-80 overflow-y-auto rounded-2xl neu-modal p-2.5 z-30 space-y-1.5 animate-scale-in">
+                  <div className="text-[10px] font-mono text-[var(--text-muted)] px-2 py-1 uppercase tracking-wider font-bold">
                     {t('select_skill_to_compare')}
                   </div>
                   {availableToAdd.map((s) => (
@@ -76,20 +76,20 @@ export const SkillCompare: React.FC<SkillCompareProps> = ({
                         onAddSkillToCompare(s.id);
                         setSelectorOpen(false);
                       }}
-                      className="p-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer flex items-center justify-between transition-colors"
+                      className="p-2.5 rounded-xl neu-btn cursor-pointer flex items-center justify-between transition-all"
                     >
                       <div className="truncate mr-2 flex items-center gap-2">
-                        <TechLogo name={s.name || s.title || s.primary_language || ''} className="w-4 h-4 shrink-0" />
+                        <TechLogo name={s.name || s.title || s.primary_language || ''} className="w-3.5 h-3.5 shrink-0" />
                         <div>
-                          <div className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">
+                          <div className="text-xs font-semibold text-[var(--text-main)] truncate">
                             {s.title || s.name}
                           </div>
-                          <div className="text-[10px] text-slate-400 font-mono">
+                          <div className="text-[10px] text-[var(--text-muted)] font-mono">
                             {s.category}
                           </div>
                         </div>
                       </div>
-                      <span className="text-[10px] font-bold text-sky-600 dark:text-sky-400 font-mono shrink-0">
+                      <span className="text-[10px] font-bold text-[var(--primary)] font-mono shrink-0">
                         +{t('btn_compare')}
                       </span>
                     </div>
@@ -102,10 +102,10 @@ export const SkillCompare: React.FC<SkillCompareProps> = ({
       </div>
 
       {comparedSkills.length === 0 ? (
-        <div className="p-12 text-center rounded-3xl bg-white dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 shadow-sm space-y-3 animate-fade-in">
-          <Scale className="w-12 h-12 text-slate-400 mx-auto animate-float" />
-          <h3 className="text-base font-bold text-slate-800 dark:text-slate-200">{t('no_compared_skills')}</h3>
-          <p className="text-xs text-slate-500 dark:text-slate-400 max-w-md mx-auto">
+        <div className="p-10 text-center rounded-3xl neu-inset space-y-3 animate-fade-in">
+          <Scale className="w-8 h-8 text-[var(--text-muted)] mx-auto" />
+          <h3 className="text-sm font-bold text-[var(--text-main)]">{t('no_compared_skills')}</h3>
+          <p className="text-xs text-[var(--text-muted)] max-w-md mx-auto">
             {t('no_compared_hint')}
           </p>
           {allSkills.length >= 2 && (
@@ -114,7 +114,7 @@ export const SkillCompare: React.FC<SkillCompareProps> = ({
                 onAddSkillToCompare(allSkills[0].id);
                 onAddSkillToCompare(allSkills[1].id);
               }}
-              className="px-4 py-2 rounded-xl text-xs font-bold bg-sky-500/10 border border-sky-500/30 text-sky-600 dark:text-sky-300 hover:bg-sky-500/20 transition-all duration-200 hover:scale-105 active:scale-95"
+              className="px-4 py-2 rounded-2xl text-xs font-semibold neu-btn text-[var(--primary)] transition-all"
             >
               {t('compare_try_sample')}
             </button>
@@ -122,17 +122,17 @@ export const SkillCompare: React.FC<SkillCompareProps> = ({
         </div>
       ) : (
         /* Side-by-side comparison matrix */
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-fade-in">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-6 animate-fade-in">
           {comparedSkills.map((skill) => (
             <div
               key={skill.id}
-              className="p-6 rounded-3xl bg-white dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col justify-between space-y-5 transition-all duration-300 ease-spring hover:-translate-y-1 hover:shadow-xl hover:shadow-sky-500/5"
+              className="p-5 sm:p-6 rounded-3xl neu-flat flex flex-col justify-between space-y-4 transition-all"
             >
               <div>
                 {/* Card Header */}
-                <div className="flex items-start justify-between gap-3 pb-3 border-b border-slate-100 dark:border-slate-800">
+                <div className="flex items-start justify-between gap-3 pb-3 border-b border-[var(--shadow-dark)]/20">
                   <div>
-                    <span className="text-[11px] font-mono font-semibold text-slate-500 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded">
+                    <span className="text-[10px] font-mono px-2.5 py-0.5 rounded-full neu-inset-sm text-[var(--text-muted)]">
                       {skill.category}
                     </span>
                     <h3 
@@ -145,19 +145,19 @@ export const SkillCompare: React.FC<SkillCompareProps> = ({
                       }}
                       role="button"
                       tabIndex={0}
-                      className="text-base font-bold text-slate-900 dark:text-slate-100 hover:text-sky-600 dark:hover:text-sky-400 cursor-pointer mt-1 truncate"
+                      className="text-sm sm:text-base font-bold text-[var(--text-main)] hover:text-[var(--primary)] cursor-pointer mt-1.5 truncate transition-colors"
                     >
                       {skill.title || skill.name}
                     </h3>
-                    <p className="text-[11px] text-slate-400 font-mono truncate">{skill.name}</p>
+                    <p className="text-[11px] text-[var(--text-muted)] font-mono truncate">{skill.name}</p>
                   </div>
 
                   <button
                     onClick={() => onRemoveSkillFromCompare(skill.id)}
-                    className="p-2 rounded-xl text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors"
+                    className="p-2 rounded-xl neu-btn text-[var(--text-muted)] hover:text-rose-500 transition-all"
                     title={t('remove_from_compare')}
                   >
-                    <Trash2 className="w-4 h-4" />
+                    <Trash2 className="w-3.5 h-3.5" />
                   </button>
                 </div>
 
@@ -169,54 +169,54 @@ export const SkillCompare: React.FC<SkillCompareProps> = ({
 
                 {/* Target Audience */}
                 {skill.target_audience && (
-                  <div className="p-3 rounded-2xl bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-900/30 text-xs text-indigo-800 dark:text-indigo-300 mb-3 flex items-center gap-2">
-                    <Users className="w-4 h-4 text-indigo-500 shrink-0" />
-                    <span><strong>{t('target_fit')} </strong>{skill.target_audience}</span>
+                  <div className="p-3 rounded-2xl neu-inset-sm text-xs text-[var(--text-muted)] mb-3 flex items-center gap-2">
+                    <Users className="w-3.5 h-3.5 text-[var(--primary)] shrink-0" />
+                    <span><strong className="font-bold text-[var(--text-main)]">{t('target_fit')} </strong>{skill.target_audience}</span>
                   </div>
                 )}
 
                 {/* Key Differentiators / Strength Notes */}
-                <div className="p-3.5 rounded-2xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/30 text-xs text-slate-800 dark:text-slate-200 space-y-1 mb-3">
-                  <div className="font-bold text-amber-900 dark:text-amber-300 flex items-center gap-1.5">
-                    <Zap className="w-3.5 h-3.5" />
+                <div className="p-3.5 rounded-2xl neu-inset-sm text-xs space-y-1 mb-3">
+                  <div className="font-bold text-[var(--text-main)] flex items-center gap-1.5">
+                    <Zap className="w-3.5 h-3.5 text-amber-500" />
                     {t('key_differentiators')}
                   </div>
-                  <p className="text-[11px] leading-relaxed">
+                  <p className="text-[11px] text-[var(--text-muted)] leading-relaxed">
                     {skill.comparison_notes || skill.ai_summary || skill.description}
                   </p>
                 </div>
 
                 {/* Realistic Use Cases */}
-                <div className="space-y-2 mb-3">
-                  <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                <div className="space-y-1.5 mb-3">
+                  <div className="text-[10px] font-mono uppercase tracking-wider text-[var(--text-muted)] font-bold">
                     {t('realistic_use_cases')}
                   </div>
                   {skill.use_cases && skill.use_cases.length > 0 ? (
-                    <ul className="space-y-1.5 text-xs text-slate-700 dark:text-slate-300">
+                    <ul className="space-y-1.5 text-xs">
                       {skill.use_cases.map((uc, i) => (
                         <li key={i} className="flex items-start gap-2">
                           <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0 mt-0.5" />
-                          <span className="leading-snug">{uc}</span>
+                          <span className="leading-snug text-[var(--text-muted)]">{uc}</span>
                         </li>
                       ))}
                     </ul>
                   ) : (
-                    <p className="text-xs text-slate-500">{t('no_use_cases_avail')}</p>
+                    <p className="text-xs text-[var(--text-muted)]">{t('no_use_cases_avail')}</p>
                   )}
                 </div>
 
                 {/* Runtimes */}
                 {skill.runtimes && skill.runtimes.length > 0 && (
                   <div className="space-y-1.5">
-                    <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1">
-                      <Terminal className="w-3 h-3 text-slate-400" />
+                    <div className="text-[10px] font-mono uppercase tracking-wider text-[var(--text-muted)] flex items-center gap-1 font-bold">
+                      <Terminal className="w-3 h-3 text-[var(--primary)]" />
                       {t('supported_runtimes')}
                     </div>
                     <div className="flex flex-wrap gap-1.5">
                       {skill.runtimes.map((rt) => (
                         <span
                           key={rt}
-                          className="text-[11px] font-mono px-2 py-0.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/40"
+                          className="text-[10px] font-mono px-2.5 py-0.5 rounded-full neu-inset-sm text-[var(--text-muted)]"
                         >
                           {rt}
                         </span>
@@ -227,14 +227,14 @@ export const SkillCompare: React.FC<SkillCompareProps> = ({
               </div>
 
               {/* Card Footer */}
-              <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs text-slate-500">
+              <div className="pt-3 border-t border-[var(--shadow-dark)]/20 flex items-center justify-between text-xs text-[var(--text-muted)]">
                 <div className="flex items-center gap-3">
-                  <span className="flex items-center gap-1 font-mono">
-                    <Star className="w-3.5 h-3.5 text-amber-500" />
+                  <span className="flex items-center gap-1 font-mono font-bold text-[var(--text-main)]">
+                    <Star className="w-3 h-3 text-amber-500 fill-current" />
                     {skill.stars.toLocaleString()}
                   </span>
-                  <span className="flex items-center gap-1 font-mono">
-                    <GitFork className="w-3.5 h-3.5" />
+                  <span className="flex items-center gap-1 font-mono font-bold text-[var(--text-main)]">
+                    <GitFork className="w-3 h-3" />
                     {skill.forks.toLocaleString()}
                   </span>
                 </div>
@@ -243,7 +243,7 @@ export const SkillCompare: React.FC<SkillCompareProps> = ({
                   href={skill.repository_url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-1 text-slate-600 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 font-medium"
+                  className="flex items-center gap-1 neu-btn px-3 py-1.5 rounded-xl text-xs font-semibold text-[var(--text-main)] hover:text-[var(--primary)] transition-all"
                 >
                   GitHub
                   <ExternalLink className="w-3 h-3" />
