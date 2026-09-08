@@ -19,7 +19,9 @@ import {
   FileText,
   Bookmark,
   Search,
-  LayoutGrid
+  LayoutGrid,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import { api } from '../api/client';
 import { DailyDigest, DailyDigestDateInfo, SkillDigestSummary, SocialMediaPost, VoiceOption } from '../types';
@@ -147,6 +149,31 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
       setSelectedDate(availableDates[0].date);
     }
   }, [availableDates, selectedDate]);
+
+  // Horizontal Scroll state for available dates
+  const datesScrollRef = useRef<HTMLDivElement | null>(null);
+  const [canScrollDatesLeft, setCanScrollDatesLeft] = useState(false);
+  const [canScrollDatesRight, setCanScrollDatesRight] = useState(false);
+
+  const updateDatesScrollState = () => {
+    if (!datesScrollRef.current) return;
+    const { scrollLeft, scrollWidth, clientWidth } = datesScrollRef.current;
+    setCanScrollDatesLeft(scrollLeft > 5);
+    setCanScrollDatesRight(scrollLeft + clientWidth < scrollWidth - 5);
+  };
+
+  useEffect(() => {
+    updateDatesScrollState();
+    window.addEventListener('resize', updateDatesScrollState);
+    return () => window.removeEventListener('resize', updateDatesScrollState);
+  }, [availableDates]);
+
+  const handleScrollDates = (dir: 'left' | 'right') => {
+    if (!datesScrollRef.current) return;
+    const delta = dir === 'left' ? -200 : 200;
+    datesScrollRef.current.scrollBy({ left: delta, behavior: 'smooth' });
+    setTimeout(updateDatesScrollState, 250);
+  };
 
   // 3. Fetch or auto-generate digest for the selected date
   const {
@@ -453,19 +480,21 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
       />
 
       {/* TOP HEADER */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-5 sm:p-6 rounded-3xl neu-flat">
-        <div>
+      <div className="p-5 sm:p-6 rounded-3xl neu-flat space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl neu-inset text-[var(--primary)] flex items-center justify-center shrink-0">
               <Radio className="w-5 h-5" />
             </div>
             <div>
-              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-[var(--text-main)] flex items-center gap-2">
-                <span>{t('tab_daily_podcast')}</span>
-                <span className="text-[10px] px-2.5 py-0.5 rounded-full neu-inset-sm text-[var(--primary)] font-mono font-bold uppercase tracking-wider">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h1 className="text-lg sm:text-xl md:text-2xl font-bold tracking-tight text-[var(--text-main)]">
+                  {t('tab_daily_podcast')}
+                </h1>
+                <span className="text-[10px] px-2.5 py-0.5 rounded-full neu-inset-sm text-[var(--primary)] font-mono font-bold uppercase tracking-wider whitespace-nowrap shrink-0">
                   AI AUDIO FEED
                 </span>
-              </h1>
+              </div>
               <p className="text-xs text-[var(--text-muted)] mt-0.5">
                 {t('practical_sub')}
               </p>
@@ -473,17 +502,46 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
           </div>
         </div>
 
-        {/* Date Selector Pills */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-1 max-w-full">
-          <span className="text-xs font-semibold text-[var(--text-muted)] whitespace-nowrap flex items-center gap-1.5">
-            <Calendar className="w-3.5 h-3.5 text-[var(--primary)]" />
-            {t('podcast_select_date')}:
-          </span>
-          {loadingDates ? (
-            <div className="h-8 w-48 neu-inset rounded-xl animate-pulse" />
-          ) : (
-            <div className="flex items-center gap-2">
-              {availableDates.map((item) => {
+        <div className="neu-divider" />
+
+        {/* Date Selector Navigation with Horizontal Scroll Controls */}
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-xs font-semibold text-[var(--text-muted)] whitespace-nowrap flex items-center gap-1.5">
+              <Calendar className="w-3.5 h-3.5 text-[var(--primary)]" />
+              {t('podcast_select_date')}:
+            </span>
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => handleScrollDates('left')}
+                disabled={!canScrollDatesLeft}
+                className="w-5 h-5 rounded-lg neu-btn-sm flex items-center justify-center text-[var(--text-muted)] hover:text-[var(--primary)] disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+                title="Cuộn sang trái"
+              >
+                <ChevronLeft className="w-3 h-3" />
+              </button>
+              <button
+                type="button"
+                onClick={() => handleScrollDates('right')}
+                disabled={!canScrollDatesRight}
+                className="w-5 h-5 rounded-lg neu-btn-sm flex items-center justify-center text-[var(--text-muted)] hover:text-[var(--primary)] disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+                title="Cuộn sang phải"
+              >
+                <ChevronRight className="w-3 h-3" />
+              </button>
+            </div>
+          </div>
+
+          <div
+            ref={datesScrollRef}
+            onScroll={updateDatesScrollState}
+            className="flex items-center gap-2 overflow-x-auto pb-1 pt-0.5 scrollbar-none scroll-smooth"
+          >
+            {loadingDates ? (
+              <div className="h-8 w-48 neu-inset rounded-xl animate-pulse" />
+            ) : (
+              availableDates.map((item) => {
                 const isSelected = item.date === selectedDate;
                 const dateParts = item.date.split('-');
                 const label = `${dateParts[2]}/${dateParts[1]}`;
@@ -491,7 +549,7 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
                   <button
                     key={item.date}
                     onClick={() => setSelectedDate(item.date)}
-                    className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
+                    className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 whitespace-nowrap cursor-pointer shrink-0 ${
                       isSelected
                         ? 'neu-inset text-[var(--primary)]'
                         : 'neu-btn text-[var(--text-muted)] hover:text-[var(--text-main)]'
@@ -514,87 +572,87 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
                     )}
                   </button>
                 );
-              })}
-            </div>
-          )}
+              })
+            )}
+          </div>
         </div>
       </div>
 
       {/* FEATURED PODCAST HERO PLAYER CARD */}
-      <div className="relative rounded-3xl neu-flat p-5 sm:p-6">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-          {/* Left Column: Title & Host Info */}
-          <div className="space-y-2.5 max-w-2xl">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="px-2.5 py-0.5 rounded-lg neu-inset-sm text-[var(--primary)] text-xs font-mono font-semibold uppercase flex items-center gap-1.5">
-                <Radio className="w-3.5 h-3.5" />
-                {t('podcast_hero_badge')}
-              </span>
-              <span className="text-xs text-[var(--text-muted)] flex items-center gap-1 font-mono">
-                <Calendar className="w-3 h-3 text-[var(--primary)]" />
-                {selectedDate}
-              </span>
-              <span className="text-xs text-[var(--text-muted)] neu-inset-sm px-2.5 py-0.5 rounded-lg font-mono">
-                {rawSkills.length} {t('label_skills_count')}
-              </span>
-            </div>
-
-            <h2 className="text-lg sm:text-xl lg:text-2xl font-bold tracking-tight text-[var(--text-main)] leading-snug">
-              {loadingDigest ? (
-                <div className="h-7 w-3/4 neu-inset rounded-xl animate-pulse" />
-              ) : (
-                digest?.title || `Bản Tin AI Radar Ngày ${selectedDate}`
-              )}
-            </h2>
-
-            <div className="flex items-center gap-3 text-xs text-[var(--text-muted)] flex-wrap">
-              <div className="flex items-center gap-2">
-                <div className="w-6 h-6 rounded-lg neu-inset text-[var(--primary)] flex items-center justify-center font-bold text-[10px]">
-                  {currentVoiceObj?.badge ? currentVoiceObj.badge.slice(0, 2) : 'AI'}
-                </div>
-                <span>
-                  Host: <strong className="text-[var(--text-main)] font-semibold">{currentVoiceObj?.name || 'Minh Hiếu'}</strong>
-                  <span className="text-[var(--text-muted)] ml-1.5 hidden sm:inline">({currentVoiceObj?.style || 'Tech Radar'})</span>
-                </span>
-                {currentVoiceObj?.badge && (
-                  <span className="px-2 py-0.5 rounded-md text-[10px] font-mono font-semibold neu-inset-sm text-[var(--primary)]">
-                    {currentVoiceObj.badge}
-                  </span>
-                )}
-              </div>
-              <span className="text-[var(--shadow-dark)]">•</span>
-              <div className="flex items-center gap-1 text-[var(--text-muted)] font-mono">
-                <Volume2 className="w-3.5 h-3.5" />
-                <span>Speed {playbackRate}x</span>
-              </div>
-            </div>
+      <div className="relative rounded-3xl neu-flat p-5 sm:p-6 space-y-4 sm:space-y-5">
+        {/* Top: Badges & Episode Title */}
+        <div className="space-y-2.5">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="px-2.5 py-0.5 rounded-lg neu-inset-sm text-[var(--primary)] text-xs font-mono font-semibold uppercase flex items-center gap-1.5 shrink-0">
+              <Radio className="w-3.5 h-3.5" />
+              {t('podcast_hero_badge')}
+            </span>
+            <span className="text-xs text-[var(--text-muted)] flex items-center gap-1 font-mono shrink-0">
+              <Calendar className="w-3 h-3 text-[var(--primary)]" />
+              {selectedDate}
+            </span>
+            <span className="text-xs text-[var(--text-muted)] neu-inset-sm px-2.5 py-0.5 rounded-lg font-mono shrink-0">
+              {rawSkills.length} {t('label_skills_count')}
+            </span>
           </div>
 
-          {/* Right Column: Main Play/Pause Control & Waveform */}
-          <div className="flex flex-col sm:flex-row lg:flex-col items-start lg:items-end gap-3 shrink-0">
-            <div className="flex items-center gap-2 max-w-full flex-wrap">
-              {/* Voice Selector with 3 categorized Optgroups */}
-              <div className="relative">
-                <NeuSelect
-                  value={selectedVoice}
-                  onChange={(newVoice) => {
-                    setSelectedVoice(String(newVoice));
-                    if (audioRef.current) {
-                      audioRef.current.pause();
-                      audioRef.current.src = '';
-                    }
-                    setIsPlaying(false);
-                    setCurrentTime(0);
-                  }}
-                  options={voiceSelectOptions}
-                  size="sm"
-                  variant="inset"
-                  searchable={true}
-                  searchPlaceholder="Tìm kiếm giọng đọc..."
-                  title="Chọn mô hình giọng đọc AI (Gemini 2.0 Native, Google WaveNet, Edge Studio)"
-                />
-              </div>
+          <h2 className="text-base sm:text-xl lg:text-2xl font-bold tracking-tight text-[var(--text-main)] leading-snug">
+            {loadingDigest ? (
+              <div className="h-7 w-3/4 neu-inset rounded-xl animate-pulse" />
+            ) : (
+              digest?.title || `Bản Tin AI Radar Ngày ${selectedDate}`
+            )}
+          </h2>
 
+          <div className="flex items-center gap-3 text-xs text-[var(--text-muted)] flex-wrap">
+            <div className="flex items-center gap-2 min-w-0">
+              <div className="w-6 h-6 rounded-lg neu-inset text-[var(--primary)] flex items-center justify-center font-bold text-[10px] shrink-0">
+                {currentVoiceObj?.badge ? currentVoiceObj.badge.slice(0, 2) : 'AI'}
+              </div>
+              <span className="truncate">
+                Host: <strong className="text-[var(--text-main)] font-semibold">{currentVoiceObj?.name || 'Minh Hiếu'}</strong>
+                <span className="text-[var(--text-muted)] ml-1.5 hidden sm:inline">({currentVoiceObj?.style || 'Tech Radar'})</span>
+              </span>
+              {currentVoiceObj?.badge && (
+                <span className="px-2 py-0.5 rounded-md text-[10px] font-mono font-semibold neu-inset-sm text-[var(--primary)] shrink-0">
+                  {currentVoiceObj.badge}
+                </span>
+              )}
+            </div>
+            <span className="text-[var(--shadow-dark)]">•</span>
+            <div className="flex items-center gap-1 text-[var(--text-muted)] font-mono shrink-0">
+              <Volume2 className="w-3.5 h-3.5" />
+              <span>Speed {playbackRate}x</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Audio Player Control Deck - Dedicated Soft UI Sunken Panel */}
+        <div className="p-4 sm:p-5 rounded-2xl neu-inset-sm space-y-3.5">
+          {/* Top of Deck: Voice Selector & Action Buttons */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
+            <div className="flex-1 min-w-0">
+              <NeuSelect
+                value={selectedVoice}
+                onChange={(newVoice) => {
+                  setSelectedVoice(String(newVoice));
+                  if (audioRef.current) {
+                    audioRef.current.pause();
+                    audioRef.current.src = '';
+                  }
+                  setIsPlaying(false);
+                  setCurrentTime(0);
+                }}
+                options={voiceSelectOptions}
+                size="sm"
+                variant="inset"
+                searchable={true}
+                searchPlaceholder="Tìm kiếm giọng đọc..."
+                title="Chọn mô hình giọng đọc AI"
+              />
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0 justify-end">
               {/* Force Audio Re-synthesize Button */}
               <button
                 onClick={() => {
@@ -603,10 +661,10 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
                 }}
                 disabled={isAudioLoading || loadingDigest}
                 title="Ép AI tạo lại âm thanh bằng giọng đọc này"
-                className="p-2 px-3 rounded-xl text-[var(--text-muted)] hover:text-[var(--primary)] neu-btn disabled:opacity-50 flex items-center gap-1.5 text-xs font-semibold cursor-pointer"
+                className="px-3 py-2 rounded-xl text-[var(--text-muted)] hover:text-[var(--primary)] neu-btn disabled:opacity-50 flex items-center gap-1.5 text-xs font-semibold cursor-pointer"
               >
                 <Zap className={`w-3.5 h-3.5 ${isAudioLoading ? 'animate-spin text-[var(--primary)]' : ''}`} />
-                <span className="hidden xl:inline text-[11px]">Tạo lại Audio</span>
+                <span className="text-[11px] whitespace-nowrap">Tạo lại Audio</span>
               </button>
 
               {/* AI Regenerate Digest Button */}
@@ -614,73 +672,73 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
                 onClick={() => regenerateMutation.mutate()}
                 disabled={regenerateMutation.isPending || loadingDigest}
                 title={t('podcast_regenerate')}
-                className="p-2 px-3 rounded-xl text-[var(--text-muted)] hover:text-[var(--primary)] neu-btn disabled:opacity-50 flex items-center gap-1.5 text-xs font-semibold cursor-pointer"
+                className="px-3 py-2 rounded-xl text-[var(--text-muted)] hover:text-[var(--primary)] neu-btn disabled:opacity-50 flex items-center gap-1.5 text-xs font-semibold cursor-pointer"
               >
                 <RotateCcw
                   className={`w-3.5 h-3.5 ${regenerateMutation.isPending ? 'animate-spin text-[var(--primary)]' : ''}`}
                 />
-                <span className="hidden xl:inline text-[11px]">Tái tạo bài</span>
+                <span className="text-[11px] whitespace-nowrap">Tái tạo bài</span>
               </button>
             </div>
+          </div>
 
-            {/* Play Button & Waveform Container */}
-            <div className="flex items-center gap-3 w-full sm:w-auto">
-              <button
-                onClick={togglePlayPodcast}
-                disabled={isAudioLoading || loadingDigest}
-                className="flex items-center justify-center w-12 h-12 rounded-2xl neu-primary text-white transition-all active:scale-95 disabled:opacity-50 shrink-0 cursor-pointer"
-              >
-                {isAudioLoading ? (
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                ) : isPlaying ? (
-                  <Pause className="w-5 h-5 fill-current" />
-                ) : (
-                  <Play className="w-5 h-5 fill-current ml-0.5" />
+          {/* Bottom of Deck: Big Play Button + Waveform + Progress Slider + Times */}
+          <div className="flex items-center gap-3 sm:gap-4">
+            <button
+              onClick={togglePlayPodcast}
+              disabled={isAudioLoading || loadingDigest}
+              className="flex items-center justify-center w-12 h-12 sm:w-14 sm:h-14 rounded-2xl neu-primary text-white transition-all active:scale-95 disabled:opacity-50 shrink-0 cursor-pointer shadow-md"
+              aria-label={isPlaying ? 'Tạm dừng' : 'Phát Podcast'}
+            >
+              {isAudioLoading ? (
+                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              ) : isPlaying ? (
+                <Pause className="w-5 h-5 sm:w-6 sm:h-6 fill-current" />
+              ) : (
+                <Play className="w-5 h-5 sm:w-6 sm:h-6 fill-current ml-0.5" />
+              )}
+            </button>
+
+            <div className="flex-1 min-w-0 space-y-1.5">
+              {/* Waveform graphic bars */}
+              <div className="flex items-end gap-1 h-5 sm:h-6 px-1">
+                {[40, 65, 85, 30, 95, 55, 75, 45, 90, 60, 35, 80, 50, 70, 90, 45, 60, 85, 30, 75, 50, 80, 65, 40].map(
+                  (height, idx) => (
+                    <div
+                      key={idx}
+                      className={`flex-1 rounded-sm transition-all duration-300 ${
+                        isPlaying ? 'bg-[var(--primary)]' : 'bg-[var(--shadow-dark)]/40'
+                      }`}
+                      style={{
+                        height: isPlaying ? `${Math.max(15, (height * ((idx % 4) + 1)) % 100)}%` : '20%',
+                        animationDelay: `${idx * 50}ms`,
+                      }}
+                    />
+                  )
                 )}
-              </button>
+              </div>
 
-              <div className="flex-1 sm:w-56 space-y-1">
-                {/* Waveform graphic bars */}
-                <div className="flex items-end gap-0.5 h-6 px-0.5">
-                  {[40, 65, 85, 30, 95, 55, 75, 45, 90, 60, 35, 80, 50, 70, 90, 45, 60, 85, 30, 75].map(
-                    (height, idx) => (
-                      <div
-                        key={idx}
-                        className={`flex-1 rounded-sm transition-all duration-300 ${
-                          isPlaying
-                            ? 'bg-[var(--primary)]'
-                            : 'bg-[var(--shadow-dark)]/40'
-                        }`}
-                        style={{
-                          height: isPlaying ? `${Math.max(15, (height * (idx % 3 + 1)) % 100)}%` : '20%',
-                          animationDelay: `${idx * 60}ms`,
-                        }}
-                      />
-                    )
-                  )}
-                </div>
+              {/* Scrubber Range Slider with Live Progress */}
+              <input
+                type="range"
+                min="0"
+                max={duration || 100}
+                value={currentTime}
+                onChange={handleSeek}
+                style={{ '--range-progress': `${duration > 0 ? (currentTime / duration) * 100 : 0}%` } as React.CSSProperties}
+                className="w-full h-2 neu-inset rounded-lg appearance-none cursor-pointer accent-[var(--primary)] my-0"
+              />
 
-                {/* Scrubber Range Slider */}
-                <input
-                  type="range"
-                  min="0"
-                  max={duration || 100}
-                  value={currentTime}
-                  onChange={handleSeek}
-                  className="w-full h-1.5 neu-inset rounded-lg appearance-none cursor-pointer accent-[var(--primary)]"
-                />
-
-                <div className="flex items-center justify-between text-[11px] font-mono text-[var(--text-muted)]">
-                  <span>{formatSeconds(currentTime)}</span>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={cyclePlaybackRate}
-                      className="px-2 py-0.5 rounded-lg neu-btn-sm text-[var(--text-muted)] font-mono font-bold text-[10px]"
-                    >
-                      {playbackRate}x
-                    </button>
-                    <span>{formatSeconds(duration)}</span>
-                  </div>
+              <div className="flex items-center justify-between text-[11px] font-mono text-[var(--text-muted)]">
+                <span>{formatSeconds(currentTime)}</span>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={cyclePlaybackRate}
+                    className="px-2 py-0.5 rounded-lg neu-btn-sm text-[var(--text-muted)] font-mono font-bold text-[10px] hover:text-[var(--primary)] cursor-pointer"
+                  >
+                    {playbackRate}x
+                  </button>
+                  <span>{formatSeconds(duration)}</span>
                 </div>
               </div>
             </div>
@@ -688,34 +746,35 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
         </div>
 
         {/* BOTTOM TABS: SCRIPT VS HIGHLIGHTS */}
-        <div className="mt-5 pt-4 border-t border-[var(--shadow-dark)]/20">
-          <div className="flex items-center justify-between gap-4 mb-2.5">
-            <div className="flex items-center gap-2">
+        <div className="pt-2 border-t border-[var(--shadow-dark)]/20">
+          <div className="flex flex-wrap items-center justify-between gap-2 mb-2.5">
+            <div className="flex items-center gap-1.5 sm:gap-2">
               <button
                 onClick={() => setHeroTab('script')}
-                className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer ${
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer ${
                   heroTab === 'script'
                     ? 'neu-inset text-[var(--primary)] font-bold'
                     : 'neu-btn text-[var(--text-muted)] hover:text-[var(--text-main)]'
                 }`}
               >
                 <FileText className="w-3.5 h-3.5" />
-                {t('podcast_script_tab')}
+                <span>Kịch Bản</span>
+                <span className="hidden sm:inline font-normal">(Radio Script)</span>
               </button>
               <button
                 onClick={() => setHeroTab('highlights')}
-                className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer ${
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer ${
                   heroTab === 'highlights'
                     ? 'neu-inset text-[var(--primary)] font-bold'
                     : 'neu-btn text-[var(--text-muted)] hover:text-[var(--text-main)]'
                 }`}
               >
                 <Sparkles className="w-3.5 h-3.5" />
-                {t('podcast_highlights_tab')}
+                <span>Điểm Nhấn Nổi Bật</span>
               </button>
             </div>
 
-            <span className="text-[11px] text-[var(--text-muted)] font-mono">
+            <span className="text-[10px] sm:text-[11px] text-[var(--text-muted)] font-mono ml-auto">
               Model: {digest?.source_model || 'Gemini 2.5 Flash'}
             </span>
           </div>

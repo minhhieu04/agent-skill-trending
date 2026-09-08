@@ -217,7 +217,7 @@ const AppContent: React.FC = () => {
   }, [activeTab]);
 
   return (
-    <div className="relative flex h-screen w-screen overflow-hidden bg-[var(--bg)] font-sans text-[var(--text-main)] transition-colors duration-150">
+    <div className="relative flex h-screen w-full overflow-hidden bg-[var(--bg)] font-sans text-[var(--text-main)] transition-colors duration-150">
       {/* Minimalist Ambient Background */}
       <BackgroundOrbs />
 
