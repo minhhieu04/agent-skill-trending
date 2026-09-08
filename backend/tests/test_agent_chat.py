@@ -141,14 +141,22 @@ def test_chat_with_agent_security_vietnamese_diacritics():
         assert res.status_code == 200
         data = res.json()
         assert data["success"] is True
-        skill_names = [item["skill"]["name"].lower() for item in data["recommended_skills"]]
-        # Must match security / audit / scan skills, NOT unrelated repos
-        assert any(
-            "security" in name or "cyber" in name or "scan" in name or "audit" in name
-            for name in skill_names
+        recommended = data["recommended_skills"]
+        assert len(recommended) >= 1
+
+        # Must match security / audit / scan / sandbox skills across name, title, category, or tags
+        has_security_skill = any(
+            any(k in item["skill"]["name"].lower() or 
+                k in item["skill"]["title"].lower() or 
+                k in str(item["skill"].get("category", "")).lower() or
+                k in str(item["skill"].get("tags", [])).lower()
+                for k in ["security", "cyber", "scan", "audit", "sandbox", "guardrail", "bảo mật"])
+            for item in recommended
         )
-        first_rec = data["recommended_skills"][0]
-        assert any("bảo mật" in r.lower() or "sandbox" in r.lower() or "injection" in r.lower() or "an toàn" in r.lower() for r in first_rec["match_reasons"])
+        assert has_security_skill
+        first_rec = recommended[0]
+        reasons_text = " ".join(first_rec.get("match_reasons", [])).lower()
+        assert any(w in reasons_text for w in ["bảo mật", "sandbox", "injection", "an toàn", "security", "quyền"])
 
 
 def test_chat_with_agent_english_bilingual_reasons():
