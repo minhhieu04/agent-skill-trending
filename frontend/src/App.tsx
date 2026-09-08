@@ -236,18 +236,20 @@ const AppContent: React.FC = () => {
 
       {/* Main Content Area (Header + Scrollable Body) */}
       <div className="relative z-10 flex-1 flex flex-col min-w-0 h-full overflow-hidden">
-        {/* Top Header Bar */}
-        <Navbar
-          onOpenTriggerModal={() => setIsTriggerModalOpen(true)}
-          searchTerm={searchTerm}
-          setSearchTerm={setSearchTerm}
-          comparedCount={comparedSkillIds.length}
-          onGoToCompare={() => handleTabChange('compare')}
-          onToggleSidebar={() => setMobileSidebarOpen(!mobileSidebarOpen)}
-        />
+        {/* Top Header Bar Container with Solid Background */}
+        <div className="shrink-0 px-4 sm:px-6 lg:px-8 pt-3 pb-2 bg-[var(--bg)] z-20">
+          <Navbar
+            onOpenTriggerModal={() => setIsTriggerModalOpen(true)}
+            searchTerm={searchTerm}
+            setSearchTerm={setSearchTerm}
+            comparedCount={comparedSkillIds.length}
+            onGoToCompare={() => handleTabChange('compare')}
+            onToggleSidebar={() => setMobileSidebarOpen(!mobileSidebarOpen)}
+          />
+        </div>
 
         {/* Scrollable Main Area */}
-        <main ref={mainScrollRef} className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+        <main ref={mainScrollRef} className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 pt-2 pb-24 space-y-6">
           <div className="max-w-[1650px] w-full mx-auto space-y-6">
             {/* Top Metric Stats Counters - Chỉ hiển thị tại Dashboard chính (Trending) */}
             {activeTab === 'trending' && (

@@ -32,7 +32,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   const { language, toggleLanguage, t } = useLanguage();
 
   return (
-    <header className="sticky top-0 z-20 mx-4 sm:mx-6 lg:mx-8 mt-3 mb-1 rounded-2xl neu-flat h-14 sm:h-16 flex items-center px-4 sm:px-6 gap-3 select-none shrink-0 transition-all">
+    <header className="w-full rounded-2xl neu-flat h-14 sm:h-16 flex items-center px-4 sm:px-6 gap-3 select-none transition-all">
       {/* Mobile Toggle Button */}
       {onToggleSidebar && (
         <button
