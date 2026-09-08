@@ -814,25 +814,29 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
 
       {/* PRACTICAL VALUE & SOCIAL FEED SECTION */}
       <div className="space-y-6">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 p-5 rounded-3xl neu-flat">
-          <div>
-            <div className="flex items-center gap-2">
-              <h3 className="text-base sm:text-lg font-bold text-[var(--text-main)] flex items-center gap-2">
-                <span>Bảng Tin & Phân Tích Thực Chiến</span>
-              </h3>
-              <span className="px-2.5 py-0.5 rounded-full neu-inset-sm text-[var(--primary)] font-mono text-xs font-semibold">
-                DEEP-DIVE
-              </span>
+        <div className="p-5 sm:p-6 rounded-3xl neu-flat space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h3 className="text-base sm:text-lg font-bold text-[var(--text-main)]">
+                  Bảng Tin & Phân Tích Thực Chiến
+                </h3>
+                <span className="px-2.5 py-0.5 rounded-full neu-inset-sm text-[var(--primary)] font-mono text-[10px] sm:text-xs font-bold whitespace-nowrap shrink-0">
+                  DEEP-DIVE
+                </span>
+              </div>
+              <p className="text-xs text-[var(--text-muted)] mt-0.5">
+                Bài post review chuyên sâu phong cách mạng xã hội (Substack/X/Dev.to) bóc tách cơ chế, nỗi đau thực tế và code mẫu.
+              </p>
             </div>
-            <p className="text-xs text-[var(--text-muted)] mt-0.5">
-              Bài post review chuyên sâu phong cách mạng xã hội (Substack/X/Dev.to) bóc tách cơ chế, nỗi đau thực tế và code mẫu.
-            </p>
           </div>
 
+          <div className="neu-divider" />
+
           {/* Controls: View Switcher, Search, Category Filter */}
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
             {/* View Mode Toggle */}
-            <div className="flex items-center gap-1.5 p-1 rounded-2xl neu-inset">
+            <div className="flex items-center gap-1.5 p-1 rounded-2xl neu-inset self-start sm:self-auto">
               <button
                 onClick={() => setFeedViewMode('feed')}
                 className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
@@ -860,32 +864,35 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
               </button>
             </div>
 
-            {/* Search within the day */}
-            <div className="relative">
-              <Search className="w-3.5 h-3.5 text-[var(--text-muted)] absolute left-3 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                value={searchFilter}
-                onChange={(e) => setSearchFilter(e.target.value)}
-                placeholder="Lọc bài viết, tool, tag..."
-                className="pl-8 pr-3 py-2 text-xs rounded-xl neu-inset text-[var(--text-main)] placeholder-[var(--text-muted)]/50 focus:outline-none w-40 sm:w-52 transition-colors"
-              />
-            </div>
+            {/* Filter Search & Category */}
+            <div className="flex items-center gap-2.5 flex-1 sm:flex-none justify-end">
+              <div className="relative flex-1 sm:w-56">
+                <Search className="w-3.5 h-3.5 text-[var(--text-muted)] absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  value={searchFilter}
+                  onChange={(e) => setSearchFilter(e.target.value)}
+                  placeholder="Lọc bài viết, tool, tag..."
+                  className="w-full pl-8 pr-3 py-2 text-xs rounded-xl neu-inset text-[var(--text-main)] placeholder-[var(--text-muted)]/50 focus:outline-none transition-colors"
+                />
+              </div>
 
-            {/* Category Dropdown */}
-            {categoriesInDigest.length > 1 && (
-              <NeuSelect
-                value={filterCategory}
-                onChange={(val) => setFilterCategory(String(val))}
-                options={[
-                  { value: 'all', label: `Tất cả (${rawSkills.length})` },
-                  ...categoriesInDigest.map((cat) => ({ value: cat, label: cat }))
-                ]}
-                size="sm"
-                variant="inset"
-                searchable={false}
-              />
-            )}
+              {categoriesInDigest.length > 1 && (
+                <div className="shrink-0">
+                  <NeuSelect
+                    value={filterCategory}
+                    onChange={(val) => setFilterCategory(String(val))}
+                    options={[
+                      { value: 'all', label: `Tất cả (${rawSkills.length})` },
+                      ...categoriesInDigest.map((cat) => ({ value: cat, label: cat }))
+                    ]}
+                    size="sm"
+                    variant="inset"
+                    searchable={false}
+                  />
+                </div>
+              )}
+            </div>
           </div>
         </div>
 

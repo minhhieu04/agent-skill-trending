@@ -56,7 +56,12 @@ export const AgentChatPage: React.FC<AgentChatPageProps> = ({
     return found ? found.id : sessions[0]?.id || '';
   });
 
-  const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(true);
+  const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      return window.innerWidth >= 1024;
+    }
+    return true;
+  });
   const [inputQuery, setInputQuery] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
   const [suggestions, setSuggestions] = useState<AgentChatSuggestion[]>([]);
@@ -172,6 +177,9 @@ export const AgentChatPage: React.FC<AgentChatPageProps> = ({
   };
 
   const handleCreateNewSession = () => {
+    if (window.innerWidth < 1024) {
+      setIsSidebarOpen(false);
+    }
     // If current session is already empty, just focus input
     if (activeSession.messages.length === 0) {
       inputRef.current?.focus();
@@ -187,6 +195,9 @@ export const AgentChatPage: React.FC<AgentChatPageProps> = ({
 
   const handleSelectSession = (id: string) => {
     setActiveSessionId(id);
+    if (window.innerWidth < 1024) {
+      setIsSidebarOpen(false);
+    }
     setAnimatingMessageId(null);
     setTimeout(() => inputRef.current?.focus(), 100);
   };
@@ -327,18 +338,29 @@ export const AgentChatPage: React.FC<AgentChatPageProps> = ({
   };
 
   return (
-    <div className="flex h-[calc(100vh-140px)] min-h-[600px] rounded-3xl neu-flat overflow-hidden animate-fade-in text-[var(--text-main)]">
+    <div className="flex h-[calc(100vh-140px)] min-h-[600px] rounded-3xl neu-flat overflow-hidden animate-fade-in text-[var(--text-main)] relative">
+      {/* Mobile/Tablet Backdrop Overlay for History Sidebar */}
+      {isSidebarOpen && (
+        <div
+          className="lg:hidden absolute inset-0 bg-black/40 backdrop-blur-xs z-30 transition-opacity"
+          onClick={() => setIsSidebarOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+
       {/* LEFT SIDEBAR: Multiple Chat Sessions */}
       <div
-        className={`${
-          isSidebarOpen ? 'w-72 sm:w-80' : 'w-0'
-        } shrink-0 bg-[var(--bg)] flex flex-col transition-all duration-300 overflow-hidden relative`}
+        className={`
+          ${isSidebarOpen ? 'translate-x-0 w-72 sm:w-80 shadow-2xl lg:shadow-none' : '-translate-x-full lg:translate-x-0 lg:w-0'}
+          absolute lg:relative inset-y-0 left-0 z-40
+          shrink-0 bg-[var(--bg)] flex flex-col transition-all duration-300 overflow-hidden
+        `}
       >
         {/* Sidebar Header */}
         <div className="p-4 flex items-center justify-between gap-2.5">
           <button
             onClick={handleCreateNewSession}
-            className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-2xl neu-primary text-white text-xs font-bold active:scale-95 transition-all"
+            className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-2xl neu-primary text-white text-xs font-bold active:scale-95 transition-all cursor-pointer"
           >
             <Plus className="w-3.5 h-3.5" />
             <span>{t('agent_chat_new_chat')}</span>
@@ -346,7 +368,7 @@ export const AgentChatPage: React.FC<AgentChatPageProps> = ({
 
           <button
             onClick={() => setIsSidebarOpen(false)}
-            className="p-2 rounded-xl neu-btn text-[var(--text-muted)] hover:text-[var(--primary)] transition-all"
+            className="p-2 rounded-xl neu-btn text-[var(--text-muted)] hover:text-[var(--primary)] transition-all cursor-pointer"
             title="Đóng thanh lịch sử"
           >
             <PanelLeftClose className="w-4 h-4" />
@@ -358,7 +380,7 @@ export const AgentChatPage: React.FC<AgentChatPageProps> = ({
         {/* Sessions List */}
         <div className="flex-1 overflow-y-auto p-3 space-y-2 scrollbar-none">
           <div className="px-2 py-1 text-[11px] font-mono text-[var(--text-muted)] uppercase tracking-wider flex items-center gap-1.5 font-bold">
-            <Clock className="w-3 h-3 text-[var(--primary)]" />
+            <Clock className="w-3.5 h-3.5 text-[var(--primary)]" />
             <span>{t('agent_chat_sessions_title')} ({sessions.length})</span>
           </div>
 
@@ -403,7 +425,7 @@ export const AgentChatPage: React.FC<AgentChatPageProps> = ({
                 {/* Delete session button */}
                 <button
                   onClick={(e) => handleDeleteSession(session.id, e)}
-                  className="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg neu-btn text-rose-500 hover:text-rose-600 transition-all shrink-0"
+                  className="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg neu-btn text-rose-500 hover:text-rose-600 transition-all shrink-0 cursor-pointer"
                   title={t('agent_chat_delete_session')}
                 >
                   <Trash2 className="w-3.5 h-3.5" />
@@ -420,7 +442,7 @@ export const AgentChatPage: React.FC<AgentChatPageProps> = ({
             <div className="p-3.5 bg-[var(--bg)]">
               <button
                 onClick={handleClearAllSessions}
-                className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl neu-btn text-xs font-semibold text-[var(--text-muted)] hover:text-rose-500 transition-all"
+                className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl neu-btn text-xs font-semibold text-[var(--text-muted)] hover:text-rose-500 transition-all cursor-pointer"
               >
                 <Trash2 className="w-3.5 h-3.5" />
                 <span>{t('agent_chat_clear_all')}</span>
@@ -430,17 +452,17 @@ export const AgentChatPage: React.FC<AgentChatPageProps> = ({
         )}
       </div>
 
-      <div className="w-[1px] bg-gradient-to-b from-transparent via-[var(--shadow-dark)] to-transparent shrink-0 opacity-40" />
+      <div className="hidden lg:block w-[1px] bg-gradient-to-b from-transparent via-[var(--shadow-dark)] to-transparent shrink-0 opacity-40" />
 
       {/* RIGHT MAIN CHAT AREA */}
       <div className="flex-1 flex flex-col min-w-0 bg-[var(--bg)]">
         {/* Header Bar */}
-        <div className="px-5 py-3.5 flex items-center justify-between bg-[var(--bg)]">
-          <div className="flex items-center gap-3 min-w-0">
+        <div className="px-4 sm:px-5 py-3.5 flex items-center justify-between gap-3 bg-[var(--bg)]">
+          <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
             {!isSidebarOpen && (
               <button
                 onClick={() => setIsSidebarOpen(true)}
-                className="p-2 rounded-xl neu-btn text-[var(--text-muted)] hover:text-[var(--primary)] transition-all"
+                className="p-2 rounded-xl neu-btn text-[var(--text-muted)] hover:text-[var(--primary)] transition-all shrink-0 cursor-pointer"
                 title="Mở thanh lịch sử"
               >
                 <PanelLeftOpen className="w-4 h-4" />
@@ -456,7 +478,7 @@ export const AgentChatPage: React.FC<AgentChatPageProps> = ({
                 <h2 className="text-sm sm:text-base font-bold text-[var(--text-main)] truncate">
                   {activeSession.title || t('agent_chat_title')}
                 </h2>
-                <span className="hidden sm:inline-flex px-2.5 py-0.5 rounded-xl text-[10px] font-mono neu-inset-sm text-[var(--primary)] font-bold items-center gap-1.5">
+                <span className="hidden sm:inline-flex px-2.5 py-0.5 rounded-xl text-[10px] font-mono neu-inset-sm text-[var(--primary)] font-bold items-center gap-1.5 whitespace-nowrap shrink-0">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                   {t('agent_chat_badge')}
                 </span>
@@ -467,24 +489,24 @@ export const AgentChatPage: React.FC<AgentChatPageProps> = ({
             </div>
           </div>
 
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-2 shrink-0">
             <button
               onClick={handleCreateNewSession}
-              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold neu-btn text-[var(--primary)] transition-all"
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold neu-btn text-[var(--primary)] transition-all shrink-0 cursor-pointer"
               title={t('agent_chat_new_chat')}
             >
-              <Plus className="w-3.5 h-3.5" />
-              <span className="hidden md:inline">{t('agent_chat_new_chat')}</span>
+              <Plus className="w-3.5 h-3.5 shrink-0" />
+              <span className="hidden sm:inline whitespace-nowrap">{t('agent_chat_new_chat')}</span>
             </button>
 
             {messages.length > 0 && (
               <button
                 onClick={() => handleDeleteSession(activeSession.id)}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold neu-btn text-[var(--text-muted)] hover:text-rose-500 transition-all"
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold neu-btn text-[var(--text-muted)] hover:text-rose-500 transition-all shrink-0 cursor-pointer"
                 title={t('agent_chat_clear')}
               >
-                <Trash2 className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">{t('agent_chat_clear')}</span>
+                <Trash2 className="w-3.5 h-3.5 shrink-0" />
+                <span className="hidden sm:inline whitespace-nowrap">{t('agent_chat_clear')}</span>
               </button>
             )}
           </div>
@@ -523,7 +545,7 @@ export const AgentChatPage: React.FC<AgentChatPageProps> = ({
                   <Lightbulb className="w-3.5 h-3.5 text-[var(--primary)]" />
                   <span>{t('agent_chat_suggested_prompts')}</span>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-3.5">
                   {suggestions.map((item, idx) => (
                     <button
                       key={idx}
