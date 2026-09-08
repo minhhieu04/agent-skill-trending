@@ -92,9 +92,9 @@ export const PlaygroundPage: React.FC = () => {
         <div className="flex items-center gap-1.5 p-1.5 neu-inset rounded-2xl shrink-0">
           <button
             onClick={() => setActiveTab('image_matrix')}
-            className={`px-3.5 py-2 rounded-xl text-xs font-semibold transition-all duration-200 ease-out flex items-center gap-2 active:scale-[0.97] cursor-pointer ${
+            className={`px-3.5 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 neu-tab ${
               activeTab === 'image_matrix'
-                ? 'neu-flat text-[var(--primary)] font-bold shadow-sm'
+                ? 'neu-tab-active'
                 : 'text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--shadow-dark)]/10'
             }`}
           >
@@ -104,9 +104,9 @@ export const PlaygroundPage: React.FC = () => {
 
           <button
             onClick={() => setActiveTab('prompt_sim')}
-            className={`px-3.5 py-2 rounded-xl text-xs font-semibold transition-all duration-200 ease-out flex items-center gap-2 active:scale-[0.97] cursor-pointer ${
+            className={`px-3.5 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 neu-tab ${
               activeTab === 'prompt_sim'
-                ? 'neu-flat text-[var(--primary)] font-bold shadow-sm'
+                ? 'neu-tab-active'
                 : 'text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--shadow-dark)]/10'
             }`}
           >

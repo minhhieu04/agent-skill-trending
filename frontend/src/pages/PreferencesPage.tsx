@@ -197,7 +197,7 @@ export const PreferencesPage: React.FC<PreferencesPageProps> = ({
               <div>
                 <div className="flex justify-between items-center text-xs mb-2">
                   <span className="font-medium text-[var(--text-muted)]">{t('pref_min_stars')}</span>
-                  <span className="font-mono font-bold text-xs px-2.5 py-0.5 rounded-xl neu-inset-sm text-amber-500 flex items-center gap-1">
+                  <span className="font-mono font-bold text-xs px-2.5 py-0.5 rounded-xl neu-inset-sm text-amber-500 flex items-center gap-1 whitespace-nowrap shrink-0">
                     {formData.min_stars.toLocaleString()}
                     <Star className="w-3 h-3 fill-amber-400 text-amber-400 inline" />
                   </span>
@@ -222,7 +222,7 @@ export const PreferencesPage: React.FC<PreferencesPageProps> = ({
               <div>
                 <div className="flex justify-between items-center text-xs mb-2">
                   <span className="font-medium text-[var(--text-muted)]">{t('pref_min_score')}</span>
-                  <span className="font-mono font-bold text-xs px-2.5 py-0.5 rounded-xl neu-inset-sm text-[var(--primary)]">
+                  <span className="font-mono font-bold text-xs px-2.5 py-0.5 rounded-xl neu-inset-sm text-[var(--primary)] whitespace-nowrap shrink-0 inline-flex items-center">
                     {formData.min_trending_score} / 100
                   </span>
                 </div>

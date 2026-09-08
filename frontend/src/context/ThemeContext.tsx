@@ -48,35 +48,101 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return () => clearAllTimers();
   }, []);
 
-  const toggleTheme = (_event?: React.MouseEvent) => {
+  const toggleTheme = (event?: React.MouseEvent) => {
     if (isTransitioning) return;
 
     const nextTheme: Theme = theme === 'dark' ? 'light' : 'dark';
+
+    // Check prefers-reduced-motion
+    const prefersReducedMotion =
+      typeof window !== 'undefined' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    if (prefersReducedMotion) {
+      setThemeState(nextTheme);
+      applyThemeToDOM(nextTheme);
+      return;
+    }
+
+    // Path 1: Native View Transitions API with circular clip-path reveal from click position
+    if (typeof document !== 'undefined' && 'startViewTransition' in document) {
+      const x = event?.clientX ?? window.innerWidth / 2;
+      const y = event?.clientY ?? window.innerHeight / 2;
+      const endRadius = Math.hypot(
+        Math.max(x, window.innerWidth - x),
+        Math.max(y, window.innerHeight - y)
+      );
+
+      setIsTransitioning(true);
+
+      try {
+        const transition = (document as any).startViewTransition(() => {
+          setThemeState(nextTheme);
+          applyThemeToDOM(nextTheme);
+        });
+
+        transition.ready
+          .then(() => {
+            const animation = document.documentElement.animate(
+              {
+                clipPath: [
+                  `circle(0px at ${x}px ${y}px)`,
+                  `circle(${endRadius}px at ${x}px ${y}px)`,
+                ],
+              },
+              {
+                duration: 450,
+                easing: 'cubic-bezier(0.16, 1, 0.3, 1)',
+                pseudoElement: '::view-transition-new(root)',
+              }
+            );
+
+            animation.onfinish = () => {
+              setIsTransitioning(false);
+            };
+          })
+          .catch(() => {
+            setIsTransitioning(false);
+          });
+
+        transition.finished
+          .catch(() => {})
+          .finally(() => {
+            setIsTransitioning(false);
+          });
+
+        return;
+      } catch {
+        setIsTransitioning(false);
+      }
+    }
+
+    // Path 2: Fallback Full-Page Soft UI Theme Transition Overlay
     clearAllTimers();
     setTargetTheme(nextTheme);
     setIsTransitioning(true);
     setIsFadingOut(false);
 
-    // Step 1: Allow overlay to mount and cover the page seamlessly (180ms)
+    // Step 1: Allow overlay to mount and cover the page seamlessly (140ms)
     const t1 = setTimeout(() => {
       // Step 2: Switch DOM theme while completely covered by overlay
       setThemeState(nextTheme);
       applyThemeToDOM(nextTheme);
 
-      // Step 3: Start fading out the overlay at 380ms
+      // Step 3: Start fading out the overlay at 300ms
       const t2 = setTimeout(() => {
         setIsFadingOut(true);
 
-        // Step 4: Fully unmount after fade transition completes (180ms later)
+        // Step 4: Fully unmount after fade transition completes (150ms later)
         const t3 = setTimeout(() => {
           setIsTransitioning(false);
           setTargetTheme(null);
           setIsFadingOut(false);
-        }, 200);
+        }, 150);
         timerRefs.current.push(t3);
-      }, 200);
+      }, 160);
       timerRefs.current.push(t2);
-    }, 180);
+    }, 140);
     timerRefs.current.push(t1);
   };
 

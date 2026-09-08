@@ -549,9 +549,9 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
                   <button
                     key={item.date}
                     onClick={() => setSelectedDate(item.date)}
-                    className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 whitespace-nowrap cursor-pointer shrink-0 ${
+                    className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 whitespace-nowrap shrink-0 neu-tab ${
                       isSelected
-                        ? 'neu-inset text-[var(--primary)]'
+                        ? 'neu-inset text-[var(--primary)] font-bold'
                         : 'neu-btn text-[var(--text-muted)] hover:text-[var(--text-main)]'
                     }`}
                   >
@@ -751,7 +751,7 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
             <div className="flex items-center gap-1.5 sm:gap-2">
               <button
                 onClick={() => setHeroTab('script')}
-                className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer ${
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 neu-tab ${
                   heroTab === 'script'
                     ? 'neu-inset text-[var(--primary)] font-bold'
                     : 'neu-btn text-[var(--text-muted)] hover:text-[var(--text-main)]'
@@ -763,7 +763,7 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
               </button>
               <button
                 onClick={() => setHeroTab('highlights')}
-                className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer ${
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 neu-tab ${
                   heroTab === 'highlights'
                     ? 'neu-inset text-[var(--primary)] font-bold'
                     : 'neu-btn text-[var(--text-muted)] hover:text-[var(--text-main)]'
@@ -779,23 +779,25 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
             </span>
           </div>
 
-          <div className="rounded-2xl neu-inset p-4 max-h-48 overflow-y-auto text-xs text-[var(--text-main)] leading-relaxed space-y-2">
-            {loadingDigest ? (
-              <div className="space-y-2 animate-pulse">
-                <div className="h-3.5 bg-[var(--shadow-dark)]/20 rounded-lg w-full" />
-                <div className="h-3.5 bg-[var(--shadow-dark)]/20 rounded-lg w-5/6" />
-                <div className="h-3.5 bg-[var(--shadow-dark)]/20 rounded-lg w-4/6" />
+          <div className="pt-1">
+            {heroTab === 'script' ? (
+              <div className="rounded-2xl neu-inset p-4 max-h-48 overflow-y-auto text-xs text-[var(--text-main)] leading-relaxed space-y-2">
+                {loadingDigest ? (
+                  <div className="space-y-2 animate-pulse">
+                    <div className="h-3.5 bg-[var(--shadow-dark)]/20 rounded-lg w-full" />
+                    <div className="h-3.5 bg-[var(--shadow-dark)]/20 rounded-lg w-5/6" />
+                    <div className="h-3.5 bg-[var(--shadow-dark)]/20 rounded-lg w-4/6" />
+                  </div>
+                ) : digest?.podcast_script ? (
+                  <div className="whitespace-pre-line font-sans">
+                    {digest.podcast_script}
+                  </div>
+                ) : (
+                  <p className="text-[var(--text-muted)] italic">Chưa có kịch bản cho ngày này. Bấm Tái tạo bài để tạo.</p>
+                )}
               </div>
-            ) : heroTab === 'script' ? (
-              digest?.podcast_script ? (
-                <div className="whitespace-pre-line font-sans">
-                  {digest.podcast_script}
-                </div>
-              ) : (
-                <p className="text-[var(--text-muted)] italic">Chưa có kịch bản cho ngày này. Bấm Tái tạo bài để tạo.</p>
-              )
             ) : (
-              <div className="space-y-2">
+              <div className="rounded-2xl neu-inset p-4 max-h-48 overflow-y-auto text-xs text-[var(--text-main)] leading-relaxed space-y-2">
                 {safeHighlights.length > 0 ? (
                   safeHighlights.map((h, i) => (
                     <div key={i} className="flex items-start gap-2">
@@ -839,10 +841,10 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
             <div className="flex items-center gap-1.5 p-1 rounded-2xl neu-inset self-start sm:self-auto">
               <button
                 onClick={() => setFeedViewMode('feed')}
-                className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs neu-tab ${
                   feedViewMode === 'feed'
-                    ? 'neu-flat-sm text-[var(--primary)] font-bold'
-                    : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
+                    ? 'neu-tab-active'
+                    : 'text-[var(--text-muted)] hover:text-[var(--text-main)] font-semibold'
                 }`}
                 title="Xem bài post đầy đủ như mạng xã hội"
               >
@@ -852,10 +854,10 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
 
               <button
                 onClick={() => setFeedViewMode('matrix')}
-                className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs neu-tab ${
                   feedViewMode === 'matrix'
-                    ? 'neu-flat-sm text-[var(--primary)] font-bold'
-                    : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
+                    ? 'neu-tab-active'
+                    : 'text-[var(--text-muted)] hover:text-[var(--text-main)] font-semibold'
                 }`}
                 title="Xem thẻ tóm tắt nhanh gọn"
               >

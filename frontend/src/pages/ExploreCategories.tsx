@@ -70,7 +70,7 @@ export const ExploreCategories: React.FC<ExploreCategoriesProps> = ({
                 <div className="w-12 h-12 rounded-2xl neu-inset flex items-center justify-center">
                   {getIcon(cat.icon)}
                 </div>
-                <span className="text-xs font-mono px-3 py-1 rounded-full neu-inset-sm text-[var(--primary)] font-bold">
+                <span className="text-xs font-mono px-3 py-1 rounded-full neu-inset-sm text-[var(--primary)] font-bold whitespace-nowrap shrink-0 inline-flex items-center">
                   {cat.count} skills
                 </span>
               </div>

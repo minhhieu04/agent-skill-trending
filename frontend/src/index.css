@@ -668,8 +668,17 @@ input[type="range"]::-moz-range-thumb:active {
   animation: themePulseRing 0.8s cubic-bezier(0.16, 1, 0.3, 1) infinite;
 }
 
-/* Native View Transitions Support */
+/* Native View Transitions Support for Smooth Theme Radial Wipe */
 ::view-transition-old(root),
 ::view-transition-new(root) {
-  animation-duration: 0.3s;
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+::view-transition-old(root) {
+  z-index: 1;
+}
+
+::view-transition-new(root) {
+  z-index: 9999;
 }

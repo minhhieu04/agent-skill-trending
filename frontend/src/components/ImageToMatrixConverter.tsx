@@ -368,7 +368,7 @@ export const ImageToMatrixConverter: React.FC = () => {
             <div className="flex items-center gap-2">
               <button
                 onClick={handleDownloadHtml}
-                className="px-3 py-1.5 rounded-xl text-xs font-mono neu-btn text-[var(--text-main)] hover:text-[var(--primary)] transition-all flex items-center gap-1.5 font-semibold"
+                className="px-3 py-1.5 rounded-xl text-xs font-mono neu-btn text-[var(--text-main)] hover:text-[var(--primary)] transition-all flex items-center gap-1.5 font-semibold active:scale-[0.97] cursor-pointer"
                 title="Tải trang web Matrix phát sáng"
               >
                 <Download className="w-3 h-3" />
@@ -377,7 +377,7 @@ export const ImageToMatrixConverter: React.FC = () => {
 
               <button
                 onClick={handleDownloadTxt}
-                className="px-3 py-1.5 rounded-xl text-xs font-mono neu-btn text-[var(--text-main)] hover:text-[var(--primary)] transition-all flex items-center gap-1.5 font-semibold"
+                className="px-3 py-1.5 rounded-xl text-xs font-mono neu-btn text-[var(--text-main)] hover:text-[var(--primary)] transition-all flex items-center gap-1.5 font-semibold active:scale-[0.97] cursor-pointer"
               >
                 <Download className="w-3 h-3" />
                 <span>Tải .TXT</span>
@@ -385,7 +385,7 @@ export const ImageToMatrixConverter: React.FC = () => {
 
               <button
                 onClick={handleCopy}
-                className="px-3.5 py-1.5 rounded-xl neu-primary text-white text-xs font-mono font-semibold transition-all flex items-center gap-1.5"
+                className="px-3.5 py-1.5 rounded-xl neu-primary text-white text-xs font-mono font-semibold transition-all flex items-center gap-1.5 active:scale-[0.97] hover:-translate-y-0.5 cursor-pointer"
               >
                 {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
                 <span>{copied ? 'Đã sao chép' : 'Sao chép Matrix 01'}</span>
