@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Skill, CategoryInfo, RuntimeInfo, AIRecommendationResponse } from '../types';
 import { SkillCard } from '../components/SkillCard';
 import { GridSkeleton } from '../components/Skeleton';
@@ -17,7 +17,9 @@ import {
   TrendingUp,
   Star,
   Clock,
-  RotateCcw
+  RotateCcw,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import { NeuSelect } from '../components/NeuSelect';
 import { useLanguage } from '../context/LanguageContext';
@@ -113,6 +115,35 @@ export const TrendingFeed: React.FC<TrendingFeedProps> = ({
     setSelectedLanguage('all');
     setSelectedCategory('all');
     setSelectedRuntime('all');
+  };
+
+  // Horizontal scroll controller for categories
+  const categoryScrollRef = useRef<HTMLDivElement>(null);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(true);
+
+  const updateCategoryScrollState = () => {
+    if (categoryScrollRef.current) {
+      const { scrollLeft, scrollWidth, clientWidth } = categoryScrollRef.current;
+      setCanScrollLeft(scrollLeft > 10);
+      setCanScrollRight(scrollLeft < scrollWidth - clientWidth - 10);
+    }
+  };
+
+  useEffect(() => {
+    updateCategoryScrollState();
+    window.addEventListener('resize', updateCategoryScrollState);
+    return () => window.removeEventListener('resize', updateCategoryScrollState);
+  }, [categories]);
+
+  const handleScrollCategories = (direction: 'left' | 'right') => {
+    if (categoryScrollRef.current) {
+      categoryScrollRef.current.scrollBy({
+        left: direction === 'left' ? -260 : 260,
+        behavior: 'smooth',
+      });
+      setTimeout(updateCategoryScrollState, 250);
+    }
   };
 
   const sortOptions = [
@@ -247,58 +278,87 @@ export const TrendingFeed: React.FC<TrendingFeedProps> = ({
 
         <div className="neu-divider" />
 
-        {/* Category Segmented Navigation */}
+        {/* Category Segmented Navigation with Horizontal Scroll Buttons */}
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-1.5 text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider">
               <Filter className="w-3 h-3 text-[var(--primary)]" />
               <span>{t('category_label')}</span>
             </div>
-            <span className="text-[11px] font-mono text-[var(--text-muted)]">
-              {categories.reduce((acc, c) => acc + c.count, 0)} {language === 'vi' ? 'kỹ năng sẵn sàng' : 'skills indexed'}
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] font-mono text-[var(--text-muted)]">
+                {categories.reduce((acc, c) => acc + c.count, 0)} {language === 'vi' ? 'kỹ năng sẵn sàng' : 'skills indexed'}
+              </span>
+              {/* Mini Scroll Buttons */}
+              <div className="hidden sm:flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => handleScrollCategories('left')}
+                  disabled={!canScrollLeft}
+                  className="w-5 h-5 rounded-lg neu-btn-sm flex items-center justify-center text-[var(--text-muted)] hover:text-[var(--primary)] disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+                  title="Cuộn sang trái"
+                >
+                  <ChevronLeft className="w-3 h-3" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleScrollCategories('right')}
+                  disabled={!canScrollRight}
+                  className="w-5 h-5 rounded-lg neu-btn-sm flex items-center justify-center text-[var(--text-muted)] hover:text-[var(--primary)] disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+                  title="Cuộn sang phải"
+                >
+                  <ChevronRight className="w-3 h-3" />
+                </button>
+              </div>
+            </div>
           </div>
 
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 pt-0.5 scrollbar-none">
-            <button
-              onClick={() => setSelectedCategory('all')}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-2 cursor-pointer ${
-                selectedCategory === 'all'
-                  ? 'neu-primary text-white shadow-sm'
-                  : 'neu-flat-xs text-[var(--text-muted)] hover:text-[var(--text-main)] hover:neu-flat-sm'
-              }`}
+          <div className="relative">
+            <div
+              ref={categoryScrollRef}
+              onScroll={updateCategoryScrollState}
+              className="flex items-center gap-1.5 overflow-x-auto pb-1 pt-0.5 scrollbar-none scroll-smooth"
             >
-              <span>{t('category_all')}</span>
-              <span className={`px-1.5 py-0.2 rounded-md text-[10px] font-mono ${
-                selectedCategory === 'all' ? 'bg-white/25 text-white font-bold' : 'neu-inset-sm text-[var(--text-muted)]'
-              }`}>
-                {categories.reduce((acc, c) => acc + c.count, 0)}
-              </span>
-            </button>
-            {categories.map((cat) => (
               <button
-                key={cat.key}
-                onClick={() => setSelectedCategory(cat.key)}
+                onClick={() => setSelectedCategory('all')}
                 className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-2 cursor-pointer ${
-                  selectedCategory === cat.key
+                  selectedCategory === 'all'
                     ? 'neu-primary text-white shadow-sm'
                     : 'neu-flat-xs text-[var(--text-muted)] hover:text-[var(--text-main)] hover:neu-flat-sm'
                 }`}
               >
-                <span>{cat.title}</span>
+                <span>{t('category_all')}</span>
                 <span className={`px-1.5 py-0.2 rounded-md text-[10px] font-mono ${
-                  selectedCategory === cat.key ? 'bg-white/25 text-white font-bold' : 'neu-inset-sm text-[var(--text-muted)]'
+                  selectedCategory === 'all' ? 'bg-white/25 text-white font-bold' : 'neu-inset-sm text-[var(--text-muted)]'
                 }`}>
-                  {cat.count}
+                  {categories.reduce((acc, c) => acc + c.count, 0)}
                 </span>
               </button>
-            ))}
+              {categories.map((cat) => (
+                <button
+                  key={cat.key}
+                  onClick={() => setSelectedCategory(cat.key)}
+                  className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-2 cursor-pointer ${
+                    selectedCategory === cat.key
+                      ? 'neu-primary text-white shadow-sm'
+                      : 'neu-flat-xs text-[var(--text-muted)] hover:text-[var(--text-main)] hover:neu-flat-sm'
+                  }`}
+                >
+                  <span>{cat.title}</span>
+                  <span className={`px-1.5 py-0.2 rounded-md text-[10px] font-mono ${
+                    selectedCategory === cat.key ? 'bg-white/25 text-white font-bold' : 'neu-inset-sm text-[var(--text-muted)]'
+                  }`}>
+                    {cat.count}
+                  </span>
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
         {/* Unified Filter Controls Strip (Runtime & Language) */}
         <div className="p-2.5 rounded-2xl neu-inset-sm flex flex-wrap items-center justify-between gap-3">
-          <div className="flex flex-wrap items-center gap-2.5">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-2.5">
             {/* Runtime Select Dropdown */}
             <NeuSelect
               value={selectedRuntime}
@@ -321,29 +381,32 @@ export const TrendingFeed: React.FC<TrendingFeedProps> = ({
               title={t('language_label')}
             />
 
-            {/* Popular quick-select runtime chips */}
-            <div className="hidden xl:flex items-center gap-1.5 pl-2 border-l border-[var(--shadow-dark)]/20">
+            {/* Popular quick-select runtime chips - 2xl screens only to avoid collision */}
+            <div className="hidden 2xl:flex items-center gap-1.5 pl-2 border-l border-[var(--shadow-dark)]/20">
               <span className="text-[10px] font-mono uppercase text-[var(--text-muted)] tracking-wider">
                 Hot:
               </span>
-              {runtimes.slice(0, 3).map((rt) => (
-                <button
-                  key={rt.name}
-                  type="button"
-                  onClick={() => setSelectedRuntime(selectedRuntime === rt.name ? 'all' : rt.name)}
-                  className={`px-2 py-1 rounded-lg text-[10px] font-mono transition-all cursor-pointer ${
-                    selectedRuntime === rt.name
-                      ? 'neu-primary text-white font-bold'
-                      : 'neu-flat-xs text-[var(--text-muted)] hover:text-[var(--text-main)]'
-                  }`}
-                >
-                  {rt.name}
-                </button>
-              ))}
+              {runtimes.slice(0, 3).map((rt) => {
+                const shortName = rt.name.replace('& AI Agent', '').replace('Google ', '').replace('OpenAI ', '');
+                return (
+                  <button
+                    key={rt.name}
+                    type="button"
+                    onClick={() => setSelectedRuntime(selectedRuntime === rt.name ? 'all' : rt.name)}
+                    className={`px-2 py-0.5 rounded-lg text-[10px] font-mono transition-all cursor-pointer ${
+                      selectedRuntime === rt.name
+                        ? 'neu-primary text-white font-bold'
+                        : 'neu-flat-xs text-[var(--text-muted)] hover:text-[var(--text-main)]'
+                    }`}
+                  >
+                    {shortName}
+                  </button>
+                );
+              })}
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5 sm:gap-3 ml-auto">
             {/* Reset Filter Button if active */}
             {(selectedCategory !== 'all' || selectedRuntime !== 'all' || selectedLanguage !== 'all') && (
               <button
@@ -361,7 +424,7 @@ export const TrendingFeed: React.FC<TrendingFeedProps> = ({
               </button>
             )}
 
-            <div className="text-xs font-mono text-[var(--text-muted)]">
+            <div className="text-xs font-mono text-[var(--text-muted)] whitespace-nowrap">
               {language === 'vi' ? 'Hiển thị: ' : 'Showing: '}
               <strong className="text-[var(--primary)] font-bold">{skills.length}</strong>
             </div>
@@ -402,7 +465,7 @@ export const TrendingFeed: React.FC<TrendingFeedProps> = ({
           </div>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 animate-fade-in">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4 sm:gap-5 animate-fade-in">
           {skills.map((skill) => (
             <SkillCard
               key={skill.id}

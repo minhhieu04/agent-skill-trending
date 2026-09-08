@@ -43,7 +43,7 @@ export const SkillCard: React.FC<SkillCardProps> = ({
 
   return (
     <div 
-      className={`group relative rounded-3xl p-5 sm:p-5 transition-all duration-200 flex flex-col justify-between neu-flat hover:shadow-[9px_9px_22px_var(--shadow-dark),_-9px_-9px_22px_var(--shadow-light)] hover:-translate-y-1 cursor-pointer ${
+      className={`group relative rounded-2xl sm:rounded-3xl p-4 sm:p-5 transition-all duration-200 flex flex-col justify-between neu-flat hover:shadow-[9px_9px_22px_var(--shadow-dark),_-9px_-9px_22px_var(--shadow-light)] hover:-translate-y-1 cursor-pointer overflow-hidden ${
         isCompared 
           ? 'ring-2 ring-[var(--primary)] shadow-[0_0_18px_rgba(0,132,255,0.35)]' 
           : ''
@@ -126,16 +126,16 @@ export const SkillCard: React.FC<SkillCardProps> = ({
 
         {/* Title & Name */}
         <div className="mb-2">
-          <h3 className="text-base sm:text-lg font-bold text-[var(--text-main)] group-hover:text-[var(--primary)] transition-colors line-clamp-1">
+          <h3 className="text-sm sm:text-base font-bold text-[var(--text-main)] group-hover:text-[var(--primary)] transition-colors line-clamp-2 min-h-[2.5rem] sm:min-h-[2.75rem] leading-snug">
             {skill.title || skill.name}
           </h3>
-          <p className="text-xs text-[var(--text-muted)] font-mono truncate mt-0.5">
+          <p className="text-[11px] sm:text-xs text-[var(--text-muted)] font-mono truncate mt-0.5">
             {skill.name}
           </p>
         </div>
 
         {/* Description / AI Summary */}
-        <p className="text-[13px] sm:text-sm text-[var(--text-muted)] line-clamp-2 mb-3 leading-relaxed min-h-[38px]">
+        <p className="text-xs sm:text-[13px] text-[var(--text-muted)] line-clamp-2 mb-3 leading-relaxed min-h-[34px] sm:min-h-[38px]">
           {skill.ai_summary || skill.description || 'Không có mô tả chi tiết.'}
         </p>
 
@@ -166,21 +166,21 @@ export const SkillCard: React.FC<SkillCardProps> = ({
       <div className="neu-divider my-2.5" />
 
       {/* Footer Metrics & Scores */}
-      <div className="flex items-center justify-between gap-2">
+      <div className="flex items-center justify-between gap-1.5 flex-wrap pt-0.5">
         {/* GitHub Stats */}
-        <div className="flex items-center gap-1.5 text-xs text-[var(--text-muted)] font-mono">
-          <div className="flex items-center gap-1 text-[var(--text-main)] font-bold neu-inset-sm px-2.5 py-1 rounded-xl" title="GitHub Stars">
+        <div className="flex items-center gap-1.5 text-xs text-[var(--text-muted)] font-mono shrink-0">
+          <div className="flex items-center gap-1 text-[var(--text-main)] font-bold neu-inset-sm px-2 py-0.5 rounded-lg shrink-0" title="GitHub Stars">
             <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
             <span>{formatNumber(skill.stars)}</span>
           </div>
 
-          <div className="flex items-center gap-1 neu-inset-sm px-2 py-1 rounded-xl" title="Forks">
+          <div className="flex items-center gap-1 neu-inset-sm px-1.5 py-0.5 rounded-lg shrink-0" title="Forks">
             <GitFork className="w-3 h-3 text-[var(--text-muted)]" />
             <span>{formatNumber(skill.forks)}</span>
           </div>
 
           {skill.star_velocity_7d > 0 && (
-            <div className="hidden sm:flex items-center gap-0.5 text-emerald-600 dark:text-emerald-400 font-bold text-[11px] neu-inset-sm px-2 py-1 rounded-xl" title="7-day Star Growth">
+            <div className="hidden sm:flex items-center gap-0.5 text-emerald-600 dark:text-emerald-400 font-bold text-[11px] neu-inset-sm px-1.5 py-0.5 rounded-lg shrink-0" title="7-day Star Growth">
               <TrendingUp className="w-3 h-3" />
               <span>+{Math.round(skill.star_velocity_7d)}/7d</span>
             </div>
@@ -188,10 +188,10 @@ export const SkillCard: React.FC<SkillCardProps> = ({
         </div>
 
         {/* Composite Scores */}
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1.5 shrink-0 ml-auto">
           {showRelevance && skill.relevance_score > 0 ? (
             <div 
-              className="flex items-center gap-1 px-2.5 py-1 rounded-xl neu-inset-sm text-[var(--primary)] text-xs font-mono font-bold"
+              className="flex items-center gap-1 px-2 py-0.5 rounded-lg neu-inset-sm text-[var(--primary)] text-xs font-mono font-bold shrink-0"
               title="Personalized Relevance Score"
             >
               <Sparkles className="w-3 h-3 text-[var(--primary)]" />
@@ -201,7 +201,7 @@ export const SkillCard: React.FC<SkillCardProps> = ({
             <>
               {/* Quality Score */}
               <div 
-                className="flex items-center gap-1 px-2.5 py-1 rounded-xl neu-inset-sm text-[var(--text-main)] text-xs font-mono font-bold"
+                className="flex items-center gap-1 px-2 py-0.5 rounded-lg neu-inset-sm text-[var(--text-main)] text-xs font-mono font-bold shrink-0"
                 title="Code Quality Score"
               >
                 <ShieldCheck className="w-3 h-3 text-[var(--primary)]" />
@@ -210,7 +210,7 @@ export const SkillCard: React.FC<SkillCardProps> = ({
 
               {/* Trending Score */}
               <div 
-                className="flex items-center gap-1 px-2.5 py-1 rounded-xl neu-primary text-xs font-mono font-extrabold text-white"
+                className="flex items-center gap-1 px-2 py-0.5 rounded-lg neu-primary text-xs font-mono font-extrabold text-white shrink-0"
                 title="Trending Velocity Score"
               >
                 <TrendingUp className="w-3 h-3" />
