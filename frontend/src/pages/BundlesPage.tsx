@@ -68,12 +68,14 @@ export const BundlesPage: React.FC<BundlesPageProps> = ({ onSelectSkillById }) =
             <Package className="w-5 h-5" />
           </div>
           <div>
-            <h2 className="text-base sm:text-lg font-bold text-[var(--text-main)] flex items-center gap-2">
-              {t('bundles_title')}
-              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono neu-inset-sm text-[var(--primary)] font-semibold">
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="text-base sm:text-lg font-bold text-[var(--text-main)]">
+                {t('bundles_title')}
+              </h2>
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono neu-inset-sm text-[var(--primary)] font-semibold whitespace-nowrap shrink-0 inline-flex items-center">
                 {t('starter_packs')}
               </span>
-            </h2>
+            </div>
             <p className="text-xs text-[var(--text-muted)] mt-0.5 max-w-2xl">
               {t('bundles_sub')}
             </p>
@@ -88,7 +90,7 @@ export const BundlesPage: React.FC<BundlesPageProps> = ({ onSelectSkillById }) =
           {bundles?.map((bundle) => (
             <div
               key={bundle.id}
-              className="p-6 rounded-3xl neu-flat flex flex-col justify-between space-y-5 transition-all"
+              className="p-6 rounded-3xl neu-flat flex flex-col justify-between space-y-5 transition-all duration-200 hover:-translate-y-1"
             >
               <div>
                 {/* Top Badge & Header */}
@@ -98,7 +100,7 @@ export const BundlesPage: React.FC<BundlesPageProps> = ({ onSelectSkillById }) =
                       <TechLogo name={bundle.slug || bundle.title || bundle.icon} className="w-5 h-5" />
                     </div>
                     <div>
-                      <span className="text-[10px] font-mono px-2.5 py-0.5 rounded-full neu-inset-sm text-[var(--text-muted)]">
+                      <span className="text-[10px] font-mono px-2.5 py-0.5 rounded-full neu-inset-sm text-[var(--text-muted)] whitespace-nowrap shrink-0 inline-flex items-center">
                         {bundle.badge}
                       </span>
                       <h3 className="text-sm sm:text-base font-bold text-[var(--text-main)] mt-1">
@@ -107,7 +109,7 @@ export const BundlesPage: React.FC<BundlesPageProps> = ({ onSelectSkillById }) =
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-1 text-xs font-mono font-medium text-amber-500 neu-inset-sm px-2.5 py-1 rounded-full shrink-0">
+                  <div className="flex items-center gap-1 text-xs font-mono font-medium text-amber-500 neu-inset-sm px-2.5 py-1 rounded-full shrink-0 whitespace-nowrap">
                     <Star className="w-3.5 h-3.5 fill-current" />
                     <span>{Math.round(bundle.stars_total / 1000)}k+ stars</span>
                   </div>
@@ -161,7 +163,7 @@ export const BundlesPage: React.FC<BundlesPageProps> = ({ onSelectSkillById }) =
                 <button
                   onClick={() => handleBookmarkBundle(bundle.slug)}
                   disabled={bookmarkingSlug === bundle.slug}
-                  className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-2xl neu-btn text-[var(--text-main)] hover:text-[var(--primary)] text-xs font-semibold transition-all"
+                  className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-2xl neu-btn text-[var(--text-main)] hover:text-[var(--primary)] text-xs font-semibold active:scale-[0.97] transition-all cursor-pointer"
                 >
                   <Bookmark className="w-3.5 h-3.5" />
                   <span>{t('btn_bookmark_bundle')}</span>
@@ -169,7 +171,7 @@ export const BundlesPage: React.FC<BundlesPageProps> = ({ onSelectSkillById }) =
 
                 <button
                   onClick={() => handleExportBundle(bundle.slug)}
-                  className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-2xl neu-primary text-white text-xs font-semibold transition-all cursor-pointer"
+                  className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-2xl neu-primary text-white text-xs font-semibold active:scale-[0.97] transition-all cursor-pointer"
                 >
                   <Download className="w-3.5 h-3.5" />
                   <span>{t('btn_export_bundle')}</span>

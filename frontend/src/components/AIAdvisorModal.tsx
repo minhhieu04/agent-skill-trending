@@ -121,7 +121,7 @@ export const AIAdvisorModal: React.FC<AIAdvisorModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/50 backdrop-blur-sm animate-modal-backdrop overflow-y-auto"
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-slate-950/50 dark:bg-black/70 backdrop-blur-md animate-modal-backdrop overflow-y-auto"
       onClick={onClose}
     >
       <div
@@ -135,11 +135,11 @@ export const AIAdvisorModal: React.FC<AIAdvisorModalProps> = ({
               <Sparkles className="w-4 h-4" />
             </div>
             <div>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <h2 className="text-sm sm:text-base font-bold text-[var(--text-main)]">
                   {t('ai_modal_title')}
                 </h2>
-                <span className="px-2.5 py-0.5 text-[10px] font-mono font-semibold rounded-full neu-inset-sm text-[var(--primary)]">
+                <span className="px-2.5 py-0.5 text-[10px] font-mono font-semibold rounded-full neu-inset-sm text-[var(--primary)] whitespace-nowrap shrink-0 inline-flex items-center">
                   {recommendation?.is_ai_powered ? 'Gemini 2.5 AI' : t('track_ai_advisor_badge')}
                 </span>
               </div>

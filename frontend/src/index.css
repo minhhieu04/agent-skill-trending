@@ -145,17 +145,19 @@
 .neu-btn {
   background-color: var(--bg);
   box-shadow: 5px 5px 10px var(--shadow-dark), -5px -5px 10px var(--shadow-light);
-  transition: all 0.15s ease;
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
   cursor: pointer;
   border: none !important;
 }
 
 .neu-btn:hover {
-  box-shadow: 3px 3px 6px var(--shadow-dark), -3px -3px 6px var(--shadow-light);
+  transform: translateY(-1px);
+  box-shadow: 6px 6px 12px var(--shadow-dark), -6px -6px 12px var(--shadow-light);
   color: var(--primary);
 }
 
 .neu-btn:active, .neu-btn.active {
+  transform: scale(0.97);
   box-shadow: inset 3px 3px 6px var(--shadow-dark), inset -3px -3px 6px var(--shadow-light);
   color: var(--primary);
 }
@@ -163,17 +165,19 @@
 .neu-btn-sm {
   background-color: var(--bg);
   box-shadow: 3px 3px 7px var(--shadow-dark), -3px -3px 7px var(--shadow-light);
-  transition: all 0.15s ease;
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
   cursor: pointer;
   border: none !important;
 }
 
 .neu-btn-sm:hover {
-  box-shadow: 2px 2px 4px var(--shadow-dark), -2px -2px 4px var(--shadow-light);
+  transform: translateY(-1px);
+  box-shadow: 4px 4px 8px var(--shadow-dark), -4px -4px 8px var(--shadow-light);
   color: var(--primary);
 }
 
 .neu-btn-sm:active, .neu-btn-sm.active {
+  transform: scale(0.97);
   box-shadow: inset 2.5px 2.5px 5px var(--shadow-dark), inset -2.5px -2.5px 5px var(--shadow-light);
   color: var(--primary);
 }
@@ -183,20 +187,20 @@
   background: var(--primary-gradient) !important;
   box-shadow: 3px 5px 14px rgba(37, 99, 235, 0.28), -3px -3px 8px var(--shadow-light);
   color: #ffffff !important;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
   border: 1px solid rgba(255, 255, 255, 0.2) !important;
   cursor: pointer;
 }
 
 .neu-primary:hover {
   opacity: 0.96;
-  transform: translateY(-1px);
+  transform: translateY(-1.5px);
   box-shadow: 4px 7px 18px rgba(37, 99, 235, 0.38), -4px -4px 10px var(--shadow-light);
 }
 
 .neu-primary:active, .neu-primary.active {
+  transform: scale(0.97);
   box-shadow: inset 2.5px 2.5px 5px rgba(29, 78, 216, 0.6), inset -1px -1px 3px rgba(255, 255, 255, 0.2) !important;
-  transform: translateY(0);
 }
 
 /* Tactile Soft UI Range Slider System */
@@ -526,14 +530,55 @@ input[type="range"]::-moz-range-thumb:active {
 .badge-minimal {
   display: inline-flex;
   align-items: center;
-  padding: 0.2rem 0.5rem;
-  border-radius: 0.625rem;
-  font-size: 11px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  padding: 0.2rem 0.6rem;
+  border-radius: 9999px;
+  font-size: 10px;
   font-family: monospace;
-  font-weight: 500;
+  font-weight: 600;
   background-color: var(--bg);
   box-shadow: inset 2px 2px 4px var(--shadow-dark), inset -2px -2px 4px var(--shadow-light);
   color: var(--text-main);
+}
+
+.neu-badge {
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* Interactive Neumorphic Tab Controls */
+.neu-tab {
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  cursor: pointer;
+}
+
+.neu-tab:active {
+  transform: scale(0.97);
+}
+
+.neu-tab-active {
+  background-color: var(--bg);
+  box-shadow: 4px 4px 9px var(--shadow-dark), -4px -4px 9px var(--shadow-light);
+  color: var(--primary);
+  font-weight: 700;
+}
+
+/* Interactive Card Surfaces */
+.neu-card-interactive {
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.neu-card-interactive:hover {
+  transform: translateY(-2px);
+  box-shadow: 10px 10px 22px var(--shadow-dark), -10px -10px 22px var(--shadow-light);
+}
+
+.neu-card-interactive:active {
+  transform: scale(0.985);
+  box-shadow: inset 2px 2px 5px var(--shadow-dark), inset -2px -2px 5px var(--shadow-light);
 }
 
 /* Page Transitions & Modal Animations */
@@ -555,20 +600,24 @@ input[type="range"]::-moz-range-thumb:active {
 @keyframes modalBackdropIn {
   0% {
     opacity: 0;
+    backdrop-filter: blur(0px);
+    -webkit-backdrop-filter: blur(0px);
   }
   100% {
     opacity: 1;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
   }
 }
 
 .animate-modal-backdrop {
-  animation: modalBackdropIn 0.15s ease-out forwards;
+  animation: modalBackdropIn 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 @keyframes modalPop {
   0% {
     opacity: 0;
-    transform: scale(0.98) translateY(6px);
+    transform: scale(0.95) translateY(10px);
   }
   100% {
     opacity: 1;
@@ -577,5 +626,50 @@ input[type="range"]::-moz-range-thumb:active {
 }
 
 .animate-modal-pop {
-  animation: modalPop 0.18s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: modalPop 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Theme Switch Transition Morphing Keyframes */
+@keyframes themeIconMorph {
+  0% {
+    transform: scale(0.7) rotate(-60deg);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.12) rotate(15deg);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1) rotate(0deg);
+    opacity: 1;
+  }
+}
+
+@keyframes themePulseRing {
+  0% {
+    transform: scale(0.85);
+    opacity: 0.8;
+  }
+  50% {
+    transform: scale(1.15);
+    opacity: 0.25;
+  }
+  100% {
+    transform: scale(1.4);
+    opacity: 0;
+  }
+}
+
+.animate-theme-morph {
+  animation: themeIconMorph 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-theme-pulse {
+  animation: themePulseRing 0.8s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+}
+
+/* Native View Transitions Support */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 0.3s;
 }

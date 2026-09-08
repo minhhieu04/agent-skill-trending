@@ -43,7 +43,7 @@ export const SkillCard: React.FC<SkillCardProps> = ({
 
   return (
     <div 
-      className={`group relative rounded-2xl sm:rounded-3xl p-4 sm:p-5 transition-all duration-200 flex flex-col justify-between neu-flat hover:shadow-[9px_9px_22px_var(--shadow-dark),_-9px_-9px_22px_var(--shadow-light)] hover:-translate-y-1 cursor-pointer overflow-hidden ${
+      className={`group relative rounded-2xl sm:rounded-3xl p-4 sm:p-5 transition-all duration-200 flex flex-col justify-between neu-flat hover:shadow-[9px_9px_22px_var(--shadow-dark),_-9px_-9px_22px_var(--shadow-light)] hover:-translate-y-1 active:scale-[0.985] cursor-pointer overflow-hidden ${
         isCompared 
           ? 'ring-2 ring-[var(--primary)] shadow-[0_0_18px_rgba(0,132,255,0.35)]' 
           : ''
@@ -55,7 +55,7 @@ export const SkillCard: React.FC<SkillCardProps> = ({
         <div className="flex items-start justify-between gap-2.5 mb-2.5">
           {/* Badges */}
           <div className="flex items-center gap-1.5 flex-wrap min-w-0">
-            <span className="text-[11px] font-mono font-bold px-2.5 py-0.5 rounded-xl neu-inset-sm text-[var(--primary)] shrink-0">
+            <span className="text-[11px] font-mono font-bold px-2.5 py-0.5 rounded-xl neu-inset-sm text-[var(--primary)] whitespace-nowrap shrink-0 inline-flex items-center">
               {skill.category}
             </span>
             <SecurityBadge rating={skill.security_rating || 'safe'} score={skill.security_score || 95} size="sm" />
@@ -75,7 +75,7 @@ export const SkillCard: React.FC<SkillCardProps> = ({
                   e.stopPropagation();
                   onToggleCompare(skill.id);
                 }}
-                className={`w-7 h-7 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
+                className={`w-7 h-7 rounded-xl flex items-center justify-center transition-all duration-150 active:scale-90 cursor-pointer ${
                   isCompared
                     ? 'neu-inset text-[var(--primary)] font-bold'
                     : 'neu-btn text-[var(--text-muted)] hover:text-[var(--primary)]'
@@ -93,7 +93,7 @@ export const SkillCard: React.FC<SkillCardProps> = ({
                 e.stopPropagation();
                 onToggleBookmark(skill.id);
               }}
-              className={`w-7 h-7 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
+              className={`w-7 h-7 rounded-xl flex items-center justify-center transition-all duration-150 active:scale-90 cursor-pointer ${
                 skill.is_bookmarked
                   ? 'neu-inset text-amber-500 font-bold'
                   : 'neu-btn text-[var(--text-muted)] hover:text-amber-500'

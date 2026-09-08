@@ -36,14 +36,14 @@ export const SocialTechPostModal: React.FC<SocialTechPostModalProps> = ({
   if (!isOpen || !post || !skillSummary) return null;
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 sm:p-6 bg-zinc-950/60 backdrop-blur-xs animate-fade-in">
+    <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 sm:p-6 bg-slate-950/50 dark:bg-black/70 backdrop-blur-md animate-modal-backdrop">
       <div
         className="fixed inset-0 transition-opacity"
         onClick={onClose}
         aria-hidden="true"
       />
 
-      <div className="relative w-full max-w-3xl rounded-3xl bg-[var(--bg)] neu-modal overflow-hidden z-10 my-8 text-[var(--text-main)]">
+      <div className="relative w-full max-w-3xl rounded-3xl bg-[var(--bg)] neu-modal overflow-hidden z-10 my-8 text-[var(--text-main)] animate-modal-pop">
         {/* Modal Top Header Bar */}
         <div className="px-5 py-4 shadow-[0_4px_10px_var(--shadow-dark)] flex items-center justify-between bg-[var(--bg)] relative z-10">
           <div className="flex items-center gap-2 text-xs font-bold text-[var(--text-main)] uppercase tracking-wider font-mono">

@@ -53,21 +53,21 @@ export const HistoryPage: React.FC = () => {
   const getActionBadge = (action: string) => {
     switch (action) {
       case 'login':
-        return <span className="px-2.5 py-0.5 rounded-lg neu-inset-sm text-[var(--primary)] text-[11px] font-mono font-semibold">login</span>;
+        return <span className="px-2.5 py-0.5 rounded-lg neu-inset-sm text-[var(--primary)] text-[11px] font-mono font-semibold whitespace-nowrap shrink-0 inline-flex items-center">login</span>;
       case 'register':
-        return <span className="px-2.5 py-0.5 rounded-lg neu-inset-sm text-emerald-500 text-[11px] font-mono font-semibold">register</span>;
+        return <span className="px-2.5 py-0.5 rounded-lg neu-inset-sm text-emerald-500 text-[11px] font-mono font-semibold whitespace-nowrap shrink-0 inline-flex items-center">register</span>;
       case 'bookmark':
-        return <span className="px-2.5 py-0.5 rounded-lg neu-primary text-white text-[11px] font-mono font-bold">bookmark</span>;
+        return <span className="px-2.5 py-0.5 rounded-lg neu-primary text-white text-[11px] font-mono font-bold whitespace-nowrap shrink-0 inline-flex items-center">bookmark</span>;
       case 'unbookmark':
-        return <span className="px-2.5 py-0.5 rounded-lg neu-inset-sm text-[var(--text-muted)] text-[11px] font-mono">unbookmark</span>;
+        return <span className="px-2.5 py-0.5 rounded-lg neu-inset-sm text-[var(--text-muted)] text-[11px] font-mono whitespace-nowrap shrink-0 inline-flex items-center">unbookmark</span>;
       case 'trigger_collection':
-        return <span className="px-2.5 py-0.5 rounded-lg neu-inset-sm text-[var(--primary)] text-[11px] font-mono font-semibold">trigger_collection</span>;
+        return <span className="px-2.5 py-0.5 rounded-lg neu-inset-sm text-[var(--primary)] text-[11px] font-mono font-semibold whitespace-nowrap shrink-0 inline-flex items-center">trigger_collection</span>;
       case 'update_preferences':
-        return <span className="px-2.5 py-0.5 rounded-lg neu-inset-sm text-[var(--primary)] text-[11px] font-mono font-semibold">update_preferences</span>;
+        return <span className="px-2.5 py-0.5 rounded-lg neu-inset-sm text-[var(--primary)] text-[11px] font-mono font-semibold whitespace-nowrap shrink-0 inline-flex items-center">update_preferences</span>;
       case 'collection_completed':
-        return <span className="px-2.5 py-0.5 rounded-lg neu-inset-sm text-emerald-500 text-[11px] font-mono font-semibold">collection_completed</span>;
+        return <span className="px-2.5 py-0.5 rounded-lg neu-inset-sm text-emerald-500 text-[11px] font-mono font-semibold whitespace-nowrap shrink-0 inline-flex items-center">collection_completed</span>;
       default:
-        return <span className="px-2.5 py-0.5 rounded-lg neu-inset-sm text-[var(--text-muted)] font-mono text-[11px]">{action}</span>;
+        return <span className="px-2.5 py-0.5 rounded-lg neu-inset-sm text-[var(--text-muted)] font-mono text-[11px] whitespace-nowrap shrink-0 inline-flex items-center">{action}</span>;
     }
   };
 
@@ -170,15 +170,15 @@ export const HistoryPage: React.FC = () => {
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2.5 text-xs">
-                      <div className="flex items-center gap-1.5 text-[var(--text-muted)] font-mono">
+                    <div className="flex flex-wrap items-center gap-2.5 text-xs">
+                      <div className="flex items-center gap-1.5 text-[var(--text-muted)] font-mono shrink-0">
                         <Calendar className="w-3.5 h-3.5 text-[var(--primary)]" />
                         <span>{formatDate(run.started_at)}</span>
                       </div>
-                      <span className="px-2.5 py-0.5 rounded-lg neu-inset-sm text-emerald-500 font-mono font-semibold text-[11px]">
+                      <span className="px-2.5 py-0.5 rounded-lg neu-inset-sm text-emerald-500 font-mono font-semibold text-[11px] whitespace-nowrap shrink-0 inline-flex items-center">
                         +{run.total_new_skills} {t('new_skills')}
                       </span>
-                      <span className="px-2.5 py-0.5 rounded-lg neu-inset-sm text-[var(--text-muted)] font-mono text-[11px]">
+                      <span className="px-2.5 py-0.5 rounded-lg neu-inset-sm text-[var(--text-muted)] font-mono text-[11px] whitespace-nowrap shrink-0 inline-flex items-center">
                         {run.total_updated_skills} {t('updated_skills')}
                       </span>
                     </div>
@@ -202,7 +202,7 @@ export const HistoryPage: React.FC = () => {
                       {Object.entries(run.sources_summary).map(([src, stat]: [string, any]) => (
                         <span
                           key={src}
-                          className="px-2.5 py-0.5 rounded-lg neu-inset-sm text-[var(--text-muted)] font-mono text-[11px]"
+                          className="px-2.5 py-0.5 rounded-lg neu-inset-sm text-[var(--text-muted)] font-mono text-[11px] whitespace-nowrap shrink-0 inline-flex items-center"
                         >
                           {src}: <strong className="text-[var(--text-main)]">{typeof stat === 'object' ? stat.total || 0 : stat}</strong>
                         </span>

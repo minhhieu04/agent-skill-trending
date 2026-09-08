@@ -59,17 +59,17 @@ export const PersonalizedFeed: React.FC<PersonalizedFeedProps> = ({
           <div className="mt-4 pt-3.5 border-t border-[var(--shadow-dark)]/20 flex flex-wrap items-center gap-2 text-xs text-[var(--text-muted)]">
             <span className="font-semibold text-[var(--text-main)]">Đang ưu tiên:</span>
             {preference.preferred_categories?.slice(0, 3).map((c) => (
-              <span key={c} className="px-2.5 py-0.5 rounded-lg text-[11px] font-mono neu-inset-sm text-[var(--text-muted)]">
+              <span key={c} className="px-2.5 py-0.5 rounded-lg text-[11px] font-mono neu-inset-sm text-[var(--text-muted)] whitespace-nowrap shrink-0 inline-flex items-center">
                 {c}
               </span>
             ))}
             {preference.preferred_runtimes?.slice(0, 3).map((r) => (
-              <span key={r} className="px-2.5 py-0.5 rounded-lg text-[11px] font-mono neu-inset-sm text-[var(--text-muted)]">
+              <span key={r} className="px-2.5 py-0.5 rounded-lg text-[11px] font-mono neu-inset-sm text-[var(--text-muted)] whitespace-nowrap shrink-0 inline-flex items-center">
                 {r}
               </span>
             ))}
             {preference.preferred_languages?.slice(0, 3).map((l) => (
-              <span key={l} className="px-2.5 py-0.5 rounded-lg text-[11px] font-mono neu-inset-sm text-[var(--text-muted)]">
+              <span key={l} className="px-2.5 py-0.5 rounded-lg text-[11px] font-mono neu-inset-sm text-[var(--text-muted)] whitespace-nowrap shrink-0 inline-flex items-center">
                 {l}
               </span>
             ))}

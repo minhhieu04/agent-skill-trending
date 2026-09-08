@@ -49,10 +49,29 @@ export function NeuSelect<T extends string | number>({
   renderOption,
 }: NeuSelectProps<T>) {
   const [isOpen, setIsOpen] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
+  const [isVisible, setIsVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const containerRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const [computedAlign, setComputedAlign] = useState<'left' | 'right'>(align === 'right' ? 'right' : 'left');
+
+  // Handle open and close transitions
+  useEffect(() => {
+    if (isOpen) {
+      setIsMounted(true);
+      const raf = requestAnimationFrame(() => {
+        setIsVisible(true);
+      });
+      return () => cancelAnimationFrame(raf);
+    } else if (isMounted) {
+      setIsVisible(false);
+      const timer = setTimeout(() => {
+        setIsMounted(false);
+      }, 160);
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen]);
 
   // Compute smart alignment to avoid viewport overflow
   useEffect(() => {
@@ -187,7 +206,7 @@ export function NeuSelect<T extends string | number>({
         onClick={() => {
           if (!disabled) setIsOpen(!isOpen);
         }}
-        className={`flex items-center justify-between text-left transition-all cursor-pointer font-medium select-none ${
+        className={`flex items-center justify-between text-left transition-all duration-150 active:scale-[0.98] cursor-pointer font-medium select-none ${
           sizeStyles[size]
         } ${variantStyles[variant]} ${
           fullWidth ? 'w-full' : ''
@@ -206,7 +225,7 @@ export function NeuSelect<T extends string | number>({
             {selectedOption ? selectedOption.label : placeholder}
           </span>
           {selectedOption?.badge && (
-            <span className="shrink-0 px-1.5 py-0.5 text-[10px] font-mono rounded-md neu-inset-sm text-[var(--primary)] font-bold">
+            <span className="shrink-0 px-1.5 py-0.5 text-[10px] font-mono rounded-md neu-inset-sm text-[var(--primary)] font-bold whitespace-nowrap inline-flex items-center">
               {selectedOption.badge}
             </span>
           )}
@@ -220,11 +239,15 @@ export function NeuSelect<T extends string | number>({
       </button>
 
       {/* Dropdown Floating Popover */}
-      {isOpen && (
+      {isMounted && (
         <div
           className={`absolute ${
             computedAlign === 'right' ? 'right-0 origin-top-right' : 'left-0 origin-top-left'
-          } top-full mt-2 z-50 min-w-[210px] max-w-[calc(100vw-32px)] neu-dropdown backdrop-blur-xl bg-[var(--bg)]/98 rounded-2xl p-1.5 shadow-2xl transition-all animate-in fade-in zoom-in-95 duration-150 ${
+          } top-full mt-2 z-50 min-w-[210px] max-w-[calc(100vw-32px)] neu-dropdown backdrop-blur-xl bg-[var(--bg)]/98 rounded-2xl p-1.5 shadow-2xl transition-all duration-150 ease-out ${
+            isVisible
+              ? 'opacity-100 scale-100 translate-y-0 pointer-events-auto'
+              : 'opacity-0 scale-95 -translate-y-1.5 pointer-events-none'
+          } ${
             fullWidth ? 'w-full' : ''
           } ${dropdownClassName}`}
           style={{ maxHeight: '340px' }}
@@ -317,7 +340,7 @@ export function NeuSelect<T extends string | number>({
             setSearchQuery('');
           }
         }}
-        className={`w-full flex items-center justify-between px-3 py-2 text-left text-xs rounded-xl transition-all cursor-pointer ${
+        className={`w-full flex items-center justify-between px-3 py-2 text-left text-xs rounded-xl transition-all duration-150 active:scale-[0.98] cursor-pointer ${
           isSelected
             ? 'neu-inset-sm text-[var(--primary)] font-bold'
             : 'text-[var(--text-main)] hover:bg-slate-500/10 dark:hover:bg-slate-400/10 hover:text-[var(--primary)]'
@@ -337,7 +360,7 @@ export function NeuSelect<T extends string | number>({
 
         <div className="flex items-center gap-1.5 shrink-0">
           {opt.badge && (
-            <span className="px-1.5 py-0.5 text-[10px] font-mono rounded-md neu-inset-sm text-[var(--primary)] font-bold">
+            <span className="px-1.5 py-0.5 text-[10px] font-mono rounded-md neu-inset-sm text-[var(--primary)] font-bold whitespace-nowrap shrink-0 inline-flex items-center">
               {opt.badge}
             </span>
           )}

@@ -949,11 +949,11 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
                     <div className="flex items-start justify-between gap-3">
                       <div className="space-y-1">
                         <div className="flex items-center gap-1.5 flex-wrap">
-                          <span className="px-2.5 py-0.5 rounded-lg text-[10px] uppercase tracking-wider neu-inset-sm text-[var(--primary)] font-mono font-semibold">
+                          <span className="px-2.5 py-0.5 rounded-lg text-[10px] uppercase tracking-wider neu-inset-sm text-[var(--primary)] font-mono font-semibold whitespace-nowrap shrink-0 inline-flex items-center">
                             {item.category}
                           </span>
                           {item.primary_language && (
-                            <span className="px-2.5 py-0.5 rounded-lg text-[10px] font-mono neu-inset-sm text-[var(--text-muted)]">
+                            <span className="px-2.5 py-0.5 rounded-lg text-[10px] font-mono neu-inset-sm text-[var(--text-muted)] whitespace-nowrap shrink-0 inline-flex items-center">
                               {item.primary_language}
                             </span>
                           )}
@@ -1037,12 +1037,12 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
                     </div>
 
                     {/* 3. AI NÊN DÙNG (Target Audience) */}
-                    <div className="flex items-center gap-2 text-xs">
-                      <span className="font-semibold text-[var(--text-muted)] flex items-center gap-1">
+                    <div className="flex flex-wrap items-center gap-2 text-xs">
+                      <span className="font-semibold text-[var(--text-muted)] flex items-center gap-1 shrink-0">
                         <Target className="w-3.5 h-3.5 text-[var(--primary)]" />
                         {t('label_target_audience')}:
                       </span>
-                      <span className="px-2.5 py-0.5 rounded-lg neu-inset-sm text-[var(--text-muted)] font-mono text-[11px]">
+                      <span className="px-2.5 py-0.5 rounded-lg neu-inset-sm text-[var(--text-muted)] font-mono text-[11px] whitespace-nowrap shrink-0 inline-flex items-center">
                         {item.target_audience}
                       </span>
                     </div>
