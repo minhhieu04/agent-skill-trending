@@ -10,6 +10,33 @@ from analyzer.relevance import RelevanceMatcher
 
 class SkillService:
     @staticmethod
+    def ensure_enriched(skills: Any):
+        """Ensures skills have rich use_cases, comparison_notes, and target_audience."""
+        if not skills:
+            return
+        from analyzer.skill_enricher import derive_skill_details
+        skill_list = skills if isinstance(skills, list) else [skills]
+        for s in skill_list:
+            needs_ucs = not s.use_cases or len(s.use_cases) == 0
+            needs_comp = not s.comparison_notes or len(s.comparison_notes.strip()) == 0
+            needs_aud = not s.target_audience or s.target_audience.strip() in ["", "Fullstack Developers", "Developers"]
+            if needs_ucs or needs_comp or needs_aud:
+                ucs, comp, aud = derive_skill_details(
+                    name=s.name,
+                    title=s.title,
+                    desc=s.description,
+                    cat=s.category,
+                    lang=s.primary_language,
+                    tags=s.tags or []
+                )
+                if needs_ucs:
+                    s.use_cases = ucs
+                if needs_comp:
+                    s.comparison_notes = comp
+                if needs_aud:
+                    s.target_audience = aud
+
+    @staticmethod
     def populate_user_bookmarks(skills: List[Skill], user_id: Optional[int], db: Session):
         if not user_id:
             return
@@ -71,6 +98,7 @@ class SkillService:
             query = query.order_by(desc(Skill.trending_score))
 
         skills = query.offset(offset).limit(limit).all()
+        SkillService.ensure_enriched(skills)
 
         if user_id:
             SkillService.populate_user_bookmarks(skills, user_id, db)
@@ -115,6 +143,7 @@ class SkillService:
         # Sort by combined score
         candidates.sort(key=lambda x: (x.relevance_score * 0.6 + x.trending_score * 0.4), reverse=True)
         selected = candidates[:limit]
+        SkillService.ensure_enriched(selected)
 
         if user:
             SkillService.populate_user_bookmarks(selected, user.id, db)
@@ -130,6 +159,7 @@ class SkillService:
         if not skill_ids:
             return []
         skills = db.query(Skill).filter(Skill.id.in_(skill_ids)).all()
+        SkillService.ensure_enriched(skills)
         if user_id:
             SkillService.populate_user_bookmarks(skills, user_id, db)
         return skills

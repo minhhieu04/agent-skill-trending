@@ -4,9 +4,9 @@ import {
   RefreshCw, 
   Sun, 
   Moon, 
-  Globe,
-  Scale,
-  Menu
+  Globe, 
+  Scale, 
+  Menu 
 } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 import { useLanguage } from '../context/LanguageContext';
@@ -32,40 +32,41 @@ export const Navbar: React.FC<NavbarProps> = ({
   const { language, toggleLanguage, t } = useLanguage();
 
   return (
-    <header className="sticky top-0 z-20 w-full h-16 border-b border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-950/80 backdrop-blur-xl transition-colors flex items-center px-4 sm:px-6 gap-4">
+    <header className="sticky top-0 z-20 mx-4 sm:mx-6 lg:mx-8 mt-3 mb-1 rounded-2xl neu-flat h-14 sm:h-16 flex items-center px-4 sm:px-6 gap-3 select-none shrink-0 transition-all">
       {/* Mobile Toggle Button */}
       {onToggleSidebar && (
         <button
           onClick={onToggleSidebar}
-          className="md:hidden p-2 rounded-xl text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"
+          className="md:hidden p-2 rounded-xl neu-btn text-slate-600 dark:text-slate-300"
+          aria-label="Toggle navigation menu"
         >
-          <Menu className="w-5 h-5" />
+          <Menu className="w-4 h-4" />
         </button>
       )}
 
-      {/* Global Search Input (Flexible Width) */}
-      <div className="flex-1 max-w-2xl">
-        <div className="relative w-full group">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-emerald-500 transition-colors duration-200" />
+      {/* Global Neumorphic Sunken Search Bar */}
+      <div className="flex-1 max-w-xl">
+        <div className="relative w-full flex items-center px-3.5 py-2 rounded-2xl neu-inset">
+          <Search className="w-4 h-4 text-slate-400 dark:text-slate-500 mr-2.5 shrink-0 pointer-events-none" />
           <input
             type="text"
             placeholder={t('search_placeholder')}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 text-xs bg-slate-100/90 dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 rounded-2xl text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 outline-none transition-all duration-200 shadow-inner"
+            className="w-full bg-transparent text-xs text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 outline-none"
           />
         </div>
       </div>
 
       {/* Right Actions */}
-      <div className="flex items-center gap-2 sm:gap-3 shrink-0 ml-auto">
+      <div className="flex items-center gap-2.5 shrink-0 ml-auto">
         {/* Quick Compare Badge if any */}
         {comparedCount > 0 && onGoToCompare && (
           <button
             onClick={onGoToCompare}
-            className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-sky-500/10 dark:bg-sky-500/20 border border-sky-500/30 text-sky-600 dark:text-sky-300 text-xs font-bold hover:bg-sky-500/20 hover:scale-105 active:scale-95 transition-all duration-200 shadow-sm"
+            className="hidden sm:flex items-center gap-1.5 px-3 py-2 rounded-xl neu-btn text-slate-700 dark:text-slate-200 text-xs font-semibold"
           >
-            <Scale className="w-3.5 h-3.5" />
+            <Scale className="w-3.5 h-3.5 text-blue-500" />
             <span>{t('compare_count_btn')} ({comparedCount})</span>
           </button>
         )}
@@ -73,30 +74,31 @@ export const Navbar: React.FC<NavbarProps> = ({
         {/* Language Switcher */}
         <button
           onClick={toggleLanguage}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:text-emerald-500 hover:scale-105 active:scale-95 text-xs font-bold transition-all duration-200 shadow-sm"
+          className="flex items-center gap-1.5 px-3 py-2 rounded-xl neu-btn text-slate-700 dark:text-slate-200 text-xs font-mono font-semibold"
           title={language === 'vi' ? 'Switch to English' : 'Chuyển sang Tiếng Việt'}
         >
-          <Globe className="w-3.5 h-3.5 text-emerald-500" />
+          <Globe className="w-3.5 h-3.5 text-blue-500" />
           <span>{language === 'vi' ? 'VI' : 'EN'}</span>
         </button>
 
         {/* Theme Toggle Button */}
         <button
           onClick={toggleTheme}
-          className="p-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:text-emerald-500 hover:scale-105 active:scale-90 transition-all duration-200 shadow-sm"
+          className="p-2 rounded-xl neu-btn text-slate-700 dark:text-slate-200"
           title={theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
+          aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
         >
           {theme === 'dark' ? (
-            <Sun className="w-4 h-4 text-amber-400 transition-transform duration-300 hover:rotate-90" />
+            <Sun className="w-4 h-4 text-amber-400" />
           ) : (
-            <Moon className="w-4 h-4 text-slate-700 transition-transform duration-300 hover:-rotate-45" />
+            <Moon className="w-4 h-4 text-blue-600" />
           )}
         </button>
 
-        {/* Scan Data Trigger Button */}
+        {/* Scan Data Trigger Button - Neumorphic Primary Accent */}
         <button
           onClick={onOpenTriggerModal}
-          className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white transition-all duration-200 shadow-md shadow-emerald-600/20 hover:scale-105 active:scale-95"
+          className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold rounded-xl neu-primary"
         >
           <RefreshCw className="w-3.5 h-3.5" />
           <span className="hidden md:inline">{t('scan_data')}</span>

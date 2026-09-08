@@ -28,6 +28,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const me = await api.getMe();
       setUser(me);
+      fetchUsers();
     } catch {
       localStorage.removeItem('agent_trending_token');
       setUser(null);
@@ -37,6 +38,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const fetchUsers = async () => {
+    const token = localStorage.getItem('agent_trending_token');
+    if (!token) return;
     try {
       const users = await api.getAllUsers();
       setAllUsers(users);
@@ -47,7 +50,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     fetchCurrentUser();
-    fetchUsers();
   }, []);
 
   const login = async (username: string, password: string) => {
@@ -65,6 +67,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = () => {
     api.logout();
     setUser(null);
+    setAllUsers([]);
   };
 
   return (

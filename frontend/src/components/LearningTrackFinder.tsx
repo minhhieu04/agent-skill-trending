@@ -34,7 +34,6 @@ export const LearningTrackFinder: React.FC<LearningTrackFinderProps> = ({
       id: 'antigravity',
       title: t('track_antigravity_title'),
       logoName: 'antigravity',
-      color: 'from-amber-500/20 to-orange-500/10 border-amber-500/30 text-amber-700 dark:text-amber-400',
       badge: 'Google Antigravity',
       query: 'antigravity',
       lang: 'all',
@@ -45,7 +44,6 @@ export const LearningTrackFinder: React.FC<LearningTrackFinderProps> = ({
       id: 'codex',
       title: t('track_codex_title'),
       logoName: 'codex',
-      color: 'from-purple-500/20 to-indigo-500/10 border-purple-500/30 text-purple-700 dark:text-purple-400',
       badge: 'OpenAI Codex',
       query: 'codex',
       lang: 'all',
@@ -56,7 +54,6 @@ export const LearningTrackFinder: React.FC<LearningTrackFinderProps> = ({
       id: 'golang',
       title: t('track_golang_title'),
       logoName: 'golang',
-      color: 'from-cyan-500/20 to-blue-500/10 border-cyan-500/30 text-cyan-700 dark:text-cyan-400',
       badge: 'Go Gopher',
       query: 'Go',
       lang: 'Go',
@@ -67,7 +64,6 @@ export const LearningTrackFinder: React.FC<LearningTrackFinderProps> = ({
       id: 'uiux',
       title: t('track_uiux_title'),
       logoName: 'tailwind',
-      color: 'from-pink-500/20 to-rose-500/10 border-pink-500/30 text-pink-700 dark:text-pink-400',
       badge: 'UI/UX Pro Max',
       query: 'UI UX',
       lang: 'all',
@@ -78,7 +74,6 @@ export const LearningTrackFinder: React.FC<LearningTrackFinderProps> = ({
       id: 'frontend',
       title: t('track_frontend_title'),
       logoName: 'nextjs',
-      color: 'from-sky-500/20 to-indigo-500/10 border-sky-500/30 text-sky-700 dark:text-sky-400',
       badge: 'React & Next.js',
       query: 'Next.js',
       lang: 'TypeScript',
@@ -89,7 +84,6 @@ export const LearningTrackFinder: React.FC<LearningTrackFinderProps> = ({
       id: 'ai-agents',
       title: t('track_agents_title'),
       logoName: 'mcp',
-      color: 'from-emerald-500/20 to-teal-500/10 border-emerald-500/30 text-emerald-700 dark:text-emerald-400',
       badge: 'MCP Protocol',
       query: 'mcp-server',
       lang: 'all',
@@ -109,21 +103,20 @@ export const LearningTrackFinder: React.FC<LearningTrackFinderProps> = ({
   };
 
   return (
-    <div className="p-5 sm:p-6 rounded-3xl bg-gradient-to-br from-emerald-500/5 via-sky-500/5 to-purple-500/5 border border-slate-200 dark:border-slate-800 shadow-sm space-y-4 transition-all">
-      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
-        <div className="flex items-center gap-2.5">
-          <div className="p-2.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400">
-            <Compass className="w-5 h-5" />
+    <div className="p-5 sm:p-6 rounded-3xl neu-flat space-y-5">
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-2xl neu-inset text-[var(--primary)] flex items-center justify-center shrink-0">
+            <Compass className="w-4 h-4" />
           </div>
           <div>
-            <h3 className="text-base font-black text-slate-900 dark:text-slate-100 flex items-center gap-2">
+            <h3 className="text-sm font-bold text-[var(--text-main)] flex items-center gap-2">
               {t('track_title')}
-              <span className="px-2 py-0.5 text-[10px] font-mono bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 rounded-full font-bold flex items-center gap-1">
-                <Sparkles className="w-3 h-3 text-emerald-500 animate-pulse" />
+              <span className="px-2 py-0.5 text-[10px] font-mono neu-inset-sm rounded-full text-[var(--primary)] font-semibold">
                 {t('track_badge')}
               </span>
             </h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
+            <p className="text-xs text-[var(--text-muted)]">
               {t('track_sub')}
             </p>
           </div>
@@ -131,28 +124,27 @@ export const LearningTrackFinder: React.FC<LearningTrackFinderProps> = ({
 
         {/* Custom Goal Search Input with AI */}
         <form onSubmit={handleCustomSubmit} className="flex items-center gap-2 w-full md:w-auto">
-          <div className="relative w-full md:w-72 group">
+          <div className="relative w-full md:w-64">
             <input
               type="text"
               value={customGoal}
               onChange={(e) => setCustomGoal(e.target.value)}
               placeholder={t('track_search_placeholder')}
-              className="px-3.5 py-2 pr-8 text-xs rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 outline-none focus:border-emerald-500 w-full transition-all"
+              className="w-full px-4 py-2 pr-9 text-xs rounded-2xl neu-inset bg-transparent text-[var(--text-main)] placeholder:text-[var(--text-muted)] outline-none focus:ring-1 focus:ring-[var(--primary)]/50 transition-all"
             />
-            <Sparkles className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-emerald-500/60 group-focus-within:text-emerald-500 pointer-events-none transition-colors" />
+            <Sparkles className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[var(--primary)] pointer-events-none" />
           </div>
           <button
             type="submit"
-            className="flex items-center gap-1.5 px-3.5 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl text-xs font-bold whitespace-nowrap shadow-sm hover:shadow-md transition-all hover:scale-105 active:scale-95 cursor-pointer"
+            className="flex items-center gap-1.5 px-4 py-2 neu-primary rounded-2xl text-xs font-semibold whitespace-nowrap transition-all shrink-0 active:scale-95"
           >
-            <Sparkles className="w-3.5 h-3.5 animate-spin-slow" />
             <span>{t('track_search_btn')}</span>
           </button>
         </form>
       </div>
 
       {/* Track Cards Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {tracks.map((track) => {
           const isCurrentActive = activeQuery === track.query;
 
@@ -160,36 +152,36 @@ export const LearningTrackFinder: React.FC<LearningTrackFinderProps> = ({
             <div
               key={track.id}
               onClick={() => onSelectTrack(track.query, track.lang, track.cat)}
-              className={`p-4 rounded-2xl bg-white/90 dark:bg-slate-900/90 border transition-all cursor-pointer group flex flex-col justify-between space-y-2.5 ${
+              className={`p-4 rounded-2xl transition-all cursor-pointer flex flex-col justify-between space-y-3 ${
                 isCurrentActive
-                  ? 'border-emerald-500 ring-2 ring-emerald-500/20 shadow-md'
-                  : 'border-slate-200 dark:border-slate-800 hover:border-emerald-500/50 hover:shadow-md'
+                  ? 'neu-inset ring-2 ring-[var(--primary)]/40'
+                  : 'neu-btn'
               }`}
             >
-              <div className="space-y-1.5">
+              <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className={`text-[11px] font-mono font-bold px-2 py-0.5 rounded-lg border bg-gradient-to-r ${track.color} flex items-center gap-1.5`}>
-                    <TechLogo name={track.logoName} className="w-3.5 h-3.5 shrink-0" />
+                  <span className="text-[10px] font-mono font-semibold px-2.5 py-1 rounded-full neu-inset-sm text-[var(--text-main)] flex items-center gap-1.5">
+                    <TechLogo name={track.logoName} className="w-3 h-3 shrink-0" />
                     <span>{track.badge}</span>
                   </span>
-                  <div className="w-6 h-6 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
-                    <TechLogo name={track.logoName} className="w-4 h-4" />
+                  <div className="w-7 h-7 rounded-xl neu-inset-sm flex items-center justify-center shrink-0">
+                    <TechLogo name={track.logoName} className="w-3.5 h-3.5" />
                   </div>
                 </div>
 
-                <h4 className="text-xs font-bold text-slate-900 dark:text-slate-100 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
+                <h4 className="text-xs font-bold text-[var(--text-main)]">
                   {track.title}
                 </h4>
 
-                <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed line-clamp-2">
+                <p className="text-[11px] text-[var(--text-muted)] leading-relaxed line-clamp-2">
                   {track.description}
                 </p>
               </div>
 
-              <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
-                <div className="flex items-center gap-1.5">
+              <div className="pt-2 border-t border-[var(--shadow-dark)]/20 flex items-center justify-between text-[11px] font-semibold text-[var(--text-main)]">
+                <div className="flex items-center gap-1 text-[var(--primary)]">
                   <span>{t('track_view_skills')}</span>
-                  <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+                  <ArrowRight className="w-3 h-3" />
                 </div>
 
                 {onOpenAIAdvisor && (
@@ -199,11 +191,11 @@ export const LearningTrackFinder: React.FC<LearningTrackFinderProps> = ({
                       e.stopPropagation();
                       onOpenAIAdvisor(track.title + ': ' + track.description);
                     }}
-                    className="p-1 rounded-lg hover:bg-emerald-500/10 text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors flex items-center gap-1 text-[10px] font-mono"
+                    className="px-2.5 py-1 rounded-xl text-[10px] font-mono neu-btn-sm text-[var(--text-muted)] hover:text-[var(--primary)] transition-all flex items-center gap-1"
                     title="Mở Lộ Trình AI Chuyên Sâu"
                   >
-                    <Sparkles className="w-3 h-3 text-emerald-500" />
-                    <span className="hidden sm:inline">AI Roadmap</span>
+                    <Sparkles className="w-2.5 h-2.5 text-[var(--primary)]" />
+                    <span>AI Roadmap</span>
                   </button>
                 )}
               </div>
@@ -213,14 +205,14 @@ export const LearningTrackFinder: React.FC<LearningTrackFinderProps> = ({
       </div>
 
       {activeQuery && onClearTrack && (
-        <div className="flex items-center justify-between pt-1 text-xs text-slate-600 dark:text-slate-400">
-          <span>{t('track_filtering_by')} <strong className="text-emerald-600 dark:text-emerald-400 font-mono">"{activeQuery}"</strong></span>
+        <div className="flex items-center justify-between pt-1 text-xs text-[var(--text-muted)]">
+          <span>{t('track_filtering_by')} <strong className="text-[var(--text-main)] font-mono font-semibold">"{activeQuery}"</strong></span>
           <button
             onClick={() => {
               setCustomGoal('');
               onClearTrack();
             }}
-            className="text-xs font-bold text-rose-500 hover:underline"
+            className="text-xs font-semibold text-rose-500 hover:underline"
           >
             {t('track_clear_filter')}
           </button>

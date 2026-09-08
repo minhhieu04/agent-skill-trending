@@ -19,9 +19,14 @@ import { PreferencesPage } from './pages/PreferencesPage';
 import { LoginPage } from './pages/LoginPage';
 import { BundlesPage } from './pages/BundlesPage';
 import { PlaygroundPage } from './pages/PlaygroundPage';
+import { AgentChatPage } from './pages/AgentChatPage';
+import { DailyPodcastPage } from './pages/DailyPodcastPage';
+import { AgentChatDrawer } from './components/AgentChatDrawer';
+import { AgentChatFloatingButton } from './components/AgentChatFloatingButton';
 import { SkillDetailModal } from './components/SkillDetailModal';
 import { TriggerCollectorModal } from './components/TriggerCollectorModal';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { BackgroundOrbs } from './components/BackgroundOrbs';
 
 const VideoBlogStudio = React.lazy(() =>
   import('./pages/VideoBlogStudio').then(module => ({ default: module.VideoBlogStudio })),
@@ -40,6 +45,7 @@ const AppContent: React.FC = () => {
     return saved === 'true';
   });
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState<boolean>(false);
+  const [isAgentChatDrawerOpen, setIsAgentChatDrawerOpen] = useState<boolean>(false);
 
   const handleToggleSidebar = (val: boolean) => {
     setSidebarCollapsed(val);
@@ -47,11 +53,11 @@ const AppContent: React.FC = () => {
   };
 
   // URL Hash Sync for Tab Navigation
+  const VALID_TABS = ['trending', 'podcast', 'daily_digest', 'agent_chat', 'bundles', 'playground', 'studio', 'personalized', 'compare', 'categories', 'history', 'bookmarks', 'preferences'];
+
   const [activeTab, setActiveTab] = useState<string>(() => {
     const hash = window.location.hash.replace('#', '');
-    return ['trending', 'bundles', 'playground', 'studio', 'personalized', 'compare', 'categories', 'history', 'bookmarks', 'preferences'].includes(hash)
-      ? hash
-      : 'trending';
+    return VALID_TABS.includes(hash) ? hash : 'trending';
   });
   
   const handleTabChange = (tab: string) => {
@@ -62,7 +68,7 @@ const AppContent: React.FC = () => {
   useEffect(() => {
     const handleHashChange = () => {
       const hash = window.location.hash.replace('#', '');
-      if (['trending', 'bundles', 'playground', 'studio', 'personalized', 'compare', 'categories', 'history', 'bookmarks', 'preferences'].includes(hash)) {
+      if (VALID_TABS.includes(hash)) {
         setActiveTab(hash);
       }
     };
@@ -73,6 +79,7 @@ const AppContent: React.FC = () => {
   // Studio Selection State
   const [studioSkill, setStudioSkill] = useState<Skill | null>(null);
   const handleOpenStudioForSkill = (skill: Skill) => {
+    setIsAgentChatDrawerOpen(false);
     setStudioSkill(skill);
     handleTabChange('studio');
   };
@@ -87,10 +94,25 @@ const AppContent: React.FC = () => {
   // Comparison State
   const [comparedSkillIds, setComparedSkillIds] = useState<number[]>([]);
 
+  // Agent Chat Query State (for seamless transition from filters/empty states)
+  const [agentChatQuery, setAgentChatQuery] = useState<string>('');
+
   // Modals state
   const [selectedSkill, setSelectedSkill] = useState<Skill | null>(null);
   const [isTriggerModalOpen, setIsTriggerModalOpen] = useState<boolean>(false);
   const [isLoginModalOpen, setIsLoginModalOpen] = useState<boolean>(false);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isLoginModalOpen) {
+        setIsLoginModalOpen(false);
+      }
+    };
+    if (isLoginModalOpen) {
+      window.addEventListener('keydown', handleKeyDown);
+      return () => window.removeEventListener('keydown', handleKeyDown);
+    }
+  }, [isLoginModalOpen]);
 
   // Queries
   const { data: stats } = useQuery<StatsData>({
@@ -195,7 +217,10 @@ const AppContent: React.FC = () => {
   }, [activeTab]);
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-slate-50 dark:bg-slate-950 font-sans text-slate-900 dark:text-slate-100">
+    <div className="relative flex h-screen w-screen overflow-hidden bg-[var(--bg)] font-sans text-[var(--text-main)] transition-colors duration-150">
+      {/* Minimalist Ambient Background */}
+      <BackgroundOrbs />
+
       {/* Sidebar Navigation */}
       <Sidebar
         activeTab={activeTab}
@@ -210,7 +235,7 @@ const AppContent: React.FC = () => {
       />
 
       {/* Main Content Area (Header + Scrollable Body) */}
-      <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
+      <div className="relative z-10 flex-1 flex flex-col min-w-0 h-full overflow-hidden">
         {/* Top Header Bar */}
         <Navbar
           onOpenTriggerModal={() => setIsTriggerModalOpen(true)}
@@ -224,8 +249,10 @@ const AppContent: React.FC = () => {
         {/* Scrollable Main Area */}
         <main ref={mainScrollRef} className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
           <div className="max-w-[1650px] w-full mx-auto space-y-6">
-            {/* Top Metric Stats Counters */}
-            <StatsHeader stats={stats || null} />
+            {/* Top Metric Stats Counters - Chỉ hiển thị tại Dashboard chính (Trending) */}
+            {activeTab === 'trending' && (
+              <StatsHeader stats={stats || null} />
+            )}
 
             {/* Active Tab View with Page Transition */}
             <div key={activeTab} className="animate-page-enter will-change-transform space-y-6">
@@ -250,6 +277,35 @@ const AppContent: React.FC = () => {
                   onGoToCompare={() => handleTabChange('compare')}
                   searchTerm={searchTerm}
                   setSearchTerm={setSearchTerm}
+                  onOpenAgentChat={(query) => {
+                    if (query) setAgentChatQuery(query);
+                    handleTabChange('agent_chat');
+                  }}
+                />
+              )}
+
+              {(activeTab === 'podcast' || activeTab === 'daily_digest') && (
+                <DailyPodcastPage
+                  onSelectSkillById={async (id) => {
+                    try {
+                      const fullSkill = await api.getSkillDetail(id);
+                      setSelectedSkill(fullSkill);
+                    } catch (e) {
+                      console.error(e);
+                    }
+                  }}
+                  onToggleBookmark={(id) => bookmarkMutation.mutate(id)}
+                />
+              )}
+
+              {activeTab === 'agent_chat' && (
+                <AgentChatPage
+                  initialQuery={agentChatQuery}
+                  onSelectSkill={(skill) => setSelectedSkill(skill)}
+                  onToggleBookmark={(id) => bookmarkMutation.mutate(id)}
+                  onGoToPlayground={() => {
+                    handleTabChange('playground');
+                  }}
                 />
               )}
 
@@ -359,7 +415,7 @@ const AppContent: React.FC = () => {
       {/* Login Modal */}
       {isLoginModalOpen && (
         <div 
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-modal-backdrop"
+          className="fixed inset-0 z-[90] flex items-center justify-center p-4 bg-zinc-950/60 dark:bg-zinc-950/80 backdrop-blur-sm animate-modal-backdrop"
           onClick={() => setIsLoginModalOpen(false)}
         >
           <div onClick={(e) => e.stopPropagation()} className="w-full max-w-md animate-modal-pop">
@@ -370,6 +426,26 @@ const AppContent: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Floating Agent Chat Launcher */}
+      <AgentChatFloatingButton
+        onClick={() => setIsAgentChatDrawerOpen(true)}
+        isOpen={isAgentChatDrawerOpen || activeTab === 'agent_chat'}
+      />
+
+      {/* Slide-out Quick Agent Chat Drawer */}
+      <AgentChatDrawer
+        isOpen={isAgentChatDrawerOpen}
+        onClose={() => setIsAgentChatDrawerOpen(false)}
+        onExpandToFullPage={() => {
+          setIsAgentChatDrawerOpen(false);
+          handleTabChange('agent_chat');
+        }}
+        onSelectSkill={(skill) => {
+          setSelectedSkill(skill);
+        }}
+        onToggleBookmark={(id) => bookmarkMutation.mutate(id)}
+      />
     </div>
   );
 };

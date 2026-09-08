@@ -25,8 +25,19 @@ import {
   Trash2,
   Plus,
   ArrowUp,
-  ArrowDown
+  ArrowDown,
+  User,
+  Palette,
+  Scale,
+  BarChart3,
+  Code,
+  Terminal,
+  GitFork,
+  Target,
+  MessageSquare,
+  Star
 } from 'lucide-react';
+import { NeuSelect } from '../components/NeuSelect';
 
 
 import { useQuery, useMutation } from '@tanstack/react-query';
@@ -162,6 +173,42 @@ export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({
     }
   }, [language]);
 
+  const skillSelectOptions = React.useMemo(() => [
+    { value: '' as any, label: t('studio_select_skill') },
+    ...skills.map((s) => ({
+      value: s.id,
+      label: s.title || s.name,
+      badge: `${s.stars.toLocaleString()} ★`,
+      sublabel: s.primary_language ? `${s.primary_language} • ${s.category}` : s.category,
+      icon: <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400 shrink-0" />
+    }))
+  ], [skills, t]);
+
+  const toneOptions = React.useMemo(() => [
+    { value: 'professional', label: t('studio_tone_professional') },
+    { value: 'hype', label: t('studio_tone_hype') },
+    { value: 'casual', label: t('studio_tone_casual') },
+    { value: 'deep_dive', label: t('studio_tone_deepdive') },
+  ], [t]);
+
+  const aspectRatioOptions = React.useMemo(() => [
+    { value: '9:16', label: '9:16 (TikTok/Shorts/Reels)', icon: <Smartphone className="w-3.5 h-3.5 text-[var(--primary)]" /> },
+    { value: '16:9', label: '16:9 (YouTube/Landscape)', icon: <Monitor className="w-3.5 h-3.5 text-[var(--primary)]" /> },
+  ], []);
+
+  const sceneTypeOptions = React.useMemo(() => [
+    { value: 'intro', label: 'Hook Intro' },
+    { value: 'github', label: 'GitHub Walkthrough' },
+    { value: 'comparison', label: 'So Sánh (Before/After)' },
+    { value: 'stat', label: 'Số Liệu (Stats)' },
+    { value: 'architecture', label: 'Kiến Trúc Flow' },
+    { value: 'code', label: 'Code Demo' },
+    { value: 'terminal', label: 'Terminal CLI' },
+    { value: 'features', label: '4 Tính Năng' },
+    { value: 'content', label: 'Nội Dung' },
+    { value: 'outro', label: 'Kêu Gọi (Outro)' },
+  ], []);
+
   const applyVoicePreset = (preset: 'hype' | 'professional' | 'podcast') => {
     setTtsResult(null);
     setVoicePreset(preset);
@@ -285,7 +332,7 @@ export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({
         }
       };
       await Promise.all(Array.from({ length: Math.min(3, pendingIndexes.length) }, worker));
-      showToast(language === 'vi' ? '✨ Đã hoàn thành sinh toàn bộ ảnh AI!' : '✨ All AI scene visuals generated!');
+      showToast(language === 'vi' ? 'Đã hoàn thành sinh toàn bộ ảnh AI!' : 'All AI scene visuals generated!');
     } catch (e: any) {
       showToast(e.message || 'Lỗi sinh ảnh AI', 'error');
     } finally {
@@ -325,14 +372,14 @@ export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({
     const newScene = {
       scene_number: nextNum,
       scene_type: type,
-      title: type === 'github' ? '🐙 Khám Phá Repository' :
-             type === 'code' ? '💻 Demo Code Thực Tế' :
-             type === 'comparison' ? '⚖️ So Sánh Before & After' :
-             type === 'architecture' ? '🧠 Kiến Trúc Multi-Agent' :
-             type === 'stat' ? '📊 Số Liệu Benchmark' :
-             type === 'terminal' ? '⚡ Cài Đặt 1 Dòng Lệnh' :
-             type === 'features' ? '🧩 4 Trụ Cột Tính Năng' :
-             type === 'outro' ? '🎯 Kêu Gọi Hành Động' : '✨ Phân Cảnh Nội Dung',
+      title: type === 'github' ? 'Khám Phá Repository' :
+             type === 'code' ? 'Demo Code Thực Tế' :
+             type === 'comparison' ? 'So Sánh Before & After' :
+             type === 'architecture' ? 'Kiến Trúc Multi-Agent' :
+             type === 'stat' ? 'Số Liệu Benchmark' :
+             type === 'terminal' ? 'Cài Đặt 1 Dòng Lệnh' :
+             type === 'features' ? '4 Trụ Cột Tính Năng' :
+             type === 'outro' ? 'Kêu Gọi Hành Động' : 'Phân Cảnh Nội Dung',
       voiceover_text: 'Đoạn lời thoại chi tiết cung cấp facts công nghệ cụ thể cho phân cảnh này.',
       visual_description: 'Hiệu ứng chuyển động trực quan với các layer đồ họa công nghệ cao.',
       duration_seconds: 8,
@@ -542,8 +589,8 @@ export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({
     setIsExportingVideo(true);
     setExportProgress(12);
     showToast(language === 'vi'
-      ? '🎬 Đang render MP4 chất lượng cao từ đúng composition preview...'
-      : '🎬 Rendering a high-quality MP4 from the preview composition...');
+      ? 'Đang render MP4 chất lượng cao từ đúng composition preview...'
+      : 'Rendering a high-quality MP4 from the preview composition...');
 
     try {
       const mp4Blob = await api.renderSkillVideo({
@@ -567,8 +614,8 @@ export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({
       download.click();
       URL.revokeObjectURL(mp4Url);
       showToast(language === 'vi'
-        ? '🎬 Xuất MP4 thành công — audio, cảnh và karaoke dùng chung một timeline.'
-        : '🎬 MP4 exported — audio, scenes, and karaoke share one timeline.');
+        ? 'Xuất MP4 thành công — audio, cảnh và karaoke dùng chung một timeline.'
+        : 'MP4 exported — audio, scenes, and karaoke share one timeline.');
     } catch (renderError) {
       setExportProgress(0);
       const message = renderError instanceof Error ? renderError.message : 'renderer không phản hồi';
@@ -647,66 +694,63 @@ export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({
 
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-900 via-indigo-950/80 to-slate-950 border border-indigo-500/20 p-6 md:p-8 shadow-2xl shadow-indigo-950/40">
-        <div className="absolute -top-24 -right-24 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute -bottom-24 -left-24 w-96 h-96 bg-rose-500/10 rounded-full blur-3xl pointer-events-none" />
-
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div className="space-y-2 max-w-2xl">
-            <div className="flex items-center gap-2">
-              <span className="px-2.5 py-1 text-[11px] font-bold font-mono tracking-wider uppercase rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/30 flex items-center gap-1.5">
-                <Radio className="w-3.5 h-3.5 animate-pulse text-rose-400" />
+      <div className="rounded-3xl neu-flat p-5 sm:p-6">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-5">
+          <div className="space-y-1.5 max-w-2xl">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-semibold uppercase tracking-wider neu-inset-sm text-[var(--primary)] flex items-center gap-1.5">
+                <Radio className="w-3 h-3 text-[var(--primary)]" />
                 AI Video & Blog Studio v5.0
               </span>
-              <span className="px-2 py-0.5 text-[10px] font-mono rounded bg-cyan-500/10 text-cyan-400 border border-cyan-500/30 font-semibold flex items-center gap-1">
-                <Sparkles className="w-2.5 h-2.5" />
+              <span className="px-2.5 py-0.5 text-[10px] font-mono rounded-full neu-inset-sm text-[var(--text-muted)] flex items-center gap-1">
+                <Sparkles className="w-2.5 h-2.5 text-[var(--primary)]" />
                 Gemini 2.0 Live & Google AI
               </span>
-              <span className="px-2 py-0.5 text-[10px] font-mono rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 font-semibold">
+              <span className="px-2.5 py-0.5 text-[10px] font-mono rounded-full neu-inset-sm text-[var(--text-muted)]">
                 Audio: Neural Edge-TTS (0đ)
               </span>
             </div>
-            <h1 className="text-2xl md:text-3xl font-extrabold text-white tracking-tight flex items-center gap-3">
-              <Video className="w-8 h-8 text-rose-400" />
+            <h1 className="text-xl sm:text-2xl font-bold text-[var(--text-main)] tracking-tight flex items-center gap-2.5">
+              <Video className="w-6 h-6 text-[var(--primary)]" />
               {t('studio_title')}
             </h1>
-            <p className="text-sm text-slate-300 leading-relaxed">
+            <p className="text-xs text-[var(--text-muted)] leading-relaxed">
               {t('studio_subtitle')}
             </p>
           </div>
 
-          <div className="flex items-center gap-2 bg-slate-950/60 p-1.5 rounded-2xl border border-slate-800 self-start md:self-auto shrink-0">
+          <div className="flex items-center gap-1.5 p-1 rounded-2xl neu-inset self-start md:self-auto shrink-0">
             <button
               onClick={() => setActiveStep('script')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all ${
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
                 activeStep === 'script'
-                  ? 'bg-rose-500 text-white shadow-lg shadow-rose-500/25'
-                  : 'text-slate-400 hover:text-slate-200'
+                  ? 'neu-flat-sm text-[var(--primary)] font-bold'
+                  : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
               }`}
             >
-              <FileText className="w-4 h-4" />
+              <FileText className="w-3.5 h-3.5" />
               {t('studio_step1_title')}
             </button>
             <button
               onClick={() => setActiveStep('voice')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all ${
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
                 activeStep === 'voice'
-                  ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/25'
-                  : 'text-slate-400 hover:text-slate-200'
+                  ? 'neu-flat-sm text-[var(--primary)] font-bold'
+                  : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
               }`}
             >
-              <Mic className="w-4 h-4" />
+              <Mic className="w-3.5 h-3.5" />
               {t('studio_step2_title')}
             </button>
             <button
               onClick={() => setActiveStep('player')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all ${
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
                 activeStep === 'player'
-                  ? 'bg-emerald-500 text-slate-950 shadow-lg shadow-emerald-500/25 font-bold'
-                  : 'text-slate-400 hover:text-slate-200'
+                  ? 'neu-flat-sm text-[var(--primary)] font-bold'
+                  : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
               }`}
             >
-              <Play className="w-4 h-4" />
+              <Play className="w-3.5 h-3.5" />
               {t('studio_step3_title')}
             </button>
           </div>
@@ -715,46 +759,46 @@ export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({
 
       {activeStep === 'script' && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          <div className="lg:col-span-5 space-y-5 bg-white dark:bg-slate-900/90 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm">
-            <h2 className="text-base font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-              <Sliders className="w-4 h-4 text-rose-500" />
+          <div className="lg:col-span-5 space-y-5 rounded-3xl neu-flat p-5 sm:p-6">
+            <h2 className="text-sm sm:text-base font-bold text-[var(--text-main)] flex items-center gap-2">
+              <Sliders className="w-4 h-4 text-[var(--primary)]" />
               {language === 'vi' ? 'Cấu Hình Nội Dung AI' : 'AI Content Configuration'}
             </h2>
 
             <div className="space-y-2">
-              <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+              <label className="text-xs font-semibold text-[var(--text-muted)]">
                 {t('studio_topic_label')}
               </label>
-              <select
+              <NeuSelect
                 value={selectedSkillId}
-                onChange={(e) => {
-                  const id = e.target.value ? Number(e.target.value) : '';
+                onChange={(val) => {
+                  const id = val ? Number(val) : '';
                   setSelectedSkillId(id);
                   if (id) {
                     const sk = skills.find(s => s.id === id);
                     if (sk) setCustomTopic(sk.title || sk.name);
                   }
                 }}
-                className="w-full px-3 py-2 text-xs rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-rose-500"
-              >
-                <option value="">{t('studio_select_skill')}</option>
-                {skills.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    ⭐ {s.stars} | {s.title || s.name} ({s.primary_language || s.category})
-                  </option>
-                ))}
-              </select>
+                options={skillSelectOptions}
+                placeholder={t('studio_select_skill')}
+                icon={<Star className="w-3.5 h-3.5 text-amber-400" />}
+                size="md"
+                variant="inset"
+                searchable={true}
+                searchPlaceholder="Tìm kiếm skill theo tên, tag, ngôn ngữ..."
+                fullWidth={true}
+              />
 
               <input
                 type="text"
                 value={customTopic}
                 onChange={(e) => setCustomTopic(e.target.value)}
                 placeholder={t('studio_topic_placeholder')}
-                className="w-full px-3.5 py-2.5 text-xs rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-rose-500"
+                className="w-full px-4 py-2.5 text-xs rounded-xl neu-inset text-[var(--text-main)] placeholder-[var(--text-muted)]/50 focus:outline-none"
               />
 
               <div className="flex flex-wrap gap-1.5 pt-1">
-                <span className="text-[10px] text-slate-400 font-semibold self-center">
+                <span className="text-[10px] text-[var(--text-muted)] font-semibold self-center">
                   {language === 'vi' ? 'Gợi ý hot:' : 'Hot topics:'}
                 </span>
                 {[
@@ -770,7 +814,7 @@ export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({
                       setCustomTopic(tag);
                       setSelectedSkillId('');
                     }}
-                    className="px-2 py-0.5 text-[10px] rounded-md bg-slate-100 dark:bg-slate-800 hover:bg-rose-500/10 hover:text-rose-500 dark:hover:text-rose-400 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700 transition-all font-medium"
+                    className="px-2.5 py-1 text-[10px] rounded-lg neu-btn-sm text-[var(--text-muted)] hover:text-[var(--primary)] transition-all font-medium cursor-pointer"
                   >
                     + {tag}
                   </button>
@@ -780,40 +824,40 @@ export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                <label className="text-xs font-semibold text-[var(--text-muted)]">
                   {t('studio_tone_label')}
                 </label>
-                <select
+                <NeuSelect
                   value={tone}
-                  onChange={(e) => setTone(e.target.value)}
-                  className="w-full px-3 py-2 text-xs rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-rose-500"
-                >
-                  <option value="professional">{t('studio_tone_professional')}</option>
-                  <option value="hype">{t('studio_tone_hype')}</option>
-                  <option value="casual">{t('studio_tone_casual')}</option>
-                  <option value="deep_dive">{t('studio_tone_deepdive')}</option>
-                </select>
+                  onChange={(val) => setTone(String(val))}
+                  options={toneOptions}
+                  size="md"
+                  variant="inset"
+                  searchable={false}
+                  fullWidth={true}
+                />
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                <label className="text-xs font-semibold text-[var(--text-muted)]">
                   {t('studio_aspect_ratio')}
                 </label>
-                <select
+                <NeuSelect
                   value={aspectRatio}
-                  onChange={(e) => setAspectRatio(e.target.value as '9:16' | '16:9')}
-                  className="w-full px-3 py-2 text-xs rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-rose-500"
-                >
-                  <option value="9:16">📱 9:16 (TikTok/Shorts/Reels)</option>
-                  <option value="16:9">💻 16:9 (YouTube/Landscape)</option>
-                </select>
+                  onChange={(val) => setAspectRatio(val as '9:16' | '16:9')}
+                  options={aspectRatioOptions}
+                  size="md"
+                  variant="inset"
+                  searchable={false}
+                  fullWidth={true}
+                />
               </div>
             </div>
 
             <div className="space-y-1.5">
-              <div className="flex justify-between text-xs font-bold text-slate-700 dark:text-slate-300">
+              <div className="flex justify-between text-xs font-semibold text-[var(--text-muted)]">
                 <span>{language === 'vi' ? 'Thời Lượng Video Dự Kiến:' : 'Target Duration:'}</span>
-                <span className="font-mono text-rose-500">{targetDuration}s</span>
+                <span className="font-mono font-bold text-[var(--primary)]">{targetDuration}s</span>
               </div>
               <div className="grid grid-cols-4 gap-2">
                 {[30, 60, 90, 180].map((dur) => (
@@ -821,10 +865,10 @@ export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({
                     key={dur}
                     type="button"
                     onClick={() => setTargetDuration(dur)}
-                    className={`py-1.5 text-xs font-mono font-bold rounded-lg border transition-all ${
+                    className={`py-2 text-xs font-mono font-bold rounded-xl transition-all cursor-pointer ${
                       targetDuration === dur
-                        ? 'bg-rose-500/10 border-rose-500 text-rose-500'
-                        : 'border-slate-200 dark:border-slate-800 text-slate-500 hover:text-slate-300'
+                        ? 'neu-inset text-[var(--primary)]'
+                        : 'neu-btn text-[var(--text-muted)] hover:text-[var(--text-main)]'
                     }`}
                   >
                     {dur}s
@@ -834,7 +878,7 @@ export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+              <label className="text-xs font-semibold text-[var(--text-muted)]">
                 {language === 'vi' ? 'Ghi Chú & Yêu Cầu Riêng (Tùy Chọn):' : 'Custom Notes (Optional):'}
               </label>
               <textarea
@@ -842,14 +886,14 @@ export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({
                 onChange={(e) => setCustomNotes(e.target.value)}
                 placeholder={language === 'vi' ? 'Nhấn mạnh Subagent, Type-Safety, AST Security Scanner...' : 'Emphasize subagents, type-safety, AST security...'}
                 rows={2}
-                className="w-full px-3 py-2 text-xs rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-rose-500"
+                className="w-full px-4 py-2.5 text-xs rounded-xl neu-inset text-[var(--text-main)] placeholder-[var(--text-muted)]/50 focus:outline-none resize-none"
               />
             </div>
 
             <button
               onClick={handleGenerateAll}
               disabled={blogMutation.isPending || storyboardMutation.isPending}
-              className="w-full py-3 px-4 bg-gradient-to-r from-rose-500 to-indigo-600 hover:from-rose-600 hover:to-indigo-700 text-white font-bold text-xs rounded-2xl shadow-lg shadow-rose-500/20 flex items-center justify-center gap-2 transition-all disabled:opacity-50"
+              className="w-full py-3 px-4 neu-primary font-bold text-xs rounded-2xl flex items-center justify-center gap-2 transition-all disabled:opacity-50 cursor-pointer"
             >
               {blogMutation.isPending || storyboardMutation.isPending ? (
                 <>
@@ -859,7 +903,7 @@ export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({
               ) : (
                 <>
                   <Sparkles className="w-4 h-4" />
-                  {language === 'vi' ? '🚀 Tự Động Sinh Blog & Kịch Bản Phân Cảnh' : '🚀 Generate Blog & Storyboard'}
+                  {language === 'vi' ? 'Tự Động Sinh Blog & Kịch Bản Phân Cảnh' : 'Generate Blog & Storyboard'}
                 </>
               )}
             </button>
@@ -867,24 +911,24 @@ export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({
 
           <div className="lg:col-span-7 space-y-5">
             {storyboard && storyboard.scenes.length > 0 && (
-              <div className="bg-white dark:bg-slate-900/90 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
+              <div className="rounded-3xl neu-flat p-5 sm:p-6 space-y-4">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                  <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                    <Layers className="w-4 h-4 text-indigo-500" />
+                  <h3 className="text-sm font-bold text-[var(--text-main)] flex items-center gap-2">
+                    <Layers className="w-4 h-4 text-[var(--primary)]" />
                     {language === 'vi' ? 'Kịch Bản Phân Cảnh & Ảnh AI' : 'Video Storyboard & AI Visuals'} ({storyboard.scenes.length} {language === 'vi' ? 'cảnh' : 'scenes'})
                   </h3>
                   <div className="flex items-center gap-2">
                     <button
                       onClick={handleGenerateAllSceneImages}
                       disabled={isGeneratingImages}
-                      className="px-3 py-1 text-[11px] font-bold rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/30 hover:bg-indigo-500/20 flex items-center gap-1.5 transition-all disabled:opacity-50"
+                      className="px-3 py-1.5 text-[11px] font-bold rounded-xl neu-btn text-[var(--text-muted)] hover:text-[var(--primary)] flex items-center gap-1.5 transition-all disabled:opacity-50 cursor-pointer"
                     >
-                      {isGeneratingImages ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3 text-rose-500" />}
-                      <span>{language === 'vi' ? '✨ Sinh Lại Tất Cả Ảnh AI' : '✨ Re-generate All Visuals'}</span>
+                      {isGeneratingImages ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3 text-[var(--primary)]" />}
+                      <span>{language === 'vi' ? 'Sinh Lại Tất Cả Ảnh AI' : 'Re-generate All Visuals'}</span>
                     </button>
                     <button
                       onClick={() => setActiveStep('voice')}
-                      className="text-xs font-bold text-indigo-500 hover:text-indigo-400 flex items-center gap-1"
+                      className="text-xs font-bold text-[var(--primary)] hover:underline flex items-center gap-1 cursor-pointer"
                     >
                       {language === 'vi' ? 'Tiếp: Giọng đọc' : 'Next: Voice'}
                       <ChevronRight className="w-4 h-4" />
@@ -894,62 +938,41 @@ export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({
 
                 <div className="space-y-3 max-h-[480px] overflow-y-auto pr-1">
                   {storyboard.scenes.map((scene, idx) => {
-                    const sceneTypeColors: Record<string, string> = {
-                      intro: 'bg-rose-500/15 text-rose-400 border-rose-500/40',
-                      github: 'bg-blue-500/15 text-blue-400 border-blue-500/40',
-                      comparison: 'bg-red-500/15 text-red-400 border-red-500/40',
-                      stat: 'bg-amber-500/15 text-amber-400 border-amber-500/40',
-                      architecture: 'bg-purple-500/15 text-purple-400 border-purple-500/40',
-                      code: 'bg-sky-500/15 text-sky-400 border-sky-500/40',
-                      terminal: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/40',
-                      features: 'bg-cyan-500/15 text-cyan-400 border-cyan-500/40',
-                      outro: 'bg-indigo-500/15 text-indigo-400 border-indigo-500/40',
-                      content: 'bg-slate-500/15 text-slate-300 border-slate-500/40',
-                    };
-                    const typeColor = sceneTypeColors[scene.scene_type || 'content'] || sceneTypeColors.content;
-
                     return (
                       <div
                         key={scene.scene_number || idx}
-                        className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-950/80 border border-slate-200 dark:border-slate-800/80 space-y-3 hover:border-indigo-500/40 transition-all"
+                        className="p-4 rounded-2xl neu-inset space-y-3 transition-all"
                       >
                         <div className="flex items-center justify-between text-xs gap-2">
                           <div className="flex items-center gap-2">
-                            <span className="font-extrabold text-indigo-500 font-mono">
+                            <span className="font-extrabold text-[var(--primary)] font-mono">
                               Scene {scene.scene_number}:
                             </span>
                             <input
                               type="text"
                               value={scene.title}
                               onChange={(e) => handleUpdateScene(idx, { title: e.target.value })}
-                              className="font-bold bg-transparent text-slate-900 dark:text-slate-100 border-b border-transparent hover:border-slate-700 focus:border-indigo-500 focus:outline-none text-xs px-1"
+                              className="font-bold bg-transparent text-[var(--text-main)] border-b border-transparent hover:border-[var(--shadow-dark)]/40 focus:border-[var(--primary)] focus:outline-none text-xs px-1"
                             />
                           </div>
 
                           <div className="flex items-center gap-1.5">
                             {/* Scene Type Selector */}
-                            <select
+                            <NeuSelect
                               value={scene.scene_type || 'content'}
-                              onChange={(e) => handleUpdateScene(idx, { scene_type: e.target.value as any })}
-                              className={`px-2 py-0.5 text-[10px] font-bold rounded-lg border focus:outline-none ${typeColor}`}
-                            >
-                              <option value="intro">🌟 Hook Intro</option>
-                              <option value="github">🐙 GitHub Walkthrough</option>
-                              <option value="comparison">⚖️ So Sánh (Before/After)</option>
-                              <option value="stat">📊 Số Liệu (Stats)</option>
-                              <option value="architecture">🧠 Kiến Trúc Flow</option>
-                              <option value="code">💻 Code Demo</option>
-                              <option value="terminal">⚡ Terminal CLI</option>
-                              <option value="features">🧩 4 Tính Năng</option>
-                              <option value="content">✨ Nội Dung</option>
-                              <option value="outro">🎯 Kêu Gọi (Outro)</option>
-                            </select>
+                              onChange={(val) => handleUpdateScene(idx, { scene_type: val as any })}
+                              options={sceneTypeOptions}
+                              size="xs"
+                              variant="flat"
+                              searchable={false}
+                              align="right"
+                            />
 
                             <button
                               type="button"
                               onClick={() => handleMoveScene(idx, 'up')}
                               disabled={idx === 0}
-                              className="p-1 rounded-md text-slate-400 hover:text-white hover:bg-slate-800 disabled:opacity-30"
+                              className="p-1 rounded-lg text-[var(--text-muted)] hover:text-[var(--text-main)] neu-btn-sm disabled:opacity-30 cursor-pointer"
                               title="Move Up"
                             >
                               <ArrowUp className="w-3 h-3" />
@@ -958,7 +981,7 @@ export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({
                               type="button"
                               onClick={() => handleMoveScene(idx, 'down')}
                               disabled={idx === storyboard.scenes.length - 1}
-                              className="p-1 rounded-md text-slate-400 hover:text-white hover:bg-slate-800 disabled:opacity-30"
+                              className="p-1 rounded-lg text-[var(--text-muted)] hover:text-[var(--text-main)] neu-btn-sm disabled:opacity-30 cursor-pointer"
                               title="Move Down"
                             >
                               <ArrowDown className="w-3 h-3" />
@@ -966,7 +989,7 @@ export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({
                             <button
                               type="button"
                               onClick={() => handleDeleteScene(idx)}
-                              className="p-1 rounded-md text-rose-400 hover:bg-rose-500/10"
+                              className="p-1 rounded-lg text-rose-500 hover:text-rose-600 neu-btn-sm cursor-pointer"
                               title="Delete Scene"
                             >
                               <Trash2 className="w-3 h-3" />
@@ -975,22 +998,23 @@ export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({
                         </div>
 
                         {scene.image_url && (
-                          <div className="relative h-24 rounded-xl overflow-hidden border border-slate-800 group/img">
+                          <div className="relative h-24 rounded-xl overflow-hidden neu-flat-xs group/img">
                             <img
                               src={scene.image_url}
                               alt={`Scene ${scene.scene_number}`}
                               className="w-full h-full object-cover group-hover/img:scale-105 transition-transform duration-500"
                             />
-                            <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent flex items-end justify-between p-2">
-                              <span className="text-[9px] font-mono text-slate-300 font-bold bg-slate-900/80 px-2 py-0.5 rounded backdrop-blur-sm border border-slate-700/60">
-                                🎨 AI Visual Layer
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex items-end justify-between p-2">
+                              <span className="text-[9px] font-mono text-white font-bold bg-black/60 px-2 py-0.5 rounded-full backdrop-blur-sm flex items-center gap-1">
+                                <Palette className="w-2.5 h-2.5 inline text-[var(--primary)]" />
+                                <span>AI Visual Layer</span>
                               </span>
                               <button
                                 onClick={() => handleRegenerateSceneImage(scene.scene_number)}
                                 disabled={sceneImageMutation.isPending}
-                                className="px-2 py-0.5 text-[9px] font-bold rounded-lg bg-slate-900/90 text-slate-200 hover:text-white border border-slate-700/80 backdrop-blur-sm flex items-center gap-1"
+                                className="px-2 py-0.5 text-[9px] font-bold rounded-lg bg-black/70 text-white hover:text-[var(--primary)] backdrop-blur-sm flex items-center gap-1 cursor-pointer"
                               >
-                                <Sparkles className="w-2.5 h-2.5 text-rose-400" />
+                                <Sparkles className="w-2.5 h-2.5 text-[var(--primary)]" />
                                 <span>{language === 'vi' ? 'Đổi Ảnh AI' : 'New Image'}</span>
                               </button>
                             </div>
@@ -998,13 +1022,16 @@ export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({
                         )}
 
                         <div className="space-y-1.5">
-                          <div className="text-[11px] text-slate-700 dark:text-slate-300">
-                            🎙️ <span className="font-semibold text-rose-500">Lời thoại:</span>
+                          <div className="text-[11px] text-[var(--text-main)]">
+                            <div className="flex items-center gap-1 mb-1">
+                              <Mic className="w-3 h-3 text-[var(--primary)] inline shrink-0" />
+                              <span className="font-semibold text-[var(--primary)]">Lời thoại:</span>
+                            </div>
                             <textarea
                               value={scene.voiceover_text}
                               onChange={(e) => handleUpdateScene(idx, { voiceover_text: e.target.value })}
                               rows={2}
-                              className="w-full mt-1 p-2 text-xs rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                              className="w-full p-2.5 text-xs rounded-xl neu-flat-xs text-[var(--text-main)] focus:outline-none resize-none"
                             />
                           </div>
                         </div>
@@ -1013,26 +1040,26 @@ export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({
                   })}
 
                   {/* Add Scene Toolbar */}
-                  <div className="p-3 rounded-2xl bg-indigo-500/5 border border-indigo-500/20 flex flex-wrap items-center justify-between gap-2">
-                    <span className="text-xs font-bold text-indigo-400">
+                  <div className="p-3 rounded-2xl neu-inset flex flex-wrap items-center justify-between gap-2">
+                    <span className="text-xs font-bold text-[var(--primary)]">
                       {language === 'vi' ? '+ Thêm phân cảnh nhanh:' : '+ Quick add scene:'}
                     </span>
                     <div className="flex flex-wrap gap-1.5">
                       {[
-                        { type: 'github', label: '🐙 GitHub' },
-                        { type: 'comparison', label: '⚖️ So Sánh' },
-                        { type: 'stat', label: '📊 Số Liệu' },
-                        { type: 'architecture', label: '🧠 Kiến Trúc' },
-                        { type: 'code', label: '💻 Code Demo' },
-                        { type: 'terminal', label: '⚡ Terminal' },
-                        { type: 'features', label: '🧩 Tính Năng' },
-                        { type: 'outro', label: '🎯 Kêu Gọi' },
+                        { type: 'github', label: 'GitHub' },
+                        { type: 'comparison', label: 'So Sánh' },
+                        { type: 'stat', label: 'Số Liệu' },
+                        { type: 'architecture', label: 'Kiến Trúc' },
+                        { type: 'code', label: 'Code Demo' },
+                        { type: 'terminal', label: 'Terminal' },
+                        { type: 'features', label: 'Tính Năng' },
+                        { type: 'outro', label: 'Kêu Gọi' },
                       ].map((item) => (
                         <button
                           key={item.type}
                           type="button"
                           onClick={() => handleAddScene(item.type)}
-                          className="px-2 py-1 text-[10px] font-bold rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 transition-all flex items-center gap-1"
+                          className="px-2.5 py-1 text-[10px] font-bold rounded-lg neu-btn-sm text-[var(--text-muted)] hover:text-[var(--primary)] transition-all flex items-center gap-1 cursor-pointer"
                         >
                           <Plus className="w-2.5 h-2.5" />
                           {item.label}
@@ -1044,25 +1071,24 @@ export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({
               </div>
             )}
 
-
-            <div className="bg-white dark:bg-slate-900/90 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
+            <div className="rounded-3xl neu-flat p-5 sm:p-6 space-y-4">
               <div className="flex items-center justify-between">
-                <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                  <FileText className="w-4 h-4 text-emerald-500" />
+                <h3 className="text-sm font-bold text-[var(--text-main)] flex items-center gap-2">
+                  <FileText className="w-4 h-4 text-[var(--primary)]" />
                   {blogPost ? blogPost.title : (language === 'vi' ? 'Bài Viết Blog Markdown' : 'Tech Blog Article')}
                 </h3>
                 {blogPost && (
                   <div className="flex items-center gap-2">
                     <button
                       onClick={handleCopyScript}
-                      className="px-3 py-1 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg flex items-center gap-1 transition-all"
+                      className="px-3 py-1.5 text-xs font-semibold neu-btn text-[var(--text-muted)] hover:text-[var(--primary)] rounded-xl flex items-center gap-1 transition-all cursor-pointer"
                     >
                       {copiedScript ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
                       {copiedScript ? 'Copied' : 'Copy MD'}
                     </button>
                     <button
                       onClick={handleDownloadMarkdown}
-                      className="px-3 py-1 text-xs font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 rounded-lg flex items-center gap-1"
+                      className="px-3 py-1.5 text-xs font-semibold neu-btn text-[var(--text-muted)] hover:text-[var(--primary)] rounded-xl flex items-center gap-1 cursor-pointer"
                     >
                       <Download className="w-3.5 h-3.5" />
                       .md
@@ -1072,14 +1098,14 @@ export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({
               </div>
 
               {blogPost ? (
-                <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800/80 max-h-[400px] overflow-y-auto text-xs text-slate-800 dark:text-slate-200 space-y-3 font-sans leading-relaxed">
+                <div className="p-4 rounded-2xl neu-inset max-h-[400px] overflow-y-auto text-xs text-[var(--text-main)] space-y-3 font-sans leading-relaxed">
                   <div className="whitespace-pre-wrap font-mono text-[11px]">
                     {blogPost.content}
                   </div>
                 </div>
               ) : (
-                <div className="py-12 text-center text-slate-400 dark:text-slate-600 text-xs space-y-3">
-                  <Sparkles className="w-8 h-8 mx-auto opacity-40 text-rose-500 animate-pulse" />
+                <div className="py-12 text-center text-[var(--text-muted)] text-xs space-y-3">
+                  <Sparkles className="w-8 h-8 mx-auto opacity-40 text-[var(--primary)] animate-pulse" />
                   <p>
                     {language === 'vi'
                       ? 'Chưa có nội dung. Hãy nhấn nút dưới đây để AI tự động viết blog & phân cảnh!'
@@ -1089,10 +1115,10 @@ export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({
                     type="button"
                     onClick={handleGenerateAll}
                     disabled={blogMutation.isPending || storyboardMutation.isPending}
-                    className="inline-flex items-center gap-1.5 px-4 py-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/30 rounded-xl text-xs font-bold transition-all"
+                    className="inline-flex items-center gap-1.5 px-4 py-2 neu-primary rounded-xl text-xs font-bold transition-all cursor-pointer"
                   >
-                    <Sparkles className="w-3.5 h-3.5 text-rose-500" />
-                    {language === 'vi' ? '🚀 Bấm Để Sinh Blog & Kịch Bản Ngay' : '🚀 Generate Blog & Storyboard Now'}
+                    <Sparkles className="w-3.5 h-3.5" />
+                    {language === 'vi' ? 'Bấm Để Sinh Blog & Kịch Bản Ngay' : 'Generate Blog & Storyboard Now'}
                   </button>
                 </div>
               )}
@@ -1103,72 +1129,72 @@ export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({
 
       {activeStep === 'voice' && (
         <div className="space-y-6">
-          <div className="bg-white dark:bg-slate-900/90 p-6 md:p-8 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-6">
+          <div className="rounded-3xl neu-flat p-5 sm:p-6 space-y-6">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div>
-                <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                  <Mic className="w-5 h-5 text-indigo-500" />
+                <h2 className="text-base sm:text-lg font-bold text-[var(--text-main)] flex items-center gap-2">
+                  <Mic className="w-5 h-5 text-[var(--primary)]" />
                   {t('studio_voice_select_label')}
                 </h2>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                <p className="text-xs text-[var(--text-muted)] mt-1">
                   {language === 'vi' 
                     ? 'Tùy chỉnh ngữ điệu AI giàu cảm xúc (TikTok Viral / Bản tin / Podcast).' 
                     : 'Curated expressive AI voice profiles (TikTok Viral / Keynote / Podcast).'}
                 </p>
               </div>
 
-              <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-950 p-1.5 rounded-2xl border border-slate-200 dark:border-slate-800">
+              <div className="flex items-center gap-1.5 p-1 rounded-2xl neu-inset">
                 <button
                   type="button"
                   onClick={() => applyVoicePreset('hype')}
-                  className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 ${
+                  className={`px-3.5 py-1.5 text-xs font-semibold rounded-xl transition-all flex items-center gap-1.5 cursor-pointer ${
                     voicePreset === 'hype' 
-                      ? 'bg-rose-500 text-white shadow-md shadow-rose-500/20' 
-                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-200'
+                      ? 'neu-flat-sm text-[var(--primary)] font-bold' 
+                      : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
                   }`}
                 >
                   <Flame className="w-3.5 h-3.5" />
-                  <span>⚡ TikTok Viral (+15%)</span>
+                  <span>TikTok Viral (+15%)</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => applyVoicePreset('professional')}
-                  className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 ${
+                  className={`px-3.5 py-1.5 text-xs font-semibold rounded-xl transition-all flex items-center gap-1.5 cursor-pointer ${
                     voicePreset === 'professional' 
-                      ? 'bg-indigo-500 text-white shadow-md shadow-indigo-500/20' 
-                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-200'
+                      ? 'neu-flat-sm text-[var(--primary)] font-bold' 
+                      : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
                   }`}
                 >
                   <Zap className="w-3.5 h-3.5" />
-                  <span>🎙️ Bản Tin (+5%)</span>
+                  <span>Bản Tin (+5%)</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => applyVoicePreset('podcast')}
-                  className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 ${
+                  className={`px-3.5 py-1.5 text-xs font-semibold rounded-xl transition-all flex items-center gap-1.5 cursor-pointer ${
                     voicePreset === 'podcast' 
-                      ? 'bg-teal-500 text-white shadow-md shadow-teal-500/20' 
-                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-200'
+                      ? 'neu-flat-sm text-[var(--primary)] font-bold' 
+                      : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
                   }`}
                 >
                   <Volume2 className="w-3.5 h-3.5" />
-                  <span>🎧 Podcast (-5%)</span>
+                  <span>Podcast (-5%)</span>
                 </button>
               </div>
             </div>
 
             {/* Provider Filter Tabs */}
-            <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-3">
-              <span className="text-xs font-bold text-slate-500 dark:text-slate-400 mr-2">
+            <div className="flex flex-wrap items-center gap-2 border-b border-[var(--shadow-dark)]/20 pb-3">
+              <span className="text-xs font-semibold text-[var(--text-muted)] mr-2">
                 {language === 'vi' ? 'Công nghệ AI Speech:' : 'Speech Engine:'}
               </span>
               <button
                 type="button"
                 onClick={() => setVoiceProviderFilter('all')}
-                className={`px-3 py-1 text-xs font-bold rounded-lg transition-all ${
+                className={`px-3 py-1.5 text-xs font-semibold rounded-xl transition-all cursor-pointer ${
                   voiceProviderFilter === 'all'
-                    ? 'bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900'
-                    : 'text-slate-500 hover:text-slate-200'
+                    ? 'neu-inset text-[var(--primary)] font-bold'
+                    : 'neu-btn-sm text-[var(--text-muted)] hover:text-[var(--text-main)]'
                 }`}
               >
                 {language === 'vi' ? 'Tất Cả' : 'All'}
@@ -1176,42 +1202,42 @@ export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({
               <button
                 type="button"
                 onClick={() => setVoiceProviderFilter('gemini_audio')}
-                className={`px-3 py-1 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 ${
+                className={`px-3 py-1.5 text-xs font-semibold rounded-xl transition-all flex items-center gap-1.5 cursor-pointer ${
                   voiceProviderFilter === 'gemini_audio'
-                    ? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-md shadow-cyan-500/20 font-extrabold'
-                    : 'text-slate-500 hover:text-cyan-400'
+                    ? 'neu-inset text-[var(--primary)] font-bold'
+                    : 'neu-btn-sm text-[var(--text-muted)] hover:text-[var(--text-main)]'
                 }`}
               >
-                <Radio className="w-3 h-3 text-cyan-300 animate-pulse" />
-                <span>Gemini 2.0 Live Audio ⚡</span>
+                <Radio className="w-3 h-3 text-[var(--primary)]" />
+                <span>Gemini 2.0 Live Audio</span>
               </button>
               <button
                 type="button"
                 onClick={() => setVoiceProviderFilter('google_tts')}
-                className={`px-3 py-1 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 ${
+                className={`px-3 py-1.5 text-xs font-semibold rounded-xl transition-all flex items-center gap-1.5 cursor-pointer ${
                   voiceProviderFilter === 'google_tts'
-                    ? 'bg-rose-500 text-white shadow-md shadow-rose-500/20'
-                    : 'text-slate-500 hover:text-rose-400'
+                    ? 'neu-inset text-[var(--primary)] font-bold'
+                    : 'neu-btn-sm text-[var(--text-muted)] hover:text-[var(--text-main)]'
                 }`}
               >
-                <Sparkles className="w-3 h-3 text-amber-300" />
-                <span>Google WaveNet Studio 🌟</span>
+                <Sparkles className="w-3 h-3 text-[var(--primary)]" />
+                <span>Google WaveNet Studio</span>
               </button>
               <button
                 type="button"
                 onClick={() => setVoiceProviderFilter('edge_tts')}
-                className={`px-3 py-1 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 ${
+                className={`px-3 py-1.5 text-xs font-semibold rounded-xl transition-all flex items-center gap-1.5 cursor-pointer ${
                   voiceProviderFilter === 'edge_tts'
-                    ? 'bg-indigo-500 text-white shadow-md shadow-indigo-500/20'
-                    : 'text-slate-500 hover:text-indigo-400'
+                    ? 'neu-inset text-[var(--primary)] font-bold'
+                    : 'neu-btn-sm text-[var(--text-muted)] hover:text-[var(--text-main)]'
                 }`}
               >
                 <Zap className="w-3 h-3" />
-                <span>Microsoft Edge-TTS ⚡</span>
+                <span>Microsoft Edge-TTS</span>
               </button>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
               {voices
                 .filter((v) => voiceProviderFilter === 'all' || v.provider === voiceProviderFilter)
                 .map((voice) => {
@@ -1223,78 +1249,72 @@ export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({
                       setSelectedVoice(voice.id);
                       setTtsResult(null);
                     }}
-                    className={`p-5 rounded-2xl border transition-all cursor-pointer space-y-3 relative group ${
+                    className={`p-5 rounded-3xl transition-all cursor-pointer space-y-3 relative group ${
                       isSelected
-                        ? 'bg-indigo-500/10 dark:bg-indigo-500/15 border-indigo-500 ring-2 ring-indigo-500/20 shadow-lg shadow-indigo-500/10'
-                        : 'bg-slate-50/50 dark:bg-slate-950/60 border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700'
+                        ? 'neu-inset ring-2 ring-[var(--primary)]/40'
+                        : 'neu-flat hover:text-[var(--primary)]'
                     }`}
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
-                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-sm ${
+                        <div className={`w-10 h-10 rounded-2xl flex items-center justify-center font-bold text-sm ${
                           isSelected 
-                            ? 'bg-indigo-500 text-white shadow-md shadow-indigo-500/30' 
-                            : 'bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
+                            ? 'neu-primary text-white' 
+                            : 'neu-inset text-[var(--text-muted)]'
                         }`}>
-                          {voice.gender === 'female' ? '👩' : '👨'}
+                          <User className="w-4 h-4" />
                         </div>
                         <div>
-                          <div className="font-extrabold text-sm text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
+                          <div className="font-bold text-sm text-[var(--text-main)] flex items-center gap-1.5">
                             {voice.name}
-                            {isSelected && <Check className="w-4 h-4 text-indigo-500" />}
+                            {isSelected && <Check className="w-4 h-4 text-[var(--primary)]" />}
                           </div>
-                          <div className="text-[10px] font-mono text-indigo-600 dark:text-indigo-400 font-semibold flex items-center gap-1.5">
+                          <div className="text-[10px] font-mono text-[var(--primary)] font-semibold flex items-center gap-1.5">
                             <span>{voice.style}</span>
                             {voice.badge && (
-                              <span className={`px-1.5 py-0.2 rounded text-[8px] font-bold ${
-                                voice.badge.includes('GEMINI')
-                                  ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30'
-                                  : voice.badge.includes('GOOGLE')
-                                  ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
-                                  : 'bg-indigo-500/20 text-indigo-400'
-                              }`}>
+                              <span className="px-1.5 py-0.2 rounded neu-inset-sm text-[8px] font-bold text-[var(--primary)]">
                                 {voice.badge}
                               </span>
                             )}
                           </div>
                         </div>
                       </div>
-                      <span className="text-xs px-2 py-0.5 rounded-full bg-slate-200/60 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-mono font-bold">
+                      <span className="text-xs px-2.5 py-0.5 rounded-full neu-inset-sm text-[var(--text-muted)] font-mono font-bold">
                         {voice.language}
                       </span>
                     </div>
 
-                    <p className="text-xs text-slate-600 dark:text-slate-400 line-clamp-2">
+                    <p className="text-xs text-[var(--text-muted)] line-clamp-2">
                       {voice.description}
                     </p>
 
-                    <div className="pt-2 border-t border-slate-200/60 dark:border-slate-800/80 flex items-center justify-between">
+                    <div className="pt-2.5 border-t border-[var(--shadow-dark)]/20 flex items-center justify-between">
                       <button
                         type="button"
                         onClick={(e) => {
                           e.stopPropagation();
                           handlePreviewVoice(voice);
                         }}
-                        className={`text-xs font-bold flex items-center gap-1.5 transition-colors ${
+                        className={`text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer ${
                           previewingVoiceId === voice.id
-                            ? 'text-rose-500 font-extrabold animate-pulse'
-                            : 'text-slate-700 dark:text-slate-300 hover:text-indigo-500'
+                            ? 'text-[var(--primary)] font-bold animate-pulse'
+                            : 'text-[var(--text-muted)] hover:text-[var(--primary)]'
                         }`}
                       >
                         {previewingVoiceId === voice.id ? (
                           <>
-                            <Volume2 className="w-3.5 h-3.5 text-rose-500 animate-bounce" />
+                            <Volume2 className="w-3.5 h-3.5 text-[var(--primary)] animate-bounce" />
                             <span>{language === 'vi' ? 'Đang Phát (Bấm Dừng)' : 'Playing (Stop)'}</span>
                           </>
                         ) : (
                           <>
-                            <Volume2 className="w-3.5 h-3.5 text-indigo-500" />
+                            <Volume2 className="w-3.5 h-3.5 text-[var(--primary)]" />
                             <span>{t('studio_preview_audio')}</span>
                           </>
                         )}
                       </button>
 
-                      <span className="text-[10px] text-slate-400 font-mono">
+                      <span className="text-[10px] text-[var(--text-muted)] font-mono">
                         {voice.id.split('-')[0].toUpperCase()}
                       </span>
                     </div>
@@ -1303,13 +1323,13 @@ export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({
               })}
             </div>
 
-            <div className="p-6 rounded-2xl bg-gradient-to-r from-indigo-950/80 to-slate-950 border border-indigo-500/30 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="p-5 rounded-3xl neu-flat flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div className="space-y-1">
-                <div className="text-sm font-bold text-white flex items-center gap-2">
-                  <Sparkles className="w-4 h-4 text-rose-400" />
+                <div className="text-sm font-bold text-[var(--text-main)] flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-[var(--primary)]" />
                   {language === 'vi' ? 'Tạo Giọng Đọc Đầy Đủ Kịch Bản' : 'Synthesize Full Video Voiceover'}
                 </div>
-                <p className="text-xs text-slate-400">
+                <p className="text-xs text-[var(--text-muted)]">
                   {language === 'vi' 
                     ? `Đang chọn giọng: ${voices.find(v => v.id === selectedVoice)?.name || selectedVoice} (Preset: ${voicePreset.toUpperCase()})` 
                     : `Active voice: ${selectedVoice}`}
@@ -1319,7 +1339,7 @@ export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({
               <button
                 onClick={handleSynthesizeFullAudio}
                 disabled={ttsMutation.isPending || !storyboard}
-                className="py-3 px-6 bg-gradient-to-r from-indigo-500 to-rose-500 hover:from-indigo-600 hover:to-rose-600 text-white font-extrabold text-xs rounded-xl shadow-lg shadow-indigo-500/25 flex items-center justify-center gap-2 transition-all disabled:opacity-50"
+                className="py-3 px-5 neu-primary font-bold text-xs rounded-2xl flex items-center justify-center gap-2 transition-all disabled:opacity-50 cursor-pointer"
               >
                 {ttsMutation.isPending ? (
                   <>
@@ -1329,7 +1349,7 @@ export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({
                 ) : (
                   <>
                     <Play className="w-4 h-4 fill-current" />
-                    {language === 'vi' ? '🎙️ Tạo Audio Toàn Bộ & Chuyển Sang Video Player' : '🎙️ Synthesize All & Open Video Player'}
+                    {language === 'vi' ? 'Tạo Audio Toàn Bộ & Chuyển Sang Video Player' : 'Synthesize All & Open Video Player'}
                   </>
                 )}
               </button>
@@ -1341,21 +1361,10 @@ export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({
       {activeStep === 'player' && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           <div className="lg:col-span-8 space-y-4">
-            <div className="bg-slate-950 p-4 md:p-6 rounded-3xl border border-slate-800 shadow-2xl flex flex-col items-center justify-center min-h-[580px] relative overflow-hidden group">
-              
-              <div 
-                className={`absolute inset-0 opacity-20 blur-3xl transition-all duration-700 pointer-events-none ${
-                  currentSceneIndex === 0 ? 'bg-gradient-to-br from-rose-600 via-indigo-600 to-purple-800' :
-                  currentSceneIndex === 1 ? 'bg-gradient-to-br from-amber-600 via-rose-700 to-slate-900' :
-                  currentSceneIndex === 2 ? 'bg-gradient-to-br from-emerald-600 via-teal-600 to-indigo-900' :
-                  currentSceneIndex === 3 ? 'bg-gradient-to-br from-sky-600 via-indigo-600 to-purple-900' :
-                  'bg-gradient-to-br from-indigo-600 via-rose-600 to-emerald-600'
-                }`} 
-              />
-
+            <div className="neu-flat p-4 md:p-6 rounded-3xl flex flex-col items-center justify-center min-h-[580px] relative overflow-hidden group">
               <div
                 ref={videoContainerRef}
-                className={`relative z-10 transition-all duration-300 rounded-3xl overflow-hidden border border-slate-700/80 shadow-2xl bg-slate-950 flex flex-col justify-center items-center ${
+                className={`relative z-10 transition-all duration-300 rounded-2xl overflow-hidden neu-inset bg-black flex flex-col justify-center items-center ${
                   aspectRatio === '9:16'
                     ? 'w-[320px] sm:w-[360px] h-[580px]'
                     : 'w-full max-w-[780px] h-[440px]'
@@ -1363,16 +1372,16 @@ export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({
               >
                 {ttsResult && (
                   <div className="absolute top-3 left-3 right-3 z-30 flex items-center justify-between gap-2 pointer-events-none">
-                    <span className={`px-2.5 py-1 rounded-full border text-[9px] font-black tracking-[0.12em] backdrop-blur-md ${
+                    <span className={`px-2.5 py-1 rounded-full text-[9px] font-black tracking-[0.12em] neu-inset-sm backdrop-blur-md ${
                       ttsResult.timing_quality === 'word'
-                        ? 'bg-emerald-950/80 border-emerald-400/50 text-emerald-300'
-                        : 'bg-amber-950/80 border-amber-400/50 text-amber-200'
+                        ? 'bg-emerald-950/80 text-emerald-400'
+                        : 'bg-amber-950/80 text-amber-300'
                     }`}>
                       {ttsResult.timing_quality === 'word'
                         ? `● SYNC LOCK · ${ttsResult.actual_provider === 'edge_tts' ? 'WORD BOUNDARY' : 'SPEECH MARKS'}`
                         : '● SYNC ASSIST · ESTIMATED'}
                     </span>
-                    <span className="px-2.5 py-1 rounded-full border border-sky-400/30 bg-slate-950/75 text-sky-200 text-[9px] font-mono font-bold backdrop-blur-md">
+                    <span className="px-2.5 py-1 rounded-full neu-inset-sm bg-slate-950/80 text-sky-300 text-[9px] font-mono font-bold backdrop-blur-md">
                       AUDIO MASTER · {(ttsResult.duration_seconds || 0).toFixed(2)}s
                     </span>
                   </div>
@@ -1410,10 +1419,10 @@ export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({
               </div>
 
               {!ttsResult?.audio_base64 && (
-                <div className="w-full max-w-xl p-3.5 rounded-2xl bg-gradient-to-r from-indigo-950/90 to-slate-900 border border-indigo-500/30 flex items-center justify-between gap-3 text-xs mt-3 animate-in fade-in">
-                  <div className="flex items-center gap-2 text-indigo-300">
-                    <Sparkles className="w-4 h-4 text-rose-400 shrink-0 animate-pulse" />
-                    <span className="font-semibold">
+                <div className="w-full max-w-xl p-4 rounded-2xl neu-inset flex items-center justify-between gap-3 text-xs mt-4 animate-in fade-in">
+                  <div className="flex items-center gap-2 text-[var(--text-muted)]">
+                    <Sparkles className="w-4 h-4 text-[var(--primary)] shrink-0" />
+                    <span className="font-medium">
                       {language === 'vi'
                         ? 'Chưa tạo giọng đọc cho video này.'
                         : 'No voiceover synthesized yet.'}
@@ -1422,7 +1431,7 @@ export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({
                   <button
                     onClick={handleSynthesizeFullAudio}
                     disabled={ttsMutation.isPending || !storyboard}
-                    className="px-3 py-1.5 bg-gradient-to-r from-indigo-500 to-rose-500 hover:from-indigo-600 hover:to-rose-600 text-white font-extrabold rounded-xl text-xs flex items-center gap-1.5 shadow-md shadow-indigo-500/25 transition-all disabled:opacity-50"
+                    className="px-3.5 py-2 neu-primary font-semibold rounded-xl text-xs flex items-center gap-1.5 transition-all disabled:opacity-50 cursor-pointer"
                   >
                     {ttsMutation.isPending ? (
                       <>
@@ -1439,14 +1448,14 @@ export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({
                 </div>
               )}
 
-              <div className="w-full max-w-xl mt-4 flex items-center justify-between gap-3 bg-slate-900/90 p-3 rounded-2xl border border-slate-800 shadow-lg">
+              <div className="w-full max-w-xl mt-4 flex items-center justify-between gap-3 neu-flat p-3 rounded-2xl">
                 <button
                   onClick={() => {
                     if (playerRef.current) playerRef.current.seekTo(0);
                     setCurrentSceneIndex(0);
                     setIsPlaying(false);
                   }}
-                  className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+                  className="p-2 rounded-xl neu-btn-sm text-[var(--text-muted)] hover:text-[var(--primary)] transition-colors cursor-pointer"
                   title="Reset"
                 >
                   <RotateCcw className="w-4 h-4" />
@@ -1454,7 +1463,7 @@ export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({
 
                 <button
                   onClick={togglePlay}
-                  className="px-6 py-2.5 bg-gradient-to-r from-rose-500 to-indigo-600 hover:from-rose-600 hover:to-indigo-700 text-white font-extrabold text-xs rounded-xl shadow-lg shadow-rose-500/25 flex items-center gap-2 transition-all active:scale-95"
+                  className="px-5 py-2.5 neu-primary text-white font-semibold text-xs rounded-xl flex items-center gap-2 transition-all active:scale-95 cursor-pointer"
                 >
                   {isPlaying ? (
                     <>
@@ -1469,7 +1478,7 @@ export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({
                   )}
                 </button>
 
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-2">
                   <button
                     onClick={() => {
                       const nextMuted = !isMuted;
@@ -1477,8 +1486,8 @@ export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({
                       if (nextMuted) playerRef.current?.mute();
                       else playerRef.current?.unmute();
                     }}
-                    className={`p-2 rounded-xl transition-colors ${
-                      isMuted ? 'text-rose-400 bg-rose-500/10' : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                    className={`p-2 rounded-xl transition-colors cursor-pointer ${
+                      isMuted ? 'neu-inset text-rose-500' : 'neu-btn-sm text-[var(--text-muted)] hover:text-[var(--text-main)]'
                     }`}
                   >
                     {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
@@ -1497,37 +1506,40 @@ export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({
                       playerRef.current?.setVolume(val);
                       playerRef.current?.unmute();
                     }}
-                    className="w-16 accent-rose-500 h-1 bg-slate-700 rounded-lg cursor-pointer hidden sm:block"
+                    className="w-16 accent-[var(--primary)] h-1 neu-inset rounded-lg cursor-pointer hidden sm:block"
                   />
                 </div>
 
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-2">
                   <button
                     type="button"
                     onClick={() => setShowCaptions(!showCaptions)}
-                    className={`px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all border ${
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                       showCaptions
-                        ? 'bg-rose-500/15 border-rose-500/40 text-rose-400 font-extrabold shadow-sm'
-                        : 'border-slate-800 text-slate-500 hover:text-slate-300'
+                        ? 'neu-inset text-[var(--primary)]'
+                        : 'neu-btn-sm text-[var(--text-muted)] hover:text-[var(--text-main)]'
                     }`}
                     title={showCaptions ? 'Tắt phụ đề' : 'Bật phụ đề'}
                   >
-                    💬 {showCaptions ? 'CC ON' : 'CC OFF'}
+                    <span className="flex items-center gap-1.5">
+                      <MessageSquare className="w-3.5 h-3.5" />
+                      <span>{showCaptions ? 'CC ON' : 'CC OFF'}</span>
+                    </span>
                   </button>
 
-                  <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800">
+                  <div className="flex items-center gap-1 neu-inset p-1 rounded-xl">
                     <button
                       onClick={() => setAspectRatio('9:16')}
-                      className={`p-1.5 rounded-lg text-xs font-semibold transition-all ${
-                        aspectRatio === '9:16' ? 'bg-indigo-500 text-white' : 'text-slate-400 hover:text-slate-200'
+                      className={`p-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                        aspectRatio === '9:16' ? 'neu-flat-xs text-[var(--primary)]' : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
                       }`}
                     >
                       <Smartphone className="w-4 h-4" />
                     </button>
                     <button
                       onClick={() => setAspectRatio('16:9')}
-                      className={`p-1.5 rounded-lg text-xs font-semibold transition-all ${
-                        aspectRatio === '16:9' ? 'bg-indigo-500 text-white' : 'text-slate-400 hover:text-slate-200'
+                      className={`p-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                        aspectRatio === '16:9' ? 'neu-flat-xs text-[var(--primary)]' : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
                       }`}
                     >
                       <Monitor className="w-4 h-4" />
@@ -1540,26 +1552,26 @@ export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({
           </div>
 
           <div className="lg:col-span-4 space-y-4">
-            <div className="bg-white dark:bg-slate-900/90 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-5">
-              <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                <Download className="w-4 h-4 text-emerald-500" />
+            <div className="rounded-3xl neu-flat p-5 sm:p-6 space-y-5">
+              <h3 className="text-sm font-bold text-[var(--text-main)] flex items-center gap-2">
+                <Download className="w-4 h-4 text-[var(--primary)]" />
                 {language === 'vi' ? 'Xuất & Tải Tài Nguyên' : 'Export & Downloads'}
               </h3>
 
-              <div className="space-y-2.5">
+              <div className="space-y-3">
                 <button
                   onClick={handleExportVideo}
                   disabled={!ttsResult?.audio_base64 || isExportingVideo}
-                  className="w-full p-4 rounded-2xl bg-gradient-to-r from-rose-500 via-indigo-600 to-emerald-500 text-white text-left flex items-center justify-between transition-all group disabled:opacity-50 shadow-lg shadow-rose-500/25 active:scale-[0.98]"
+                  className="w-full p-4 rounded-2xl neu-primary text-left flex items-center justify-between transition-all group disabled:opacity-50 active:scale-[0.98] cursor-pointer"
                 >
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center font-bold">
-                      {isExportingVideo ? <RefreshCw className="w-5 h-5 animate-spin" /> : <Film className="w-5 h-5" />}
+                    <div className="w-9 h-9 rounded-xl bg-white/20 text-white flex items-center justify-center font-bold">
+                      {isExportingVideo ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Film className="w-4 h-4" />}
                     </div>
                     <div>
-                      <div className="text-xs font-extrabold text-white flex items-center gap-1.5">
+                      <div className="text-xs font-bold text-white flex items-center gap-1.5">
                         <span>{language === 'vi' ? 'Render & Tải MP4 Chất Lượng Cao' : 'Render High-Quality MP4'}</span>
-                        <span className="px-1.5 py-0.5 text-[9px] bg-white/20 rounded font-mono font-bold">HD</span>
+                        <span className="px-1.5 py-0.2 rounded text-[9px] bg-white/30 text-white font-mono font-bold">HD</span>
                       </div>
                       <div className="text-[10px] text-white/80 font-mono">
                         {isExportingVideo 
@@ -1568,107 +1580,107 @@ export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({
                       </div>
                     </div>
                   </div>
-                  <Download className="w-5 h-5 text-white/80 group-hover:text-white group-hover:translate-y-0.5 transition-all" />
+                  <Download className="w-5 h-5 text-white/90 group-hover:text-white group-hover:translate-y-0.5 transition-all" />
                 </button>
 
                 <button
                   onClick={handleDownloadAudio}
                   disabled={!ttsResult?.audio_base64}
-                  className="w-full p-3 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 hover:border-indigo-500 text-left flex items-center justify-between transition-all group disabled:opacity-50"
+                  className="w-full p-3.5 rounded-2xl neu-btn text-left flex items-center justify-between transition-all group disabled:opacity-50 cursor-pointer"
                 >
                   <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-xl bg-indigo-500/10 text-indigo-500 flex items-center justify-center font-bold">
+                    <div className="w-8 h-8 rounded-xl neu-inset text-[var(--primary)] flex items-center justify-center font-bold">
                       <Volume2 className="w-4 h-4" />
                     </div>
                     <div>
-                      <div className="text-xs font-bold text-slate-900 dark:text-slate-100">
+                      <div className="text-xs font-semibold text-[var(--text-main)]">
                         {t('studio_download_audio')}
                       </div>
-                      <div className="text-[10px] text-slate-400 font-mono">
+                      <div className="text-[10px] text-[var(--text-muted)] font-mono">
                         MP3 128kbps | {ttsResult ? `${ttsResult.duration_seconds}s` : '0s'}
                       </div>
                     </div>
                   </div>
-                  <Download className="w-4 h-4 text-slate-400 group-hover:text-indigo-500 transition-colors" />
+                  <Download className="w-4 h-4 text-[var(--text-muted)] group-hover:text-[var(--primary)] transition-colors" />
                 </button>
 
                 <button
                   onClick={handleDownloadSRT}
                   disabled={!ttsResult?.subtitle_entries || ttsResult.subtitle_entries.length === 0}
-                  className="w-full p-3 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 hover:border-emerald-500 text-left flex items-center justify-between transition-all group disabled:opacity-50"
+                  className="w-full p-3.5 rounded-2xl neu-btn text-left flex items-center justify-between transition-all group disabled:opacity-50 cursor-pointer"
                 >
                   <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center font-bold">
+                    <div className="w-8 h-8 rounded-xl neu-inset text-[var(--primary)] flex items-center justify-center font-bold">
                       <FileText className="w-4 h-4" />
                     </div>
                     <div>
-                      <div className="text-xs font-bold text-slate-900 dark:text-slate-100">
+                      <div className="text-xs font-semibold text-[var(--text-main)]">
                         {t('studio_download_subtitles')}
                       </div>
-                      <div className="text-[10px] text-slate-400 font-mono">
+                      <div className="text-[10px] text-[var(--text-muted)] font-mono">
                         SubRip (.srt) CapCut/Premiere
                       </div>
                     </div>
                   </div>
-                  <Download className="w-4 h-4 text-slate-400 group-hover:text-emerald-500 transition-colors" />
+                  <Download className="w-4 h-4 text-[var(--text-muted)] group-hover:text-[var(--primary)] transition-colors" />
                 </button>
 
                 <button
                   onClick={handleDownloadMarkdown}
                   disabled={!blogPost}
-                  className="w-full p-3 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 hover:border-rose-500 text-left flex items-center justify-between transition-all group disabled:opacity-50"
+                  className="w-full p-3.5 rounded-2xl neu-btn text-left flex items-center justify-between transition-all group disabled:opacity-50 cursor-pointer"
                 >
                   <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-xl bg-rose-500/10 text-rose-500 flex items-center justify-center font-bold">
+                    <div className="w-8 h-8 rounded-xl neu-inset text-[var(--primary)] flex items-center justify-center font-bold">
                       <FileText className="w-4 h-4" />
                     </div>
                     <div>
-                      <div className="text-xs font-bold text-slate-900 dark:text-slate-100">
+                      <div className="text-xs font-semibold text-[var(--text-main)]">
                         {t('studio_download_markdown')}
                       </div>
-                      <div className="text-[10px] text-slate-400 font-mono">
+                      <div className="text-[10px] text-[var(--text-muted)] font-mono">
                         SEO Tech Article (.md)
                       </div>
                     </div>
                   </div>
-                  <Download className="w-4 h-4 text-slate-400 group-hover:text-rose-500 transition-colors" />
+                  <Download className="w-4 h-4 text-[var(--text-muted)] group-hover:text-[var(--primary)] transition-colors" />
                 </button>
               </div>
 
-              <div className="pt-4 border-t border-slate-200 dark:border-slate-800 space-y-2">
-                <div className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center justify-between">
+              <div className="pt-4 border-t border-[var(--shadow-dark)]/20 space-y-2">
+                <div className="text-xs font-semibold text-[var(--text-muted)] flex items-center justify-between">
                   <span>{language === 'vi' ? 'Nhảy Nhanh Phân Cảnh:' : 'Jump to Scene:'}</span>
-                  <span className="text-[10px] font-mono text-slate-400">Click to seek</span>
+                  <span className="text-[10px] font-mono text-[var(--text-muted)]">Click to seek</span>
                 </div>
-                <div className="space-y-1.5 max-h-[240px] overflow-y-auto pr-1">
+                <div className="space-y-2 max-h-[240px] overflow-y-auto pr-1">
                   {storyboard?.scenes.map((s, idx) => {
-                    const sceneIcons: Record<string, string> = {
-                      intro: '🌟',
-                      github: '🐙',
-                      comparison: '⚖️',
-                      stat: '📊',
-                      architecture: '🧠',
-                      code: '💻',
-                      terminal: '⚡',
-                      features: '🧩',
-                      outro: '🎯',
-                      content: '✨',
+                    const sceneIcons: Record<string, React.ComponentType<{ className?: string }>> = {
+                      intro: Sparkles,
+                      github: GitFork,
+                      comparison: Scale,
+                      stat: BarChart3,
+                      architecture: Layers,
+                      code: Code,
+                      terminal: Terminal,
+                      features: Layers,
+                      outro: Target,
+                      content: FileText,
                     };
-                    const icon = sceneIcons[s.scene_type || 'content'] || '✨';
+                    const Icon = sceneIcons[s.scene_type || 'content'] || FileText;
 
                     return (
                       <div
                         key={s.scene_number || idx}
                         onClick={() => handleSeekScene(idx)}
-                        className={`px-3 py-2 rounded-xl text-[11px] font-mono cursor-pointer transition-all flex items-center justify-between border ${
+                        className={`px-3 py-2 rounded-xl text-[11px] font-mono cursor-pointer transition-all flex items-center justify-between ${
                           currentSceneIndex === idx
-                            ? 'bg-rose-500/15 text-rose-400 border-rose-500/40 font-bold shadow-sm'
-                            : 'bg-slate-50 dark:bg-slate-950 text-slate-600 dark:text-slate-400 border-transparent hover:border-slate-700'
+                            ? 'neu-inset text-[var(--primary)] font-bold'
+                            : 'neu-btn-sm text-[var(--text-muted)] hover:text-[var(--text-main)]'
                         }`}
                       >
                         <div className="flex items-center gap-2 truncate">
-                          <span className="w-5 h-5 rounded-lg bg-slate-200 dark:bg-slate-800 flex items-center justify-center text-[10px] font-bold shrink-0">
-                            {icon}
+                          <span className="w-5 h-5 rounded-lg neu-inset flex items-center justify-center text-[10px] font-bold shrink-0 text-[var(--primary)]">
+                            <Icon className="w-3 h-3" />
                           </span>
                           <span className="truncate">{s.title}</span>
                         </div>
@@ -1677,7 +1689,6 @@ export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({
                     );
                   })}
                 </div>
-
               </div>
             </div>
           </div>

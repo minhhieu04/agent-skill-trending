@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { 
   X, 
   ExternalLink, 
@@ -12,30 +12,32 @@ import {
   Zap, 
   Code, 
   Scale, 
-  FileText,
-  CheckCircle2,
-  Workflow,
-  Sparkles,
-  ArrowRight,
-  Cpu,
-  Boxes,
-  XCircle,
-  BookOpen,
-  MessageSquare,
-  Lightbulb,
-  AlertTriangle,
-  Download,
-  ShieldCheck,
-  ChevronLeft,
-  ChevronRight,
-  Video
+  FileText, 
+  CheckCircle2, 
+  Workflow, 
+  Sparkles, 
+  ArrowRight, 
+  Cpu, 
+  Boxes, 
+  XCircle, 
+  BookOpen, 
+  MessageSquare, 
+  Lightbulb, 
+  AlertTriangle, 
+  Download, 
+  ShieldCheck, 
+  Video, 
+  RefreshCw,
+  Target
 } from 'lucide-react';
-import { Skill } from '../types';
+import { Skill, SecurityReport } from '../types';
 import { useToast } from '../context/ToastContext';
 import { useLanguage } from '../context/LanguageContext';
 import { ExportModal } from './ExportModal';
 import { SecurityBadge } from './SecurityBadge';
 import { TechLogo } from './TechLogo';
+import { MarkdownRenderer } from './MarkdownRenderer';
+import { api } from '../api/client';
 
 interface SkillDetailModalProps {
   skill: Skill | null;
@@ -53,16 +55,40 @@ export const SkillDetailModal: React.FC<SkillDetailModalProps> = ({
   const [copied, setCopied] = useState(false);
   const [copiedPromptIdx, setCopiedPromptIdx] = useState<number | null>(null);
   const [isExportOpen, setIsExportOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<'tutorial' | 'use_cases' | 'architecture' | 'before_after' | 'comparison' | 'install' | 'security' | 'readme'>('tutorial');
+  const [activeTab, setActiveTab] = useState<'overview' | 'scenarios' | 'install' | 'compare' | 'security'>('overview');
   const [selectedRuntimeGuide, setSelectedRuntimeGuide] = useState<string>('antigravity');
-  const tabsContainerRef = useRef<HTMLDivElement | null>(null);
+  const [isScanningSecurity, setIsScanningSecurity] = useState(false);
+  const [liveSecurityReport, setLiveSecurityReport] = useState<SecurityReport | null>(null);
+  const mouseDownTargetRef = useRef<EventTarget | null>(null);
   const { showToast } = useToast();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
 
-  const scrollTabs = (direction: 'left' | 'right') => {
-    if (tabsContainerRef.current) {
-      const scrollAmount = direction === 'left' ? -220 : 220;
-      tabsContainerRef.current.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && skill) {
+        if (isExportOpen) return;
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        onClose();
+      }
+    };
+    if (skill) {
+      window.addEventListener('keydown', handleKeyDown);
+      return () => window.removeEventListener('keydown', handleKeyDown);
+    }
+  }, [skill, isExportOpen, onClose]);
+
+  const handleScanSecurity = async () => {
+    if (!skill) return;
+    setIsScanningSecurity(true);
+    try {
+      const report = await api.getSkillSecurityReport(skill.id);
+      setLiveSecurityReport(report);
+      showToast('Kiểm định bảo mật thành công!', 'success');
+    } catch (err: any) {
+      showToast(err.message || 'Lỗi khi kiểm định bảo mật', 'error');
+    } finally {
+      setIsScanningSecurity(false);
     }
   };
 
@@ -84,156 +110,160 @@ export const SkillDetailModal: React.FC<SkillDetailModalProps> = ({
 
   // Generate Rich Deep-Dive Scenarios & Community Article Data based on skill properties
   const getEnrichedUseCases = () => {
-    const isMCP = skill.category === 'mcp-server';
-    const lang = (skill.primary_language || '').toLowerCase();
-    const nameLower = (skill.name + ' ' + (skill.title || '')).toLowerCase();
-    const isGo = lang === 'go' || nameLower.includes('go') || nameLower.includes('golang');
-    const isPython = lang === 'python' || nameLower.includes('python') || nameLower.includes('fastapi') || nameLower.includes('django');
-    const isRust = lang === 'rust' || nameLower.includes('rust') || nameLower.includes('axum') || nameLower.includes('tokio');
+    // If the skill has use_cases in DB, create tailored deep scenarios for each one!
+    if (skill.use_cases && skill.use_cases.length > 0) {
+      return skill.use_cases.map((uc, idx) => {
+        let problem = `Khi yêu cầu AI thực hiện "${uc}", AI thường thiếu ngữ cảnh dự án, sinh mã rời rạc hoặc bỏ quên các bước kiểm thử quan trọng.`;
+        let codeSnippet = `// Áp dụng quy chuẩn từ ${skill.title || skill.name}\n// Use case: ${uc}\nconsole.log("Ready for production execution");`;
+        let prompt = `Áp dụng tiêu chuẩn từ ${skill.title || skill.name}: Hãy thực hiện "${uc}". Tuân thủ Clean Architecture, error handling nghiêm ngặt và viết kèm test case tương ứng.`;
+        let agentAction = `Agent đọc quy tắc của ${skill.name}, nạp context về ${skill.primary_language || 'dự án'}, tự động xử lý ${uc.toLowerCase()} và kiểm tra tính hợp lệ trước khi bàn giao.`;
+        let tip = `Định cấu hình rule tại .cursor/rules/${skill.name.replace(/[^a-zA-Z0-9]/g, '-')}.mdc hoặc .gemini/config/skills/ để Agent tự động áp dụng.`;
 
-    if (isGo) {
-      return [
-        {
-          title: "Chuẩn hóa Clean Architecture & Error Handling khi viết REST API trong Go",
-          problem: "Khi yêu cầu AI viết Go API, AI thường bỏ qua check err != nil, hardcode error string không dùng fmt.Errorf(\"%w\", err), hoặc bỏ qua context timeout cancellation.",
-          prompt: `Tạo endpoint POST /orders xử lý tạo đơn hàng mới với chi router, struct validation, context cancellation timeout 5s, và Clean Architecture (Handler -> Service -> Repository).`,
-          agentAction: "Agent tự động kiểm tra struct tags, cấu hình context.WithTimeout, bọc error với fmt.Errorf chuẩn xác, và sinh Table-Driven Unit Test bằng test package tiêu chuẩn của Go.",
-          codeExample: `// Code Go chuẩn sinh bởi Agent tuân thủ idiomatic standard\ntype CreateOrderRequest struct {\n    CustomerID string  \`json:"customer_id" validate:"required,uuid4"\`\n    Amount     float64 \`json:"amount" validate:"gt=0"\`\n}\n\nfunc (h *OrderHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {\n    ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)\n    defer cancel()\n\n    var req CreateOrderRequest\n    if err := json.NewDecoder(r.Body).Decode(&req); err != nil {\n        http.Error(w, "invalid request body", http.StatusBadRequest)\n        return\n    }\n    \n    order, err := h.service.CreateOrder(ctx, req)\n    if err != nil {\n        http.Error(w, fmt.Sprintf("failed to create order: %v", err), http.StatusInternalServerError)\n        return\n    }\n    \n    w.Header().Set("Content-Type", "application/json")\n    w.WriteHeader(http.StatusCreated)\n    _ = json.NewEncoder(w).Encode(order)\n}`,
-          tip: "Đặt file rule tại `.gemini/config/skills/go-standards/SKILL.md` hoặc `.cursor/rules/golang.mdc` để kích hoạt chế độ Go Idiomatic tự động."
-        },
-        {
-          title: "Xử lý Concurrency & Worker Pools an toàn (Chống Goroutine Leaks)",
-          problem: "AI thường sinh goroutine chạy ngầm mà không có sync.WaitGroup, không lắng nghe ctx.Done() dẫn tới leak tài nguyên bộ nhớ khi request bị client ngắt kết nối.",
-          prompt: `Viết worker pool xử lý hàng đợi 1,000 tasks song song với tối đa 10 workers, lắng nghe tín hiệu hủy từ context và gom lỗi bằng errgroup.`,
-          agentAction: "Agent sử dụng golang.org/x/sync/errgroup, phân bổ channel có buffer hợp lý, đảm bảo 100% goroutines thoát an toàn khi context timeout.",
-          codeExample: `// Worker Pool an toàn với errgroup & context\ng, ctx := errgroup.WithContext(ctx)\ntasksCh := make(chan Task, len(tasks))\n\nfor i := 0; i < numWorkers; i++ {\n    g.Go(func() error {\n        for task := range tasksCh {\n            select {\n            case <-ctx.Done():\n                return ctx.Err()\n            default:\n                if err := processTask(ctx, task); err != nil {\n                    return fmt.Errorf("task %s failed: %w", task.ID, err)\n                }\n            }\n        }\n        return nil\n    })\n}`,
-          tip: "Sử dụng cờ 'go test -race ./...' để kiểm tra race condition tự động trước khi merge code vào nhánh main."
-        },
-        {
-          title: "Tự động sinh Table-Driven Unit Tests với độ bao phủ > 85%",
-          problem: "AI thường viết test Go sơ sài, lặp code kiểm tra từng case riêng lẻ thay vì dùng cấu trúc Table-Driven chuẩn của Go community.",
-          prompt: `Viết bộ Table-Driven Unit Test toàn diện cho hàm ValidateOrder(), bao gồm các trường hợp: số lượng âm, ID trống, và đơn hàng hợp lệ.`,
-          agentAction: "Agent cấu hình bảng test struct { name, order, wantErr }, chạy song song với t.Parallel() và assertion chuẩn xác.",
-          codeExample: `func TestValidateOrder(t *testing.T) {\n    tests := []struct {\n        name    string\n        order   Order\n        wantErr bool\n    }{\n        {name: "valid order", order: Order{ID: "1", Amount: 100}, wantErr: false},\n        {name: "empty id", order: Order{ID: "", Amount: 100}, wantErr: true},\n        {name: "negative amount", order: Order{ID: "2", Amount: -10}, wantErr: true},\n    }\n\n    for _, tt := range tests {\n        tt := tt\n        t.Run(tt.name, func(t *testing.T) {\n            t.Parallel()\n            err := ValidateOrder(tt.order)\n            if (err != nil) != tt.wantErr {\n                t.Fatalf("ValidateOrder() error = %v, wantErr %v", err, tt.wantErr)\n            }\n        })\n    }\n}`,
-          tip: "Yêu cầu Agent chạy lệnh 'go test -cover ./...' sau khi viết để xác nhận độ bao phủ test case."
+        const ucLower = uc.toLowerCase();
+        if (ucLower.includes('subagent') || ucLower.includes('phân rã') || ucLower.includes('autonomous')) {
+          problem = "AI thông thường cố gắng giải quyết toàn bộ task lớn trong một câu trả lời duy nhất, dẫn đến code bị cắt xén, hallucination hoặc không có kiểm định bài bản.";
+          prompt = `Phân rã task lớn thành các subtasks độc lập và điều phối Autonomous Subagents thực thi song song theo phương pháp Subagent-Driven Development cho "${uc}".`;
+          agentAction = `Agent phân chia phạm vi công việc, kích hoạt worker subagents với nhiệm vụ rõ ràng, theo dõi tiến độ và đánh giá kỹ lưỡng tại từng checkpoint.`;
+          codeSnippet = `# Subagent-Driven Development Execution Plan\nsubagent: worker-execution\ntask: "${uc}"\nvalidation:\n  - run_unit_tests: true\n  - lint_check: passed\ncheckpoints:\n  - verify_against_requirements: true`;
+          tip = "Sử dụng lệnh điều phối subagents hoặc /dispatch để tận dụng tối đa sức mạnh phân luồng của Google Antigravity & Claude Code.";
+        } else if (ucLower.includes('security') || ucLower.includes('bảo mật') || ucLower.includes('audit')) {
+          problem = "Phần lớn code sinh ra bởi LLM có thể chứa các lỗ hổng rò rỉ thông tin đăng nhập, SQL Injection hoặc thiếu kiểm tra phân quyền truy cập.";
+          prompt = `Kiểm định an toàn và quét lỗ hổng theo chuẩn Security Guardrails của ${skill.title || skill.name} đối với mã nguồn liên quan đến "${uc}".`;
+          agentAction = `Agent kích hoạt bộ AST scanner, rà soát các secrets trong environment, phân tích dữ liệu đầu vào và đề xuất patch khắc phục ngay lập tức.`;
+          codeSnippet = `// Security Audit Checkpoint\nconst auditResult = await securityGuardrail.scan({\n  scope: "${uc}",\n  strict: true\n});\nconsole.assert(auditResult.isSafe, "Security check failed!");`;
+          tip = "Đặt mức kiểm định bảo mật 'Strict Sandbox' trước khi cho phép Agent chạy các lệnh bash hoặc can thiệp file hệ thống.";
         }
-      ];
-    } else if (isPython) {
-      return [
-        {
-          title: "Chuẩn hóa FastAPI & Pydantic v2 với Strict Type Validation",
-          problem: "AI thường sinh code FastAPI dùng cú pháp Pydantic v1 cũ (.dict() thay vì .model_dump()), hoặc thiếu Dependency Injection chuẩn.",
-          prompt: `Tạo endpoint POST /users trong FastAPI với Pydantic v2 BaseModel, async database session injection, và xử lý HTTP 422/500 chuyên nghiệp.`,
-          agentAction: "Agent tự động cấu hình Annotated[Session, Depends()], dùng Pydantic Field() validation và AsyncSession của SQLAlchemy 2.0.",
-          codeExample: `from fastapi import FastAPI, Depends, HTTPException, status\nfrom sqlalchemy.ext.asyncio import AsyncSession\nfrom pydantic import BaseModel, EmailStr, Field\n\nclass UserCreate(BaseModel):\n    username: str = Field(..., min_length=3, max_length=50)\n    email: EmailStr\n\n@app.post("/users", status_code=status.HTTP_201_CREATED)\nasync def create_user(payload: UserCreate, db: AsyncSession = Depends(get_db)):\n    user = await user_service.create(db, payload.model_dump())\n    return user`,
-          tip: "Cấu hình file pyproject.toml với ruff và mypy --strict để Agent tự động format mã nguồn."
-        },
-        {
-          title: "Async Pytest & Mock Fixtures toàn diện",
-          problem: "Viết test async trong Python dễ bị treo hoặc dính kết nối DB thật do thiếu fixtures mock chuẩn.",
-          prompt: `Viết bộ test async pytest cho UserService.create() có mock database repository và kiểm tra validation error.`,
-          agentAction: "Agent sử dụng pytest-asyncio, unittest.mock.AsyncMock để cô lập hoàn toàn database mà vẫn đảm bảo logic chính xác 100%.",
-          codeExample: `@pytest.mark.asyncio\nasync def test_create_user_success(mock_db_session):\n    service = UserService(repo=mock_db_session)\n    result = await service.create({"username": "hieu_dev", "email": "test@domain.com"})\n    assert result.username == "hieu_dev"\n    mock_db_session.commit.assert_awaited_once()`,
-          tip: "Chạy 'pytest --cov=app --cov-report=term-missing' để kiểm tra dòng code chưa test."
-        }
-      ];
-    } else if (isRust) {
-      return [
-        {
-          title: "Xây Dựng Web Service An Toàn Tuyệt Đối với Axum & Tokio",
-          problem: "AI thường sinh code Rust lạm dụng .unwrap() hoặc .clone() không cần thiết, gây nguy cơ panic ứng dụng khi chạy thực tế.",
-          prompt: `Tạo handler Axum nhận JSON body, truy vấn database bằng SQLx và trả về Result<Json<User>, AppError> với thiserror.`,
-          agentAction: "Agent tự động triển khai IntoResponse cho AppError enum, dùng pattern matching và bọc Result mà không hề dùng unwrap().",
-          codeExample: `use axum::{extract::State, Json, response::IntoResponse};\nuse serde::{Deserialize, Serialize};\n\n#[derive(Deserialize)]\npub struct CreateUserReq { pub username: String }\n\npub async fn create_user(\n    State(pool): State<PgPool>,\n    Json(payload): Json<CreateUserReq>,\n) -> Result<Json<User>, AppError> {\n    let user = sqlx::query_as!(User, "INSERT INTO users (username) VALUES ($1) RETURNING *", payload.username)\n        .fetch_one(&pool)\n        .await?;\n    Ok(Json(user))\n}`,
-          tip: "Chạy 'cargo clippy -- -D warnings' để Agent tự động tối ưu hóa hiệu năng và bộ nhớ."
-        }
-      ];
-    } else if (isMCP) {
-      return [
-        {
-          title: "Truy vấn Schema và Dữ Liệu PostgreSQL mà không cần rời IDE",
-          problem: "Developer phải mở DBeaver/PgAdmin để xem cấu trúc bảng, copy tên cột, sau đó quay lại Cursor/Antigravity gõ thủ công dễ bị sai chính tả.",
-          prompt: `Kiểm tra cấu trúc bảng 'orders' và viết câu truy vấn lấy tổng doanh thu theo từng tháng trong năm 2025.`,
-          agentAction: "Agent gọi MCP tool 'postgres_describe_table', lấy chính xác danh sách cột và kiểu dữ liệu, rồi sinh câu query SQL chuẩn xác 100%.",
-          codeExample: `// Agent trực tiếp thực thi tool gọi database qua MCP:\nconst stats = await mcp.tools.postgres.query({\n  sql: 'SELECT DATE_TRUNC(\\'month\\', created_at) AS month, SUM(amount) AS revenue FROM orders WHERE created_at >= \\'2025-01-01\\' GROUP BY 1 ORDER BY 1'\n});`,
-          tip: "Cấu hình kết nối readonly user để bảo đảm Agent không vô tình xóa dữ liệu sản xuất."
-        },
-        {
-          title: "Tự Động Tạo GitHub Pull Request & Review Mã Nguồn",
-          problem: "Mất thời gian tạo branch, commit từng file, gõ mô tả PR và gắn reviewers thủ công trên trình duyệt.",
-          prompt: `Tạo commit cho các thay đổi hiện tại với thông điệp theo chuẩn Conventional Commits, sau đó mở Pull Request vào nhánh 'main'.`,
-          agentAction: "MCP Server kết nối GitHub API, tự động phân tích git diff, tóm tắt các thay đổi nổi bật và mở PR chỉ trong 3 giây.",
-          codeExample: `// Lệnh Agent thực thi qua GitHub MCP:\nawait mcp.tools.github.create_pull_request({\n  title: "feat(auth): add google oauth2 login flow",\n  body: "## Summary\\n- Added Google OAuth2 endpoints\\n- Added user profile sync\\n\\nTested on macOS.",\n  head: "feat/oauth-login",\n  base: "main"\n});`,
-          tip: "Thêm token GitHub PAT có quyền 'repo' vào file cấu hình MCP của Cursor/Claude."
-        }
-      ];
-    } else {
-      return [
-        {
-          title: "Chuẩn hóa Clean Architecture & Convention khi tạo API mới",
-          problem: "Khi yêu cầu AI viết API, AI thường dùng cú pháp cũ (vd: Pages router thay vì App router trong Next.js, hoặc bỏ quên Zod validation, bỏ qua try/catch).",
-          prompt: `Tạo một endpoint CRUD cho module "Order Management" với đầy đủ Zod validation, Clean Architecture (Controller -> Service -> Repository), tuân thủ đúng quy ước trong file rule của dự án.`,
-          agentAction: "Agent tự động đọc các file rule, nhận diện cấu trúc thư mục hiện tại, sinh code chuẩn TypeScript strict mode và bổ sung Unit Test tương ứng mà không cần nhắc lại.",
-          codeExample: `// Sinh ra bởi Agent tuân thủ Rule\nexport const createOrderSchema = z.object({\n  customerId: z.string().uuid(),\n  items: z.array(z.object({ productId: z.string(), quantity: z.number().min(1) })),\n  totalAmount: z.number().positive(),\n});\n\nexport async function POST(req: Request) {\n  const parsed = createOrderSchema.safeParse(await req.json());\n  if (!parsed.success) return Response.json({ errors: parsed.error }, { status: 400 });\n  return Response.json(await orderService.create(parsed.data));\n}`,
-          tip: "Nên đặt file rule tại `.cursor/rules/api-standards.mdc` hoặc `.gemini/config/skills/` để AI tự động kích hoạt."
-        },
-        {
-          title: "Ngăn chặn lỗi bảo mật & Rò rỉ dữ liệu nhạy cảm",
-          problem: "AI có thể vô tình sinh mã hardcode API Key, lộ JWT secret hoặc viết câu truy vấn SQL không dùng parameterized queries (gây nguy cơ SQL Injection).",
-          prompt: `Viết hàm truy vấn tìm kiếm người dùng theo username và email từ PostgreSQL.`,
-          agentAction: "Skill kích hoạt bộ lọc bảo mật, ép buộc Agent dùng Parameterized Queries qua Prisma/Drizzle/SQLAlchemy và tự động đọc biến môi trường từ process.env thay vì hardcode.",
-          codeExample: `// An toàn với Parameterized Query & Environment variables\nconst result = await db.query(\n  'SELECT id, username, email, created_at FROM users WHERE username = $1 OR email = $2',\n  [username, email]\n);`,
-          tip: "Kết hợp skill này với CI pipeline để kiểm tra tự động trước khi merge code vào nhánh main."
-        },
-        {
-          title: "Tự động tạo Mock Data và Unit Test với độ bao phủ > 80%",
-          problem: "Viết test thủ công mất rất nhiều thời gian, nhưng nếu không có quy chuẩn, AI thường viết test sơ sài (chỉ test happy path, bỏ qua edge cases).",
-          prompt: `Viết bộ unit test toàn diện cho hàm calculateDiscount(), bao gồm các trường hợp: mã giảm giá hết hạn, đơn hàng 0đ, số lượng âm, và giảm giá vượt quá 100%.`,
-          agentAction: "Skill cung cấp template kiểm thử chuẩn Jest/Pytest, ép Agent sinh ít nhất 5 test cases bao phủ toàn bộ các nhánh rẽ điều kiện (branch coverage).",
-          codeExample: `describe('calculateDiscount()', () => {\n  it('throws error when discount exceeds 100%', () => {\n    expect(() => calculateDiscount(100, 150)).toThrow('Invalid discount rate');\n  });\n  it('handles zero order amount gracefully', () => {\n    expect(calculateDiscount(0, 20)).toBe(0);\n  });\n});`,
-          tip: "Yêu cầu Agent chạy lệnh test sau khi viết để tự sửa nếu test bị fail."
-        }
-      ];
+
+        return {
+          title: `Tình Huống ${idx + 1}: ${uc}`,
+          problem,
+          prompt,
+          agentAction,
+          codeExample: codeSnippet,
+          tip
+        };
+      });
     }
+
+    // Default Fallback Rich Scenarios
+    return [
+      {
+        title: `Tình Huống 1: Tối ưu quy trình & Tiêu chuẩn hóa mã nguồn`,
+        problem: `Lập trình viên và AI thường xuyên có sự lệch pha trong quy chuẩn code, dẫn đến việc phải refactor liên tục và phát sinh lỗi runtime ngoài ý muốn.`,
+        prompt: `Sử dụng quy tắc của ${skill.title || skill.name}: Tối ưu hóa kiến trúc module hiện tại, bổ sung typing chặt chẽ, xử lý ngoại lệ biên và viết unit test bao phủ toàn bộ luồng.`,
+        agentAction: `Agent nạp rule ${skill.name}, quét cấu trúc thư mục, tự động áp dụng pattern phù hợp với stack ${skill.primary_language || 'công nghệ'} và chạy verify.`,
+        codeExample: `// Production Pattern via ${skill.name}\nexport async function executeStandardizedWorkflow() {\n  // Automated validation\n  return { status: 'verified', timestamp: Date.now() };\n}`,
+        tip: `Có thể bổ sung yêu cầu 'Trình bày tư duy phản biện trước khi viết code' vào prompt để tăng độ tin cậy của AI.`
+      },
+      {
+        title: `Tình Huống 2: Tự động hóa kiểm thử & Bàn giao chất lượng cao`,
+        problem: `AI thường bỏ qua bước viết test case hoặc chỉ viết các test case đơn giản (happy path), bỏ sót các trường hợp biên nguy hiểm (edge cases).`,
+        prompt: `Dựa trên đặc tả của ${skill.title || skill.name}: Viết bộ kiểm thử toàn diện gồm Unit Test, Integration Test và kiểm tra các trường hợp biên đặc thù.`,
+        agentAction: `Agent sinh test suite theo chuẩn của dự án, mock các external service chính xác và đảm bảo tỷ lệ coverage đạt trên 90%.`,
+        codeExample: `describe("${skill.name} Verification Suite", () => {\n  it("should handle boundary conditions properly", async () => {\n    // Automated test assertion\n  });\n});`,
+        tip: `Kết hợp kỹ thuật Test-Driven Development (TDD) bằng cách yêu cầu Agent viết test trước khi viết code logic.`
+      }
+    ];
   };
 
   const getRuntimeInstallConfigs = () => {
-    const pkgName = skill.name.replace('/', '-').replace('_', '-').toLowerCase();
+    const isMCP = skill.category === 'mcp-server';
+    const serverName = skill.name.toLowerCase().replace(/[^a-z0-9_-]/g, '-');
+    const safeTitle = skill.title || skill.name;
+
+    if (isMCP) {
+      return {
+        antigravity: {
+          title: 'Google Antigravity MCP',
+          file: '~/.gemini/antigravity/mcp_config.json',
+          code: JSON.stringify({
+            mcpServers: {
+              [serverName]: {
+                command: 'npx',
+                args: ['-y', `@modelcontextprotocol/server-${serverName}`],
+                env: {
+                  GITHUB_PERSONAL_ACCESS_TOKEN: 'ghp_your_token_here'
+                }
+              }
+            }
+          }, null, 2),
+          command: `curl -fsSL http://localhost:8899/api/v1/skills/${skill.id}/export/antigravity/raw >> ~/.gemini/antigravity/mcp_config.json`
+        },
+        cursor: {
+          title: 'Cursor IDE (.cursor/mcp.json)',
+          file: '.cursor/mcp.json',
+          code: JSON.stringify({
+            mcpServers: {
+              [serverName]: {
+                command: 'npx',
+                args: ['-y', `@modelcontextprotocol/server-${serverName}`]
+              }
+            }
+          }, null, 2),
+          command: `curl -fsSL http://localhost:8899/api/v1/skills/${skill.id}/export/cursor/raw > .cursor/mcp.json`
+        },
+        claude: {
+          title: 'Claude Desktop / Claude Code',
+          file: 'claude_desktop_config.json',
+          code: JSON.stringify({
+            mcpServers: {
+              [serverName]: {
+                command: 'npx',
+                args: ['-y', `@modelcontextprotocol/server-${serverName}`]
+              }
+            }
+          }, null, 2),
+          command: `curl -fsSL http://localhost:8899/api/v1/skills/${skill.id}/export/claude/raw > claude_desktop_config.json`
+        },
+        windsurf: {
+          title: 'Windsurf IDE (Cascade)',
+          file: '~/.codeium/windsurf/mcp_config.json',
+          code: JSON.stringify({
+            mcpServers: {
+              [serverName]: {
+                command: 'npx',
+                args: ['-y', `@modelcontextprotocol/server-${serverName}`]
+              }
+            }
+          }, null, 2),
+          command: `curl -fsSL http://localhost:8899/api/v1/skills/${skill.id}/export/windsurf/raw > ~/.codeium/windsurf/mcp_config.json`
+        },
+        aider: {
+          title: 'Aider CLI (.aider.conf.yml)',
+          file: '.aider.conf.yml',
+          code: `# Aider configuration for ${skill.name}\nread: [".aider.tags.cache.v3"]\nauto-commits: true`,
+          command: `curl -fsSL http://localhost:8899/api/v1/skills/${skill.id}/export/aider/raw > .aider.conf.yml`
+        }
+      };
+    }
+
     return {
       antigravity: {
-        title: '🪐 Google Antigravity',
-        file: `.gemini/config/skills/${pkgName}/SKILL.md`,
-        code: `---\nname: ${pkgName}\ndescription: ${skill.description || 'Procedural skill for Google Antigravity'}\nversion: 1.0.0\n---\n\n# ${skill.title || skill.name}\n\n${skill.ai_summary || ''}\n\n## Instructions\n- Adhere to Clean Architecture\n- Verify with test suite before completion`,
-        command: `mkdir -p .gemini/config/skills/${pkgName} && curl -fsSL http://localhost:8899/api/v1/skills/${skill.id}/export/antigravity/raw > .gemini/config/skills/${pkgName}/SKILL.md`
-      },
-      codex: {
-        title: '🧠 OpenAI Codex / Copilot',
-        file: '.github/copilot-instructions.md',
-        code: `# ${skill.title || skill.name}\n${skill.description || ''}\n\n## Rules\n- Enforce strict typing\n- Never output hardcoded secrets\n- Write unit tests covering edge cases`,
-        command: `mkdir -p .github && curl -fsSL http://localhost:8899/api/v1/skills/${skill.id}/export/codex/raw >> .github/copilot-instructions.md`
+        title: 'Google Antigravity Skill (.gemini/config/skills/)',
+        file: `.gemini/config/skills/${serverName}/SKILL.md`,
+        code: `---\nname: ${serverName}\ndescription: ${safeTitle}\n---\n\n# ${safeTitle}\n\n${skill.description || ''}\n\n## Khi Nào Sử Dụng\n- Sử dụng khi cần giải quyết các bài toán về ${skill.category}\n- Tối ưu cho ngôn ngữ ${skill.primary_language || 'General'}\n`,
+        command: `mkdir -p ~/.gemini/config/skills/${serverName} && curl -fsSL http://localhost:8899/api/v1/skills/${skill.id}/export/antigravity/raw > ~/.gemini/config/skills/${serverName}/SKILL.md`
       },
       cursor: {
-        title: '⚡ Cursor IDE (.cursorrules / .mdc)',
-        file: `.cursor/rules/${pkgName}.mdc`,
-        code: `---\ndescription: ${skill.description || ''}\nglobs: *\nalwaysApply: true\n---\n\n# Cursor Rule: ${skill.title || skill.name}\n\n- Tuân thủ cấu trúc & tiêu chuẩn của ${skill.name}\n- Luôn kiểm thử code trước khi phản hồi`,
-        command: `mkdir -p .cursor/rules && curl -fsSL http://localhost:8899/api/v1/skills/${skill.id}/export/cursor/raw > .cursor/rules/${pkgName}.mdc`
+        title: 'Cursor Rules (.cursor/rules/)',
+        file: `.cursor/rules/${serverName}.mdc`,
+        code: `---\ndescription: ${safeTitle}\nglobs: *.{${(skill.primary_language || 'ts,js').toLowerCase()}}\n---\n\n# ${safeTitle}\n\n${skill.description || ''}\n`,
+        command: `mkdir -p .cursor/rules && curl -fsSL http://localhost:8899/api/v1/skills/${skill.id}/export/cursor/raw > .cursor/rules/${serverName}.mdc`
       },
       claude: {
-        title: '🤖 Claude Code & Desktop',
-        file: skill.category === 'mcp-server' ? 'claude_desktop_config.json' : `~/.claude/skills/${pkgName}/SKILL.md`,
-        code: skill.category === 'mcp-server' 
-          ? `{\n  "mcpServers": {\n    "${pkgName}": {\n      "command": "npx",\n      "args": ["-y", "${skill.name}"]\n    }\n  }\n}`
-          : `# Claude Skill: ${skill.title || skill.name}\n${skill.description || ''}`,
-        command: skill.category === 'mcp-server' ? `claude mcp add ${pkgName} -- npx -y ${skill.name}` : `curl -fsSL http://localhost:8899/api/v1/skills/${skill.id}/export/claude/raw > ~/.claude/skills/${pkgName}/SKILL.md`
+        title: 'Claude Code Skill / Rule',
+        file: `.claude/skills/${serverName}/SKILL.md`,
+        code: `# ${safeTitle}\n\n${skill.description || ''}\n\nÁp dụng cho mọi tác vụ liên quan đến ${skill.category}.`,
+        command: `mkdir -p .claude/skills/${serverName} && curl -fsSL http://localhost:8899/api/v1/skills/${skill.id}/export/claude/raw > .claude/skills/${serverName}/SKILL.md`
       },
       windsurf: {
-        title: '🌊 Windsurf Cascade Rules',
-        file: '.windsurfrules',
-        code: `# Windsurf Integration for ${skill.title || skill.name}\n${skill.description || ''}`,
+        title: 'Windsurf Memories / Rules',
+        file: `.windsurfrules`,
+        code: `# Rules for ${skill.name}\n${skill.description || ''}`,
         command: `curl -fsSL http://localhost:8899/api/v1/skills/${skill.id}/export/windsurf/raw >> .windsurfrules`
       },
       aider: {
-        title: '💻 Aider Conventions',
+        title: 'Aider Conventions',
         file: '.aider.conf.yml',
         code: `# Aider conventions for ${skill.name}\nauto-commits: true\nread:\n  - CONVENTIONS.md`,
         command: `curl -fsSL http://localhost:8899/api/v1/skills/${skill.id}/export/aider/raw > .aider.conf.yml`
@@ -244,41 +274,95 @@ export const SkillDetailModal: React.FC<SkillDetailModalProps> = ({
   const configs = getRuntimeInstallConfigs();
   const enrichedUseCases = getEnrichedUseCases();
 
+  const modalTabs = [
+    {
+      id: 'overview' as const,
+      label: language === 'vi' ? 'Tổng Quan & Luồng' : 'Overview & Flow',
+      icon: BookOpen,
+    },
+    {
+      id: 'scenarios' as const,
+      label: language === 'vi' ? 'Kịch Bản & Prompt' : 'Prompts & Scenarios',
+      icon: MessageSquare,
+      badge: enrichedUseCases.length > 0 ? String(enrichedUseCases.length) : undefined,
+    },
+    {
+      id: 'install' as const,
+      label: language === 'vi' ? 'Cài Đặt Đa IDE' : 'Multi-IDE Setup',
+      icon: Code,
+    },
+    {
+      id: 'compare' as const,
+      label: language === 'vi' ? 'So Sánh Hiệu Quả' : 'Benchmark & Compare',
+      icon: Scale,
+    },
+    {
+      id: 'security' as const,
+      label: language === 'vi' ? 'Kiểm Định & Docs' : 'Security & Docs',
+      icon: ShieldCheck,
+      badge: (skill.security_rating || 'SAFE').toUpperCase(),
+    }
+  ];
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-950/80 backdrop-blur-md animate-modal-backdrop">
+    <div 
+      className="fixed inset-0 z-[70] flex items-center justify-center p-2 sm:p-4 bg-slate-950/50 dark:bg-black/70 backdrop-blur-md animate-modal-backdrop"
+      onMouseDown={(e) => {
+        mouseDownTargetRef.current = e.target;
+      }}
+      onClick={(e) => {
+        if (e.target === e.currentTarget && mouseDownTargetRef.current === e.currentTarget) {
+          onClose();
+        }
+      }}
+    >
       <ExportModal 
         isOpen={isExportOpen} 
         onClose={() => setIsExportOpen(false)} 
         skill={skill} 
       />
       <div 
-        className="relative w-full max-w-5xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col h-[92vh] sm:h-[88vh] animate-modal-pop transition-all"
+        className="relative w-full max-w-5xl neu-modal rounded-3xl overflow-hidden flex flex-col h-[92vh] sm:h-[88vh] animate-modal-pop transition-all text-[var(--text-main)]"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Top Header - Always Fixed at Top */}
-        <div className="p-4 sm:p-6 border-b border-slate-200 dark:border-slate-800 bg-slate-50/90 dark:bg-slate-900/90 flex flex-row items-start justify-between gap-3 sm:gap-4 shrink-0">
+        <div className="p-4 sm:p-5 bg-[var(--bg)] flex flex-row items-start justify-between gap-3 sm:gap-4 shrink-0">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-1.5 sm:gap-2 mb-1.5 flex-wrap">
-              <span className="text-xs font-mono font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-950/60 border border-emerald-300 dark:border-emerald-800/60 px-2.5 py-0.5 rounded-full">
+              <span className="text-[11px] font-mono font-bold text-[var(--primary)] neu-inset-sm px-2.5 py-0.5 rounded-xl">
                 {skill.category}
               </span>
               <SecurityBadge rating={skill.security_rating || 'safe'} score={skill.security_score || 95} size="sm" />
               {skill.primary_language && (
-                <span className="text-xs font-mono text-indigo-700 dark:text-indigo-400 bg-indigo-100 dark:bg-indigo-950/60 border border-indigo-200 dark:border-indigo-800/50 px-2.5 py-0.5 rounded-md">
+                <span className="text-[11px] font-mono font-bold text-[var(--text-muted)] neu-inset-sm px-2.5 py-0.5 rounded-xl">
                   {skill.primary_language}
                 </span>
               )}
             </div>
 
-            <h2 className="text-lg sm:text-2xl font-black text-slate-900 dark:text-slate-100 tracking-tight leading-snug break-words">
+            <h2 className="text-base sm:text-xl font-black text-[var(--text-main)] tracking-tight leading-snug break-words">
               {skill.title || skill.name}
             </h2>
-            <p className="text-xs text-slate-500 font-mono mt-1 break-all sm:break-normal">
-              {skill.name} • Tác giả: <span className="text-emerald-600 dark:text-emerald-400 font-semibold">{skill.author || 'Community'}</span>
+            <p className="text-xs text-[var(--text-muted)] font-mono mt-1 break-all sm:break-normal flex items-center gap-1.5 flex-wrap">
+              <span>{skill.name}</span>
+              <span>•</span>
+              <span>{language === 'vi' ? 'Tác giả:' : 'Author:'} <span className="text-[var(--text-main)] font-bold">{skill.author || 'Community'}</span></span>
+              {skill.repository_url && (
+                <a
+                  href={skill.repository_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[var(--primary)] hover:underline inline-flex items-center gap-0.5 ml-1 font-bold"
+                  title="Mở repository trên GitHub"
+                >
+                  <span>(GitHub)</span>
+                  <ExternalLink className="w-3 h-3" />
+                </a>
+              )}
             </p>
           </div>
 
-          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+          <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
             {/* AI Video & Blog Studio Button */}
             {onOpenStudio && (
               <button
@@ -286,10 +370,11 @@ export const SkillDetailModal: React.FC<SkillDetailModalProps> = ({
                   onClose();
                   onOpenStudio(skill);
                 }}
-                className="flex items-center gap-1.5 px-3 sm:px-3.5 py-2 sm:py-2.5 rounded-xl sm:rounded-2xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs transition-all shadow-md shadow-rose-600/20 active:scale-95 shrink-0"
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl neu-btn text-[var(--primary)] font-bold text-xs shrink-0 cursor-pointer hover:text-[var(--primary)] transition-all"
                 title={t('studio_btn_create_from_skill')}
+                aria-label={t('studio_btn_create_from_skill')}
               >
-                <Video className="w-4 h-4 shrink-0" />
+                <Video className="w-3.5 h-3.5 shrink-0" />
                 <span className="hidden sm:inline">{t('studio_btn_create_from_skill')}</span>
               </button>
             )}
@@ -297,300 +382,338 @@ export const SkillDetailModal: React.FC<SkillDetailModalProps> = ({
             {/* 1-Click Multi-IDE Export Button */}
             <button
               onClick={() => setIsExportOpen(true)}
-              className="flex items-center gap-1.5 px-3 sm:px-3.5 py-2 sm:py-2.5 rounded-xl sm:rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition-all shadow-md shadow-emerald-600/20 active:scale-95 shrink-0"
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl neu-primary font-bold text-xs shrink-0 cursor-pointer"
               title={t('btn_export')}
+              aria-label={t('btn_export')}
             >
-              <Download className="w-4 h-4 shrink-0" />
+              <Download className="w-3.5 h-3.5 shrink-0" />
               <span className="hidden sm:inline">{t('btn_export')}</span>
             </button>
 
             <button
               onClick={() => onToggleBookmark(skill.id)}
-              className={`p-2 sm:p-2.5 rounded-xl sm:rounded-2xl border transition-all shrink-0 ${
+              className={`p-2 rounded-xl transition-all shrink-0 cursor-pointer ${
                 skill.is_bookmarked
-                  ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-600 dark:text-emerald-400 font-bold shadow-sm'
-                  : 'bg-slate-100 dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+                  ? 'neu-inset text-amber-500 font-bold'
+                  : 'neu-btn text-[var(--text-muted)] hover:text-amber-500'
               }`}
-              title="Bookmark"
+              title={skill.is_bookmarked ? (language === 'vi' ? 'Bỏ lưu bookmark' : 'Remove bookmark') : (language === 'vi' ? 'Lưu bookmark' : 'Bookmark')}
+              aria-label={skill.is_bookmarked ? (language === 'vi' ? 'Bỏ lưu bookmark' : 'Remove bookmark') : (language === 'vi' ? 'Lưu bookmark' : 'Bookmark')}
             >
-              {skill.is_bookmarked ? <BookmarkCheck className="w-4 sm:w-5 h-4 sm:h-5" /> : <Bookmark className="w-4 sm:w-5 h-4 sm:h-5" />}
+              {skill.is_bookmarked ? <BookmarkCheck className="w-4 h-4 text-amber-500" /> : <Bookmark className="w-4 h-4" />}
             </button>
             <button
               onClick={onClose}
-              className="p-2 sm:p-2.5 rounded-xl sm:rounded-2xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 transition-colors shrink-0"
-              title="Đóng"
+              className="p-2 rounded-xl neu-btn text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors shrink-0 cursor-pointer"
+              title={language === 'vi' ? 'Đóng (Esc)' : 'Close (Esc)'}
+              aria-label={language === 'vi' ? 'Đóng (Esc)' : 'Close (Esc)'}
             >
-              <X className="w-4 sm:w-5 h-4 sm:h-5" />
+              <X className="w-4 h-4" />
             </button>
           </div>
         </div>
+        <div className="neu-divider" />
 
-        {/* Tab Navigation with Fixed Scrollable Toolbar */}
-        <div className="relative border-b border-slate-200 dark:border-slate-800 bg-slate-100/80 dark:bg-slate-950/70 shrink-0 flex items-center">
-          <button
-            onClick={() => scrollTabs('left')}
-            className="hidden sm:flex items-center justify-center w-8 h-11 text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-800/60 z-10 shrink-0 transition-colors"
-            title="Cuộn sang trái"
-          >
-            <ChevronLeft className="w-4 h-4" />
-          </button>
-
-          <div 
-            ref={tabsContainerRef}
-            className="flex-1 flex px-3 sm:px-1 space-x-1 sm:space-x-1.5 overflow-x-auto scrollbar-none text-xs font-medium scroll-smooth"
-          >
-            <button
-              onClick={() => setActiveTab('tutorial')}
-              className={`py-3 sm:py-3.5 px-3 border-b-2 whitespace-nowrap transition-all flex items-center gap-1.5 shrink-0 ${
-                activeTab === 'tutorial'
-                  ? 'border-emerald-500 text-emerald-600 dark:text-emerald-400 font-bold bg-white/60 dark:bg-slate-900/60 rounded-t-lg'
-                  : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
-              }`}
-            >
-              <BookOpen className="w-4 h-4 text-emerald-500" />
-              {t('tab_article')}
-            </button>
-            <button
-              onClick={() => setActiveTab('use_cases')}
-              className={`py-3 sm:py-3.5 px-3 border-b-2 whitespace-nowrap transition-all flex items-center gap-1.5 shrink-0 ${
-                activeTab === 'use_cases'
-                  ? 'border-emerald-500 text-emerald-600 dark:text-emerald-400 font-bold bg-white/60 dark:bg-slate-900/60 rounded-t-lg'
-                  : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
-              }`}
-            >
-              <Zap className="w-4 h-4 text-amber-500" />
-              {t('tab_use_cases_count')} ({enrichedUseCases.length})
-            </button>
-            <button
-              onClick={() => setActiveTab('architecture')}
-              className={`py-3 sm:py-3.5 px-3 border-b-2 whitespace-nowrap transition-all flex items-center gap-1.5 shrink-0 ${
-                activeTab === 'architecture'
-                  ? 'border-emerald-500 text-emerald-600 dark:text-emerald-400 font-bold bg-white/60 dark:bg-slate-900/60 rounded-t-lg'
-                  : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
-              }`}
-            >
-              <Workflow className="w-4 h-4 text-sky-500" />
-              {t('tab_arch')}
-            </button>
-            <button
-              onClick={() => setActiveTab('before_after')}
-              className={`py-3 sm:py-3.5 px-3 border-b-2 whitespace-nowrap transition-all flex items-center gap-1.5 shrink-0 ${
-                activeTab === 'before_after'
-                  ? 'border-emerald-500 text-emerald-600 dark:text-emerald-400 font-bold bg-white/60 dark:bg-slate-900/60 rounded-t-lg'
-                  : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
-              }`}
-            >
-              <Sparkles className="w-4 h-4 text-purple-500" />
-              {t('tab_before_after')}
-            </button>
-            <button
-              onClick={() => setActiveTab('comparison')}
-              className={`py-3 sm:py-3.5 px-3 border-b-2 whitespace-nowrap transition-all flex items-center gap-1.5 shrink-0 ${
-                activeTab === 'comparison'
-                  ? 'border-emerald-500 text-emerald-600 dark:text-emerald-400 font-bold bg-white/60 dark:bg-slate-900/60 rounded-t-lg'
-                  : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
-              }`}
-            >
-              <Scale className="w-4 h-4 text-orange-500" />
-              {t('tab_comparison')}
-            </button>
-            <button
-              onClick={() => setActiveTab('install')}
-              className={`py-3 sm:py-3.5 px-3 border-b-2 whitespace-nowrap transition-all flex items-center gap-1.5 shrink-0 ${
-                activeTab === 'install'
-                  ? 'border-emerald-500 text-emerald-600 dark:text-emerald-400 font-bold bg-white/60 dark:bg-slate-900/60 rounded-t-lg'
-                  : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
-              }`}
-            >
-              <Code className="w-4 h-4 text-blue-500" />
-              {t('tab_install')}
-            </button>
-            <button
-              onClick={() => setActiveTab('security')}
-              className={`py-3 sm:py-3.5 px-3 border-b-2 whitespace-nowrap transition-all flex items-center gap-1.5 shrink-0 ${
-                activeTab === 'security'
-                  ? 'border-emerald-500 text-emerald-600 dark:text-emerald-400 font-bold bg-white/60 dark:bg-slate-900/60 rounded-t-lg'
-                  : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
-              }`}
-            >
-              <ShieldCheck className="w-4 h-4 text-emerald-500" />
-              {t('tab_security_audit')}
-            </button>
-            <button
-              onClick={() => setActiveTab('readme')}
-              className={`py-3 sm:py-3.5 px-3 border-b-2 whitespace-nowrap transition-all flex items-center gap-1.5 shrink-0 ${
-                activeTab === 'readme'
-                  ? 'border-emerald-500 text-emerald-600 dark:text-emerald-400 font-bold bg-white/60 dark:bg-slate-900/60 rounded-t-lg'
-                  : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
-              }`}
-            >
-              <FileText className="w-4 h-4 text-slate-400" />
-              {t('tab_readme')}
-            </button>
+        {/* Tab Navigation - Modern Segmented Control */}
+        <div className="bg-[var(--bg)] px-3 sm:px-6 py-2.5 shrink-0">
+          <div className="p-1 rounded-2xl neu-inset flex items-center justify-between gap-1 overflow-x-auto scrollbar-none">
+            {modalTabs.map((tab) => {
+              const Icon = tab.icon;
+              const isActive = activeTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`flex-1 min-w-[110px] sm:min-w-0 py-2 px-2.5 sm:px-3 rounded-xl transition-all duration-150 flex items-center justify-center gap-1.5 text-xs font-semibold cursor-pointer ${
+                    isActive
+                      ? 'neu-primary text-white font-bold shadow-sm'
+                      : 'text-[var(--text-muted)] hover:text-[var(--primary)] font-medium hover:bg-[var(--shadow-dark)]/10'
+                  }`}
+                >
+                  <Icon className="w-3.5 h-3.5 shrink-0" />
+                  <span className="truncate">{tab.label}</span>
+                  {tab.badge && (
+                    <span className={`text-[10px] px-1.5 py-0.2 rounded-md font-mono shrink-0 ${
+                      isActive ? 'bg-white/25 text-white' : 'neu-inset-sm text-[var(--primary)]'
+                    }`}>
+                      {tab.badge}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
           </div>
-
-          <button
-            onClick={() => scrollTabs('right')}
-            className="hidden sm:flex items-center justify-center w-8 h-11 text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-800/60 z-10 shrink-0 transition-colors"
-            title="Cuộn sang phải"
-          >
-            <ChevronRight className="w-4 h-4" />
-          </button>
         </div>
+        <div className="neu-divider" />
+
 
         {/* Modal Body with Internal Scrolling */}
         <div className="p-4 sm:p-6 md:p-7 overflow-y-auto space-y-6 flex-1 min-h-0 text-slate-800 dark:text-slate-200 overscroll-contain scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-700">
           
-          {/* TAB 1: BÀI VIẾT HƯỚNG DẪN CHI TIẾT (COMMUNITY ARTICLE STYLE) */}
-          {activeTab === 'tutorial' && (
+          {/* TAB 1: TỔNG QUAN & LUỒNG (OVERVIEW & FLOW) */}
+          {activeTab === 'overview' && (
             <div className="space-y-6 animate-fade-in leading-relaxed">
               {/* Article Header Card */}
-              <div className="p-4 sm:p-6 rounded-2xl sm:rounded-3xl bg-gradient-to-br from-emerald-500/10 via-teal-500/5 to-transparent border border-emerald-500/20 space-y-3">
-                <div className="flex items-center gap-2 text-xs font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider">
-                  <BookOpen className="w-4 h-4 shrink-0" />
-                  <span>Chuyên Đề Đánh Giá & Hướng Dẫn Thực Hành Toàn Diện</span>
+              <div className="p-5 sm:p-6 rounded-2xl neu-flat space-y-3">
+                <div className="flex items-center gap-2 text-xs font-semibold text-[var(--primary)] uppercase tracking-wider">
+                  <BookOpen className="w-4 h-4 text-[var(--primary)] shrink-0" />
+                  <span>{language === 'vi' ? 'Chuyên Đề Đánh Giá & Hướng Dẫn Thực Hành Toàn Diện' : 'In-depth Practical Guide & Overview'}</span>
                 </div>
-                <h3 className="text-lg sm:text-2xl font-black text-slate-900 dark:text-slate-100 leading-snug">
-                  Hiểu rõ bản chất & Làm chủ {skill.title || skill.name} trong 5 phút
+                <h3 className="text-lg sm:text-2xl font-black text-[var(--text-main)] leading-snug">
+                  {language === 'vi' ? `Hiểu rõ bản chất & Làm chủ ${skill.title || skill.name} trong 5 phút` : `Master ${skill.title || skill.name} in 5 Minutes`}
                 </h3>
-                <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300">
+                <p className="text-xs sm:text-sm text-[var(--text-muted)] leading-relaxed">
                   {skill.ai_summary || skill.description}
                 </p>
-                <div className="pt-2 flex flex-wrap items-center gap-3 sm:gap-4 text-xs font-medium text-slate-500 dark:text-slate-400">
-                  <span>🎯 Dành cho: <strong className="text-slate-800 dark:text-slate-200">{skill.target_audience || 'Developers'}</strong></span>
-                  <span>⭐ Đánh giá cộng đồng: <strong className="text-amber-500">{skill.stars.toLocaleString()} Stars</strong></span>
+                <div className="pt-2 flex flex-wrap items-center gap-3 sm:gap-4 text-xs font-medium text-[var(--text-muted)]">
+                  <span className="flex items-center gap-1.5"><Target className="w-3.5 h-3.5 text-[var(--primary)] shrink-0" /> {language === 'vi' ? 'Dành cho:' : 'Audience:'} <strong className="text-[var(--text-main)]">{skill.target_audience || 'Developers'}</strong></span>
+                  <span className="flex items-center gap-1.5"><Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400 shrink-0" /> {language === 'vi' ? 'Đánh giá:' : 'Community:'} <strong className="text-amber-500">{skill.stars.toLocaleString()} Stars</strong></span>
                 </div>
               </div>
 
-              {/* Section 1: Nỗi đau & Vấn đề giải quyết */}
-              <div className="space-y-3">
-                <h4 className="text-sm sm:text-base font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                  <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0" />
-                  <span>1. Vấn đề thực tế mà developer thường gặp phải (The Problem)</span>
-                </h4>
-                <div className="p-4 rounded-2xl bg-slate-100 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs text-slate-700 dark:text-slate-300 space-y-2">
-                  <p>
-                    Khi làm việc với các AI Coding Assistant như Cursor, Claude Code hay Copilot, lập trình viên thường mất rất nhiều thời gian vì:
-                  </p>
-                  <ul className="list-disc pl-5 space-y-1.5 text-slate-600 dark:text-slate-400">
-                    <li><strong>Mất ngữ cảnh (Context Loss):</strong> Mỗi lần mở một phiên chat mới, bạn phải gõ lại hàng loạt quy tắc dự án (dùng Clean Architecture, không dùng any trong TS, luôn viết Zod/Struct validation...).</li>
-                    <li><strong>Sinh code ảo (Hallucination):</strong> AI tự bịa ra các hàm thư viện không tồn tại hoặc sử dụng các phiên bản cũ đã bị deprecated.</li>
-                    <li><strong>Thiếu khả năng tương tác với hệ thống thật:</strong> Không thể tự chạy test, không kết nối được Database để xem schema, hoặc không tự động tạo Pull Request chuẩn mực.</li>
-                  </ul>
+              {/* Section 1 & 2: The Problem & The Solution */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                {/* Problem */}
+                <div className="p-5 rounded-2xl neu-flat space-y-3">
+                  <h4 className="text-sm font-bold text-[var(--text-main)] flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" />
+                    <span>{language === 'vi' ? '1. Vấn đề thực tế (The Problem)' : '1. Real-world Challenge'}</span>
+                  </h4>
+                  <div className="p-4 rounded-xl neu-inset text-xs text-[var(--text-main)] space-y-2">
+                    <p>
+                      {language === 'vi' ? (
+                        <>Khi phát triển trên nền tảng <strong className="text-emerald-600 dark:text-emerald-400 font-semibold">{skill.primary_language || 'công nghệ'}</strong> mà thiếu quy chuẩn từ <strong className="text-[var(--text-main)]">{skill.title || skill.name}</strong>:</>
+                      ) : (
+                        <>When developing without conventions from <strong className="text-[var(--text-main)]">{skill.title || skill.name}</strong>:</>
+                      )}
+                    </p>
+                    <ul className="list-disc pl-4 space-y-1.5 text-[var(--text-muted)]">
+                      <li>
+                        <strong>Context Deficit:</strong> AI thường sinh code chung chung, không nắm rõ kiến trúc và quy ước của dự án.
+                      </li>
+                      <li>
+                        <strong>Pattern Drift:</strong> Thiếu các chỉ dẫn cụ thể cho stack {skill.primary_language || 'dự án'}, dẫn đến code dễ hallucination hoặc thiếu test.
+                      </li>
+                      <li>
+                        <strong>Tốn công kiểm định:</strong> Thiếu sandbox guardrail và test case tự động khiến dev phải tự debug thủ công.
+                      </li>
+                    </ul>
+                  </div>
                 </div>
-              </div>
 
-              {/* Section 2: Giải pháp & Cơ chế hoạt động */}
-              <div className="space-y-3">
-                <h4 className="text-sm sm:text-base font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                  <Lightbulb className="w-5 h-5 text-emerald-500 shrink-0" />
-                  <span>2. Cách {skill.title || skill.name} giải quyết triệt để (The Solution)</span>
-                </h4>
-                <div className="p-4 rounded-2xl bg-emerald-50/60 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800/40 text-xs text-slate-800 dark:text-slate-200 space-y-3">
-                  <p>
-                    {skill.comparison_notes || 'Giải pháp này đóng vai trò như một lớp Protocol / Rules trung gian chuẩn hóa, nạp sẵn toàn bộ kiến thức chuyên sâu và công cụ cần thiết vào bộ nhớ của AI Agent.'}
-                  </p>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
-                    <div className="p-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-center">
-                      <div className="font-bold text-emerald-600 dark:text-emerald-400 text-sm">Tiết kiệm 80%</div>
-                      <div className="text-[11px] text-slate-500 mt-0.5">Thời gian gõ prompt</div>
-                    </div>
-                    <div className="p-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-center">
-                      <div className="font-bold text-sky-600 dark:text-sky-400 text-sm">100% Đồng nhất</div>
-                      <div className="text-[11px] text-slate-500 mt-0.5">Quy chuẩn cho cả team</div>
-                    </div>
-                    <div className="p-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-center">
-                      <div className="font-bold text-purple-600 dark:text-purple-400 text-sm">Sẵn sàng chạy</div>
-                      <div className="text-[11px] text-slate-500 mt-0.5">Code pass test ngay</div>
+                {/* Solution */}
+                <div className="p-5 rounded-2xl neu-flat space-y-3">
+                  <h4 className="text-sm font-bold text-[var(--text-main)] flex items-center gap-2">
+                    <Lightbulb className="w-4 h-4 text-emerald-500 shrink-0" />
+                    <span>{language === 'vi' ? '2. Giải pháp triệt để (The Solution)' : '2. The Solution'}</span>
+                  </h4>
+                  <div className="p-4 rounded-xl neu-flat text-xs text-[var(--text-main)] space-y-3">
+                    <p className="leading-relaxed text-[var(--text-muted)]">
+                      {skill.comparison_notes || 'Giải pháp này đóng vai trò như một lớp Protocol / Rules trung gian chuẩn hóa, nạp sẵn toàn bộ kiến thức chuyên sâu và công cụ cần thiết vào bộ nhớ của AI Agent.'}
+                    </p>
+                    <div className="grid grid-cols-3 gap-2 pt-1">
+                      <div className="p-2.5 rounded-xl neu-inset-sm text-center">
+                        <div className="font-bold text-emerald-600 dark:text-emerald-400 text-xs sm:text-sm">+{Math.max(65, Math.round(skill.trending_score))}% Tốc Độ</div>
+                        <div className="text-[10px] text-[var(--text-muted)] mt-0.5">Trending Score</div>
+                      </div>
+                      <div className="p-2.5 rounded-xl neu-inset-sm text-center">
+                        <div className="font-bold text-sky-600 dark:text-sky-400 text-xs sm:text-sm">{Math.round(skill.quality_score)}/100</div>
+                        <div className="text-[10px] text-[var(--text-muted)] mt-0.5">Chất lượng mã</div>
+                      </div>
+                      <div className="p-2.5 rounded-xl neu-inset-sm text-center">
+                        <div className="font-bold text-purple-600 dark:text-purple-400 text-xs sm:text-sm">{(skill.runtimes?.length || 4)}+ IDE</div>
+                        <div className="text-[10px] text-[var(--text-muted)] mt-0.5">Tương thích</div>
+                      </div>
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* Section 3: Quy trình áp dụng 3 bước */}
+              {/* Sơ Đồ Luồng Thực Thi Của Agent */}
+              <div>
+                <h4 className="text-sm font-bold text-[var(--text-main)] mb-3 flex items-center gap-2">
+                  <Workflow className="w-4 h-4 text-[var(--primary)] shrink-0" />
+                  <span>{language === 'vi' ? 'Sơ Đồ Luồng Thực Thi Của Agent' : 'Agent Execution Flow Diagram'}</span>
+                </h4>
+                
+                <div className="p-5 sm:p-6 rounded-2xl neu-flat space-y-4">
+                  <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 text-xs">
+                    {/* Node 1: Developer Intent */}
+                    <div className="flex-1 p-4 rounded-2xl neu-inset text-center">
+                      <div className="w-8 h-8 mx-auto rounded-xl neu-inset-sm text-[var(--primary)] flex items-center justify-center mb-2">
+                        <Terminal className="w-4 h-4" />
+                      </div>
+                      <div className="font-bold text-[var(--text-main)]">1. Developer Intent</div>
+                      <div className="text-[10px] text-[var(--text-muted)] mt-1 line-clamp-1" title={skill.use_cases?.[0] || skill.title || skill.name}>
+                        "{skill.use_cases?.[0] || skill.title || skill.name}"
+                      </div>
+                      <div className="mt-2 text-[10px] font-mono text-[var(--primary)] neu-inset-sm px-2 py-0.5 rounded-lg inline-block font-bold">
+                        {(skill.tags || []).slice(0, 2).map(t => `#${t}`).join(' ') || `#${skill.category}`}
+                      </div>
+                    </div>
+
+                    {/* Arrow indicator */}
+                    <div className="flex items-center justify-center py-1 md:py-0">
+                      <ArrowRight className="hidden md:block w-5 h-5 text-[var(--primary)] shrink-0" />
+                      <ArrowRight className="md:hidden w-5 h-5 text-[var(--primary)] shrink-0 rotate-90" />
+                    </div>
+
+                    {/* Node 2: Skill / Protocol Layer */}
+                    <div className="flex-1 p-4 rounded-2xl neu-primary text-center text-white">
+                      <div className="w-8 h-8 mx-auto rounded-xl bg-white/20 text-white flex items-center justify-center mb-2 font-bold">
+                        <Boxes className="w-4 h-4" />
+                      </div>
+                      <div className="font-bold text-white truncate">{skill.title || skill.name}</div>
+                      <div className="text-[10px] text-white/90 mt-1 font-mono">
+                        {skill.category === 'mcp-server' ? 'MCP Protocol Tool Call' : 'Procedural Rule Engine'}
+                      </div>
+                      <div className="mt-2 text-[10px] font-mono text-white bg-black/20 px-2 py-0.5 rounded-lg inline-block">
+                        Quyền: {skill.permission_level || 'read_only'}
+                      </div>
+                    </div>
+
+                    {/* Arrow indicator */}
+                    <div className="flex items-center justify-center py-1 md:py-0">
+                      <ArrowRight className="hidden md:block w-5 h-5 text-[var(--primary)] shrink-0" />
+                      <ArrowRight className="md:hidden w-5 h-5 text-[var(--primary)] shrink-0 rotate-90" />
+                    </div>
+
+                    {/* Node 3: Target System / Execution */}
+                    <div className="flex-1 p-4 rounded-2xl neu-inset text-center">
+                      <div className="w-8 h-8 mx-auto rounded-xl neu-inset-sm text-purple-600 dark:text-purple-400 flex items-center justify-center mb-2">
+                        <Cpu className="w-4 h-4" />
+                      </div>
+                      <div className="font-bold text-[var(--text-main)]">3. {skill.primary_language || 'Mã Nguồn'} Runtime</div>
+                      <div className="text-[10px] text-[var(--text-muted)] mt-1">
+                        Kiểm thử & Linter tự động
+                      </div>
+                      <div className="mt-2 text-[10px] font-mono text-purple-600 dark:text-purple-400 neu-inset-sm px-2 py-0.5 rounded-lg inline-block font-bold">
+                        {(skill.runtimes || ['antigravity', 'cursor', 'claude']).slice(0, 3).join(', ')}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Architecture Specs Breakdown */}
+                  <div className="neu-divider my-3" />
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-[11px]">
+                    <div className="p-3 rounded-xl neu-inset-sm">
+                      <span className="text-[var(--text-muted)] block font-semibold mb-0.5">Giao thức tương tác</span>
+                      <span className="text-[var(--text-main)] font-mono font-medium">
+                        {skill.category === 'mcp-server' ? 'JSON-RPC (Model Context Protocol)' : 'Agent Prompt Directives & Rules'}
+                      </span>
+                    </div>
+                    <div className="p-3 rounded-xl neu-inset-sm">
+                      <span className="text-[var(--text-muted)] block font-semibold mb-0.5">Môi trường thực thi</span>
+                      <span className="text-[var(--text-main)] font-mono font-medium">
+                        {skill.primary_language ? `${skill.primary_language} Environment` : 'Polyglot System'}
+                      </span>
+                    </div>
+                    <div className="p-3 rounded-xl neu-inset-sm">
+                      <span className="text-[var(--text-muted)] block font-semibold mb-0.5">Mức độ bảo vệ Sandbox</span>
+                      <span className="text-emerald-600 dark:text-emerald-400 font-mono font-bold">
+                        {skill.permission_level === 'read_only' ? 'Strict Read-Only Isolation' : `${skill.permission_level || 'Safe'} Guardrail`}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Section 4: Quick 3-Step Setup */}
               <div className="space-y-3">
-                <h4 className="text-sm sm:text-base font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                  <Workflow className="w-5 h-5 text-sky-500 shrink-0" />
-                  <span>3. Quy trình 3 bước tích hợp ngay vào dự án của bạn (Quick Implementation)</span>
+                <h4 className="text-sm font-bold text-[var(--text-main)] flex items-center gap-2">
+                  <Workflow className="w-4 h-4 text-sky-500 shrink-0" />
+                  <span>{language === 'vi' ? '3. Quy trình 3 bước tích hợp nhanh' : '3-Step Quick Integration'}</span>
                 </h4>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
-                  <div className="p-4 rounded-2xl bg-slate-100 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 space-y-1.5">
-                    <span className="w-6 h-6 rounded-lg bg-emerald-500 text-slate-950 font-bold flex items-center justify-center text-xs">1</span>
-                    <div className="font-bold text-slate-900 dark:text-slate-100">Cài đặt cấu hình</div>
-                    <div className="text-slate-500 text-[11px]">Chuyển sang tab "Cài Đặt Đa IDE" và copy đoạn cấu hình vào file rule hoặc MCP server của bạn.</div>
+                  <div 
+                    onClick={() => setActiveTab('install')}
+                    className="p-4 rounded-2xl neu-flat-sm space-y-2 cursor-pointer hover:scale-[1.02] transition-transform"
+                  >
+                    <span className="w-6 h-6 rounded-lg neu-primary text-white font-bold flex items-center justify-center text-xs">1</span>
+                    <div className="font-bold text-[var(--text-main)]">Cài đặt cấu hình</div>
+                    <div className="text-[var(--text-muted)] text-[11px]">Chuyển sang tab "Cài Đặt Đa IDE" để copy file cấu hình cho {selectedRuntimeGuide.toUpperCase()} hoặc chạy lệnh curl tự động.</div>
                   </div>
-                  <div className="p-4 rounded-2xl bg-slate-100 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 space-y-1.5">
-                    <span className="w-6 h-6 rounded-lg bg-sky-500 text-slate-950 font-bold flex items-center justify-center text-xs">2</span>
-                    <div className="font-bold text-slate-900 dark:text-slate-100">Dùng Prompt Mẫu</div>
-                    <div className="text-slate-500 text-[11px]">Chuyển sang tab "Kịch Bản & Prompt Mẫu" để copy đoạn prompt thực chiến đưa cho Agent.</div>
+                  <div 
+                    onClick={() => setActiveTab('scenarios')}
+                    className="p-4 rounded-2xl neu-flat-sm space-y-2 cursor-pointer hover:scale-[1.02] transition-transform"
+                  >
+                    <span className="w-6 h-6 rounded-lg neu-primary text-white font-bold flex items-center justify-center text-xs">2</span>
+                    <div className="font-bold text-[var(--text-main)]">Áp dụng Prompt</div>
+                    <div className="text-[var(--text-muted)] text-[11px]">Chọn một trong {enrichedUseCases.length} tình huống thực chiến ở tab "Kịch Bản & Prompt" để AI Agent thực thi.</div>
                   </div>
-                  <div className="p-4 rounded-2xl bg-slate-100 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 space-y-1.5">
-                    <span className="w-6 h-6 rounded-lg bg-purple-500 text-slate-950 font-bold flex items-center justify-center text-xs">3</span>
-                    <div className="font-bold text-slate-900 dark:text-slate-100">Review & Xác nhận</div>
-                    <div className="text-slate-500 text-[11px]">Agent tự động thực thi đúng convention, bạn chỉ cần review và merge vào codebase.</div>
+                  <div 
+                    onClick={() => setActiveTab('security')}
+                    className="p-4 rounded-2xl neu-flat-sm space-y-2 cursor-pointer hover:scale-[1.02] transition-transform"
+                  >
+                    <span className="w-6 h-6 rounded-lg neu-primary text-white font-bold flex items-center justify-center text-xs">3</span>
+                    <div className="font-bold text-[var(--text-main)]">Kiểm thử & Bàn giao</div>
+                    <div className="text-[var(--text-muted)] text-[11px]">Xác nhận kết quả với bộ test tự động và mức bảo mật {skill.security_rating?.toUpperCase() || 'SAFE'} ở tab "Kiểm Định & Docs".</div>
                   </div>
                 </div>
               </div>
             </div>
           )}
 
-          {/* TAB 2: KỊCH BẢN THỰC CHIẾN & PROMPT MẪU (DEEP USE CASES WITH PROMPT + CODE + TIP) */}
-          {activeTab === 'use_cases' && (
-            <div className="space-y-6 animate-fade-in">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 sm:gap-4">
-                <h4 className="text-sm sm:text-base font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                  <Zap className="w-4 h-4 text-amber-500 shrink-0" />
-                  <span>Các Tình Huống Thực Chiến Kèm Prompt Mẫu & Code Minh Họa</span>
-                </h4>
-                <span className="text-xs text-slate-400 font-mono shrink-0">Bấm sao chép để dùng ngay</span>
+          {/* TAB 2: KỊCH BẢN & PROMPT THỰC CHIẾN (SCENARIOS & PROMPTS) */}
+          {activeTab === 'scenarios' && (
+            <div className="space-y-4 animate-fade-in">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
+                <div>
+                  <h4 className="text-sm sm:text-base font-bold text-[var(--text-main)] flex items-center gap-2">
+                    <Zap className="w-4 h-4 text-amber-500 shrink-0" />
+                    <span>{language === 'vi' ? 'Các Tình Huống Thực Chiến Kèm Prompt Mẫu & Code Minh Họa' : 'Practical Scenarios, Prompts & Code'}</span>
+                  </h4>
+                  <p className="text-xs text-[var(--text-muted)] mt-0.5">
+                    {language === 'vi' ? 'Bấm sao chép prompt để AI Agent thực thi tác vụ chính xác tuyệt đối' : 'Click to copy prompt directly for your AI Agent'}
+                  </p>
+                </div>
               </div>
 
-              <div className="space-y-5 sm:space-y-6">
+              <div className="space-y-4">
                 {enrichedUseCases.map((uc, idx) => (
                   <div 
                     key={idx} 
-                    className="p-4 sm:p-6 rounded-2xl sm:rounded-3xl bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 shadow-sm space-y-4 transition-all hover:border-emerald-500/40"
+                    className="p-5 sm:p-6 rounded-2xl neu-flat space-y-3.5 transition-all"
                   >
-                    {/* Scenario Header */}
                     <div className="flex items-start gap-3">
-                      <span className="w-8 h-8 rounded-xl sm:rounded-2xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-mono font-black text-sm shrink-0 border border-emerald-500/20 shadow-sm">
+                      <span className="w-8 h-8 rounded-xl neu-inset-sm text-[var(--primary)] flex items-center justify-center font-mono font-bold text-xs shrink-0">
                         0{idx + 1}
                       </span>
                       <div className="flex-1 min-w-0">
-                        <h5 className="text-sm sm:text-base font-bold text-slate-900 dark:text-slate-100 leading-snug">
+                        <h5 className="text-sm font-bold text-[var(--text-main)] leading-snug">
                           {uc.title}
                         </h5>
-                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+                        <p className="text-xs text-[var(--text-muted)] mt-0.5 leading-relaxed">
                           <strong className="text-rose-600 dark:text-rose-400">Vấn đề: </strong>{uc.problem}
                         </p>
                       </div>
                     </div>
 
-                    {/* Copyable Sample Prompt */}
-                    <div className="rounded-2xl bg-slate-100 dark:bg-slate-900 p-3.5 sm:p-4 border border-slate-200 dark:border-slate-800 space-y-2">
-                      <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-semibold text-slate-700 dark:text-slate-300">
-                        <span className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400">
+                    {/* Prompt */}
+                    <div className="rounded-2xl neu-inset p-3.5 space-y-2">
+                      <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-semibold text-[var(--text-main)]">
+                        <span className="flex items-center gap-1.5 text-[var(--primary)]">
                           <MessageSquare className="w-3.5 h-3.5 shrink-0" />
-                          <span>Prompt Mẫu Thực Chiến (Copy đưa cho AI):</span>
+                          <span>Prompt Mẫu Cho AI:</span>
                         </span>
                         <button
                           onClick={() => handleCopyPrompt(uc.prompt, idx)}
-                          className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-700 text-[11px] transition-colors shadow-sm ml-auto"
+                          className="flex items-center gap-1 px-3 py-1 rounded-xl neu-btn text-[11px] font-semibold text-[var(--text-main)] transition-colors ml-auto cursor-pointer"
                         >
                           {copiedPromptIdx === idx ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
                           <span>{copiedPromptIdx === idx ? 'Đã sao chép' : 'Sao chép prompt'}</span>
                         </button>
                       </div>
-                      <p className="text-xs font-mono text-slate-800 dark:text-slate-200 bg-white/80 dark:bg-slate-950 p-3 rounded-xl border border-slate-200/80 dark:border-slate-800/80 whitespace-pre-wrap break-words leading-relaxed">
+                      <p className="text-xs font-mono text-[var(--text-main)] p-3 rounded-xl neu-inset-sm whitespace-pre-wrap break-words leading-relaxed">
                         "{uc.prompt}"
                       </p>
                     </div>
 
-                    {/* How Agent Executes */}
-                    <div className="text-xs text-slate-700 dark:text-slate-300 flex items-start gap-2 bg-emerald-50/50 dark:bg-emerald-950/20 p-3 rounded-xl border border-emerald-200/60 dark:border-emerald-900/30 leading-relaxed">
-                      <ArrowRight className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+                    {/* Agent Execution */}
+                    <div className="text-xs text-[var(--text-main)] flex items-start gap-2 p-3 rounded-xl neu-inset-sm leading-relaxed">
+                      <ArrowRight className="w-4 h-4 text-[var(--primary)] shrink-0 mt-0.5" />
                       <div>
-                        <strong className="text-emerald-700 dark:text-emerald-400">Cách Agent xử lý: </strong>
+                        <strong className="text-[var(--primary)]">Cách Agent xử lý: </strong>
                         {uc.agentAction}
                       </div>
                     </div>
@@ -598,11 +721,11 @@ export const SkillDetailModal: React.FC<SkillDetailModalProps> = ({
                     {/* Code Snippet */}
                     {uc.codeExample && (
                       <div className="space-y-1.5">
-                        <div className="text-[11px] font-semibold text-slate-400 flex items-center gap-1 uppercase tracking-wider">
-                          <Code className="w-3.5 h-3.5 text-sky-500 shrink-0" />
-                          <span>Code / Cấu hình mẫu minh họa:</span>
+                        <div className="text-[11px] font-semibold text-[var(--text-muted)] flex items-center gap-1 uppercase tracking-wider">
+                          <Code className="w-3.5 h-3.5 text-[var(--primary)] shrink-0" />
+                          <span>Cấu hình / Code mẫu minh họa:</span>
                         </div>
-                        <pre className="p-3.5 sm:p-4 rounded-2xl bg-slate-100 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-[11px] sm:text-xs font-mono text-slate-900 dark:text-slate-300 overflow-x-auto max-w-full leading-relaxed shadow-inner">
+                        <pre className="p-3.5 rounded-xl neu-inset text-[11px] font-mono text-[var(--text-main)] overflow-x-auto max-w-full leading-relaxed">
                           {uc.codeExample}
                         </pre>
                       </div>
@@ -610,7 +733,7 @@ export const SkillDetailModal: React.FC<SkillDetailModalProps> = ({
 
                     {/* Pro Tip */}
                     {uc.tip && (
-                      <div className="flex items-start gap-2 text-xs text-amber-800 dark:text-amber-300/90 bg-amber-50 dark:bg-amber-950/20 p-3 rounded-xl border border-amber-200 dark:border-amber-900/30 leading-relaxed">
+                      <div className="flex items-start gap-2 text-xs text-amber-800 dark:text-amber-300/90 p-3 rounded-xl neu-inset-sm leading-relaxed">
                         <Lightbulb className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
                         <span><strong>Mẹo chuyên gia: </strong>{uc.tip}</span>
                       </div>
@@ -621,211 +744,149 @@ export const SkillDetailModal: React.FC<SkillDetailModalProps> = ({
             </div>
           )}
 
-          {/* TAB 3: ARCHITECTURE & METRICS */}
-          {activeTab === 'architecture' && (
+          {/* TAB 4: SO SÁNH HIỆU QUẢ (BENCHMARK & COMPARE) */}
+          {activeTab === 'compare' && (
             <div className="space-y-6 animate-fade-in">
               {/* Score Radar / Metrics */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-3.5 sm:p-4 rounded-2xl sm:rounded-3xl bg-slate-100 dark:bg-slate-950/80 border border-slate-200 dark:border-slate-800">
-                <div className="p-3 text-center rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800">
-                  <div className="text-[11px] font-semibold text-slate-500 mb-1">Trending Score</div>
-                  <div className="text-xl sm:text-2xl font-black text-amber-500 font-mono">
-                    {Math.round(skill.trending_score)}<span className="text-xs text-slate-400">/100</span>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-4 rounded-2xl neu-flat">
+                <div className="p-3 text-center rounded-xl neu-inset-sm">
+                  <div className="text-[11px] font-semibold text-[var(--text-muted)] mb-0.5">Trending Score</div>
+                  <div className="text-xl sm:text-2xl font-black text-[var(--primary)] font-mono">
+                    {Math.round(skill.trending_score)}<span className="text-xs text-[var(--text-muted)]">/100</span>
                   </div>
                 </div>
-                <div className="p-3 text-center rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800">
-                  <div className="text-[11px] font-semibold text-slate-500 mb-1">Quality Score</div>
-                  <div className="text-xl sm:text-2xl font-black text-emerald-500 font-mono">
-                    {Math.round(skill.quality_score)}<span className="text-xs text-slate-400">/100</span>
+                <div className="p-3 text-center rounded-xl neu-inset-sm">
+                  <div className="text-[11px] font-semibold text-[var(--text-muted)] mb-0.5">Quality Score</div>
+                  <div className="text-xl sm:text-2xl font-black text-emerald-600 dark:text-emerald-400 font-mono">
+                    {Math.round(skill.quality_score)}<span className="text-xs text-[var(--text-muted)]">/100</span>
                   </div>
                 </div>
-                <div className="p-3 text-center rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800">
-                  <div className="text-[11px] font-semibold text-slate-500 mb-1">Personal Match</div>
-                  <div className="text-xl sm:text-2xl font-black text-indigo-500 font-mono">
-                    {Math.round(skill.relevance_score)}<span className="text-xs text-slate-400">/100</span>
+                <div className="p-3 text-center rounded-xl neu-inset-sm">
+                  <div className="text-[11px] font-semibold text-[var(--text-muted)] mb-0.5">Personal Match</div>
+                  <div className="text-xl sm:text-2xl font-black text-indigo-600 dark:text-indigo-400 font-mono">
+                    {Math.round(skill.relevance_score)}<span className="text-xs text-[var(--text-muted)]">/100</span>
                   </div>
                 </div>
-                <div className="p-3 text-center rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800">
-                  <div className="text-[11px] font-semibold text-slate-500 mb-1">Cộng Đồng GitHub</div>
-                  <div className="text-xl sm:text-2xl font-black text-sky-500 font-mono">
-                    {skill.stars.toLocaleString()}<span className="text-xs text-slate-400"> ★</span>
+                <div className="p-3 text-center rounded-xl neu-inset-sm">
+                  <div className="text-[11px] font-semibold text-[var(--text-muted)] mb-0.5">Cộng Đồng GitHub</div>
+                  <div className="text-xl sm:text-2xl font-black text-amber-500 font-mono flex items-center justify-center gap-1">
+                    <span>{skill.stars.toLocaleString()}</span>
+                    <Star className="w-4 h-4 fill-amber-400 text-amber-400 inline" />
                   </div>
                 </div>
               </div>
 
-              {/* Visual Interactive Architecture Diagram */}
+              {/* Before vs After Comparison */}
               <div>
-                <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100 mb-3 flex items-center gap-2">
-                  <Workflow className="w-4 h-4 text-emerald-500 shrink-0" />
-                  <span>Sơ Đồ Luồng Thực Thi & Tương Tác Của Agent</span>
+                <h4 className="text-sm font-bold text-[var(--text-main)] mb-3 flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-purple-500 shrink-0" />
+                  <span>Hiệu Quả Thực Tế: Trước và Sau Khi Sử Dụng</span>
                 </h4>
-                
-                <div className="p-4 sm:p-6 rounded-2xl sm:rounded-3xl bg-slate-950 border border-slate-800 shadow-inner">
-                  <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 text-xs">
-                    {/* Node 1: Developer Prompt */}
-                    <div className="flex-1 p-4 rounded-2xl bg-slate-900 border border-slate-700 text-center shadow">
-                      <div className="w-8 h-8 mx-auto rounded-xl bg-sky-500/20 text-sky-400 flex items-center justify-center mb-2">
-                        <Terminal className="w-4 h-4" />
-                      </div>
-                      <div className="font-bold text-slate-200">1. Developer Prompt</div>
-                      <div className="text-[10px] text-slate-400 mt-1">Yêu cầu từ Cursor / Claude / CLI</div>
-                    </div>
 
-                    {/* Arrow indicator */}
-                    <div className="flex items-center justify-center py-1 md:py-0">
-                      <ArrowRight className="hidden md:block w-5 h-5 text-emerald-400 shrink-0 animate-pulse" />
-                      <ArrowRight className="md:hidden w-5 h-5 text-emerald-400 shrink-0 rotate-90 animate-pulse" />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* BEFORE */}
+                  <div className="p-5 rounded-2xl neu-flat space-y-3">
+                    <div className="flex items-center gap-2 text-rose-600 dark:text-rose-400 font-bold text-sm">
+                      <XCircle className="w-4 h-4 shrink-0" />
+                      <span>Trước khi áp dụng {skill.title || skill.name}:</span>
                     </div>
-
-                    {/* Node 2: Skill / Protocol Layer */}
-                    <div className="flex-1 p-4 rounded-2xl bg-emerald-950/70 border border-emerald-500/40 text-center shadow-lg ring-1 ring-emerald-500/30">
-                      <div className="w-8 h-8 mx-auto rounded-xl bg-emerald-500 text-slate-950 flex items-center justify-center mb-2 font-bold">
-                        <Boxes className="w-4 h-4" />
-                      </div>
-                      <div className="font-bold text-emerald-300">{skill.title || skill.name}</div>
-                      <div className="text-[10px] text-emerald-400/90 mt-1 font-mono">
-                        {skill.category === 'mcp-server' ? 'MCP Protocol Tool Call' : 'Rule Enforcement & Context'}
-                      </div>
-                    </div>
-
-                    {/* Arrow indicator */}
-                    <div className="flex items-center justify-center py-1 md:py-0">
-                      <ArrowRight className="hidden md:block w-5 h-5 text-emerald-400 shrink-0 animate-pulse" />
-                      <ArrowRight className="md:hidden w-5 h-5 text-emerald-400 shrink-0 rotate-90 animate-pulse" />
-                    </div>
-
-                    {/* Node 3: Target System / Execution */}
-                    <div className="flex-1 p-4 rounded-2xl bg-slate-900 border border-slate-700 text-center shadow">
-                      <div className="w-8 h-8 mx-auto rounded-xl bg-purple-500/20 text-purple-400 flex items-center justify-center mb-2">
-                        <Cpu className="w-4 h-4" />
-                      </div>
-                      <div className="font-bold text-slate-200">3. Execution & Verification</div>
-                      <div className="text-[10px] text-slate-400 mt-1">Thao tác File / DB / Git / Build</div>
-                    </div>
+                    <ul className="space-y-2 text-xs text-[var(--text-main)]">
+                      <li className="flex items-start gap-2">
+                        <span className="text-rose-500 font-bold">•</span>
+                        <span>AI không có ngữ cảnh chuyên sâu về stack <strong className="text-rose-600 dark:text-rose-400 font-semibold">{skill.primary_language || 'công nghệ'}</strong>, sinh code chung chung hoặc sai lệch thư viện chuẩn.</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="text-rose-500 font-bold">•</span>
+                        <span>Thiếu hướng dẫn chuẩn cho tác vụ chính, lập trình viên phải tự viết prompt dài hàng chục dòng mỗi khi mở chat.</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="text-rose-500 font-bold">•</span>
+                        <span>Dễ xảy ra lỗi bảo mật tiềm ẩn, không có cơ chế sandbox guardrail để hạn chế rò rỉ token hoặc ghi đè file.</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="text-rose-500 font-bold">•</span>
+                        <span>Mất nhiều thời gian sửa lỗi thủ công do AI không tự viết unit test bao phủ các edge cases.</span>
+                      </li>
+                    </ul>
                   </div>
+
+                  {/* AFTER */}
+                  <div className="p-5 rounded-2xl neu-flat space-y-3">
+                    <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 font-bold text-sm">
+                      <CheckCircle2 className="w-4 h-4 shrink-0" />
+                      <span>Sau khi tích hợp {skill.title || skill.name}:</span>
+                    </div>
+                    <ul className="space-y-2 text-xs text-[var(--text-main)]">
+                      <li className="flex items-start gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+                        <span><strong>Tự động 100%:</strong> AI tự động kích hoạt rule chuyên sâu, áp dụng Clean Architecture và chuẩn coding của {skill.primary_language || 'dự án'}.</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+                        <span><strong>Thực thi mượt mà:</strong> Xử lý tức thì {skill.use_cases?.slice(0, 2).map(u => `"${u}"`).join(' & ') || 'các tác vụ cốt lõi'}.</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+                        <span><strong>An toàn & Kiểm soát:</strong> Đạt chứng nhận <span className="uppercase font-bold text-emerald-600 dark:text-emerald-400">{skill.security_rating || 'SAFE'}</span> ({skill.security_score || 95}/100) với quyền {skill.permission_level || 'read_only'}.</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+                        <span><strong>Sẵn sàng trên {(skill.runtimes?.length || 4)}+ IDE:</strong> Code sinh ra kèm test case, vượt qua kiểm tra chất lượng ({Math.round(skill.quality_score)}/100).</span>
+                      </li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+
+              {/* Feature Matrix Table */}
+              <div className="space-y-3">
+                <h4 className="text-sm font-bold text-[var(--text-main)] flex items-center gap-2">
+                  <Scale className="w-4 h-4 text-[var(--primary)] shrink-0" />
+                  <span>Bảng So Sánh Với Cách Làm Truyền Thống</span>
+                </h4>
+                <div className="rounded-2xl neu-inset overflow-x-auto text-xs p-3.5">
+                  <table className="w-full text-left min-w-[480px]">
+                    <thead>
+                      <tr className="text-[var(--text-muted)] font-semibold">
+                        <th className="p-3">Tiêu chí</th>
+                        <th className="p-3">{skill.title || skill.name}</th>
+                        <th className="p-3 text-[var(--text-muted)]">Cách làm truyền thống</th>
+                      </tr>
+                    </thead>
+                    <tbody className="text-[var(--text-main)]">
+                      <tr className="border-t border-[var(--shadow-dark)]/15">
+                        <td className="p-3 font-semibold">Tự động hóa Context</td>
+                        <td className="p-3 text-[var(--primary)] font-bold flex items-center gap-1.5"><CheckCircle2 className="w-3.5 h-3.5 shrink-0 text-[var(--primary)]" /> Tự động nạp qua {(skill.runtimes || ['antigravity', 'cursor']).join(', ')}</td>
+                        <td className="p-3 text-[var(--text-muted)]"><span className="flex items-center gap-1.5"><XCircle className="w-3.5 h-3.5 shrink-0 text-[var(--text-muted)]" /> Copy/paste thủ công từng file</span></td>
+                      </tr>
+                      <tr className="border-t border-[var(--shadow-dark)]/15">
+                        <td className="p-3 font-semibold">Chuyên môn hóa lĩnh vực</td>
+                        <td className="p-3 text-[var(--primary)] font-bold flex items-center gap-1.5"><CheckCircle2 className="w-3.5 h-3.5 shrink-0 text-[var(--primary)]" /> Tối ưu chuyên sâu cho {(skill.tags || [skill.category]).slice(0, 3).join(', ')}</td>
+                        <td className="p-3 text-[var(--text-muted)]"><span className="flex items-center gap-1.5"><XCircle className="w-3.5 h-3.5 shrink-0 text-[var(--text-muted)]" /> Prompt generic, AI dễ hallucinate</span></td>
+                      </tr>
+                      <tr className="border-t border-[var(--shadow-dark)]/15">
+                        <td className="p-3 font-semibold">Kiểm soát an toàn & Quyền hạn</td>
+                        <td className="p-3 text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1.5"><CheckCircle2 className="w-3.5 h-3.5 shrink-0 text-emerald-500" /> {skill.security_rating?.toUpperCase() || 'SAFE'} ({skill.security_score || 95}/100) • Quyền {skill.permission_level || 'read_only'}</td>
+                        <td className="p-3 text-[var(--text-muted)]"><span className="flex items-center gap-1.5"><XCircle className="w-3.5 h-3.5 shrink-0 text-[var(--text-muted)]" /> Không có kiểm tra AST / Rò rỉ secrets</span></td>
+                      </tr>
+                      <tr className="border-t border-[var(--shadow-dark)]/15">
+                        <td className="p-3 font-semibold">Khả năng kiểm thử & Bàn giao</td>
+                        <td className="p-3 text-[var(--primary)] font-bold flex items-center gap-1.5"><CheckCircle2 className="w-3.5 h-3.5 shrink-0 text-[var(--primary)]" /> Kèm kịch bản verify & test cho {skill.primary_language || 'dự án'}</td>
+                        <td className="p-3 text-[var(--text-muted)]"><span className="flex items-center gap-1.5"><XCircle className="w-3.5 h-3.5 shrink-0 text-[var(--text-muted)]" /> Không kèm test case, tốn công gỡ lỗi</span></td>
+                      </tr>
+                    </tbody>
+                  </table>
                 </div>
               </div>
             </div>
           )}
 
-          {/* TAB 4: BEFORE VS AFTER */}
-          {activeTab === 'before_after' && (
-            <div className="space-y-6 animate-fade-in">
-              <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-purple-500 shrink-0" />
-                <span>Hiệu Quả Thực Tế: Trước và Sau Khi Sử Dụng</span>
-              </h4>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* BEFORE */}
-                <div className="p-4 sm:p-5 rounded-2xl sm:rounded-3xl bg-rose-50/80 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-900/40 space-y-3">
-                  <div className="flex items-center gap-2 text-rose-700 dark:text-rose-400 font-bold text-sm">
-                    <XCircle className="w-5 h-5 shrink-0" />
-                    <span>Trước khi áp dụng:</span>
-                  </div>
-                  <ul className="space-y-2.5 text-xs text-slate-700 dark:text-slate-300">
-                    <li className="flex items-start gap-2">
-                      <span className="text-rose-500 font-bold">•</span>
-                      <span>AI viết code thiếu nhất quán, thường import sai thư viện hoặc phiên bản cũ.</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <span className="text-rose-500 font-bold">•</span>
-                      <span>Phải gõ prompt lặp lại hướng dẫn dự án mỗi khi mở chat mới.</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <span className="text-rose-500 font-bold">•</span>
-                      <span>Dễ xảy ra lỗi logic, thao tác nhầm vào cơ sở dữ liệu hoặc production code.</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <span className="text-rose-500 font-bold">•</span>
-                      <span>Mất nhiều thời gian review thủ công từng dòng code.</span>
-                    </li>
-                  </ul>
-                </div>
-
-                {/* AFTER */}
-                <div className="p-4 sm:p-5 rounded-2xl sm:rounded-3xl bg-emerald-50/80 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/40 space-y-3 shadow-sm">
-                  <div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-400 font-bold text-sm">
-                    <CheckCircle2 className="w-5 h-5 shrink-0" />
-                    <span>Sau khi tích hợp {skill.title || skill.name}:</span>
-                  </div>
-                  <ul className="space-y-2.5 text-xs text-slate-700 dark:text-slate-300">
-                    <li className="flex items-start gap-2">
-                      <span className="text-emerald-500 font-bold">✓</span>
-                      <span><strong>Tự động 100%:</strong> AI tự động tuân thủ chuẩn quy ước, đúng cú pháp và clean code.</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <span className="text-emerald-500 font-bold">✓</span>
-                      <span><strong>Tiết kiệm 80% thời gian gõ prompt:</strong> Context được nạp tự động qua giao thức MCP / Rule.</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <span className="text-emerald-500 font-bold">✓</span>
-                      <span><strong>An toàn tuyệt đối:</strong> Có cơ chế xác thực, sandbox và kiểm tra lỗi trước khi commit.</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <span className="text-emerald-500 font-bold">✓</span>
-                      <span>Code sinh ra sẵn sàng chạy ngay, không cần sửa lỗi vặt.</span>
-                    </li>
-                  </ul>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* TAB 5: COMPARISON */}
-          {activeTab === 'comparison' && (
-            <div className="space-y-5 animate-fade-in">
-              <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                <Scale className="w-4 h-4 text-orange-500 shrink-0" />
-                <span>Điểm Mạnh & Khác Biệt So Với Các Giải Pháp Khác</span>
-              </h4>
-
-              <div className="p-4 sm:p-5 rounded-2xl sm:rounded-3xl bg-amber-50/80 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/40 text-xs text-slate-800 dark:text-slate-200 leading-relaxed space-y-3">
-                <div className="font-bold text-amber-900 dark:text-amber-300 flex items-center gap-2 text-sm">
-                  <Zap className="w-4 h-4 shrink-0" /> <span>Đánh Giá Chuyên Sâu:</span>
-                </div>
-                <p>
-                  {skill.comparison_notes || 'Giải pháp này được tối ưu hóa toàn diện cho các tác vụ coding agents hiện đại.'}
-                </p>
-              </div>
-
-              {/* Feature Matrix */}
-              <div className="rounded-2xl sm:rounded-3xl border border-slate-200 dark:border-slate-800 overflow-x-auto text-xs shadow-sm">
-                <table className="w-full text-left min-w-[480px]">
-                  <thead className="bg-slate-100 dark:bg-slate-950 text-slate-600 dark:text-slate-400 font-semibold border-b border-slate-200 dark:border-slate-800">
-                    <tr>
-                      <th className="p-3.5">Tiêu chí</th>
-                      <th className="p-3.5">{skill.title || skill.name}</th>
-                      <th className="p-3.5 text-slate-400">Cách làm truyền thống</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y border-slate-200 dark:divide-slate-800 text-slate-700 dark:text-slate-300">
-                    <tr>
-                      <td className="p-3.5 font-semibold">Tự động hóa Context</td>
-                      <td className="p-3.5 text-emerald-600 dark:text-emerald-400 font-bold">✓ Tự động nạp qua giao thức chuẩn</td>
-                      <td className="p-3.5 text-slate-400">✗ Copy/paste thủ công từng file</td>
-                    </tr>
-                    <tr>
-                      <td className="p-3.5 font-semibold">Độ tương thích đa IDE</td>
-                      <td className="p-3.5 text-emerald-600 dark:text-emerald-400 font-bold">✓ Cursor, Claude, Gemini, Windsurf</td>
-                      <td className="p-3.5 text-slate-400">✗ Phụ thuộc 1 IDE duy nhất</td>
-                    </tr>
-                    <tr>
-                      <td className="p-3.5 font-semibold">Độ tin cậy & An toàn</td>
-                      <td className="p-3.5 text-emerald-600 dark:text-emerald-400 font-bold">✓ Có cơ chế validation & sandbox</td>
-                      <td className="p-3.5 text-slate-400">✗ Dễ hallucinate / lỗi cú pháp</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-
-          {/* TAB 6: MULTI-RUNTIME INSTALL */}
+          {/* TAB 3: MULTI-RUNTIME INSTALL */}
           {activeTab === 'install' && (
             <div className="space-y-5 animate-fade-in">
-              <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                <Code className="w-4 h-4 text-sky-500 shrink-0" />
-                <span>Hướng Dẫn Cài Đặt Cho Từng Runtime & IDE</span>
+              <h4 className="text-sm font-bold text-[var(--text-main)] flex items-center gap-2">
+                <Code className="w-4 h-4 text-[var(--primary)] shrink-0" />
+                <span>{language === 'vi' ? 'Hướng Dẫn Cài Đặt Cho Từng Runtime & IDE' : 'Installation Guide per Runtime & IDE'}</span>
               </h4>
 
               {/* Runtime Selector Buttons */}
@@ -834,10 +895,10 @@ export const SkillDetailModal: React.FC<SkillDetailModalProps> = ({
                   <button
                     key={key}
                     onClick={() => setSelectedRuntimeGuide(key)}
-                    className={`px-3.5 py-2 rounded-xl sm:rounded-2xl text-xs font-semibold whitespace-nowrap transition-all shrink-0 flex items-center gap-2 ${
+                    className={`px-3.5 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all shrink-0 flex items-center gap-2 cursor-pointer ${
                       selectedRuntimeGuide === key
-                        ? 'bg-emerald-600 text-white shadow-md'
-                        : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
+                        ? 'neu-primary text-white font-bold'
+                        : 'neu-btn text-[var(--text-main)]'
                     }`}
                   >
                     <TechLogo name={key} className="w-4 h-4 shrink-0" />
@@ -850,25 +911,26 @@ export const SkillDetailModal: React.FC<SkillDetailModalProps> = ({
               {(() => {
                 const currentConfig = (configs as any)[selectedRuntimeGuide] || configs.cursor;
                 return (
-                  <div className="relative rounded-2xl sm:rounded-3xl bg-slate-950 p-4 sm:p-6 border border-slate-800 font-mono text-xs text-slate-200 space-y-3">
-                    <div className="flex flex-wrap items-center justify-between gap-2 text-slate-400 pb-2 border-b border-slate-800 text-[11px]">
-                      <span>File cấu hình: <strong className="text-emerald-400 break-all">{currentConfig.file}</strong></span>
+                  <div className="rounded-2xl neu-flat p-5 sm:p-6 font-mono text-xs text-[var(--text-main)] space-y-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2 text-[var(--text-muted)] pb-2 text-[11px]">
+                      <span>{language === 'vi' ? 'File cấu hình:' : 'Config file:'} <strong className="text-[var(--primary)] break-all">{currentConfig.file}</strong></span>
                       <button
                         onClick={() => handleCopyCommand(currentConfig.code)}
-                        className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 flex items-center gap-1.5 transition-colors ml-auto"
+                        className="px-3 py-1.5 rounded-xl neu-btn text-[var(--text-main)] flex items-center gap-1.5 transition-colors ml-auto font-semibold cursor-pointer"
                       >
-                        {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-                        <span>{copied ? 'Đã chép' : 'Sao chép code'}</span>
+                        {copied ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+                        <span>{copied ? (language === 'vi' ? 'Đã chép' : 'Copied') : (language === 'vi' ? 'Sao chép code' : 'Copy code')}</span>
                       </button>
                     </div>
 
-                    <pre className="text-slate-300 overflow-x-auto text-[11px] leading-relaxed max-w-full">
+                    <pre className="p-4 rounded-xl neu-inset text-[var(--text-main)] overflow-x-auto text-[11px] leading-relaxed max-w-full">
                       {currentConfig.code}
                     </pre>
 
-                    <div className="pt-3 border-t border-slate-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-[11px]">
-                      <span className="text-slate-400 shrink-0">Lệnh terminal nhanh:</span>
-                      <code className="text-emerald-400 font-bold break-all bg-slate-900/90 px-2.5 py-1 rounded-lg border border-slate-800 max-w-full overflow-x-auto">$ {currentConfig.command}</code>
+                    <div className="neu-divider my-2.5" />
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-[11px]">
+                      <span className="text-[var(--text-muted)] shrink-0 font-sans font-semibold">{language === 'vi' ? 'Lệnh terminal nhanh:' : 'Quick terminal command:'}</span>
+                      <code className="text-[var(--primary)] font-bold break-all neu-inset-sm px-3 py-1.5 rounded-xl max-w-full overflow-x-auto">$ {currentConfig.command}</code>
                     </div>
                   </div>
                 );
@@ -876,57 +938,93 @@ export const SkillDetailModal: React.FC<SkillDetailModalProps> = ({
             </div>
           )}
 
-          {/* TAB: SECURITY AUDIT & GUARDRAILS */}
+          {/* TAB 4: SECURITY AUDIT & OFFICIAL README DOCS */}
           {activeTab === 'security' && (
             <div className="space-y-6 animate-fade-in">
-              <div className="p-4 sm:p-5 rounded-2xl sm:rounded-3xl bg-slate-100/80 dark:bg-slate-950/80 border border-slate-200 dark:border-slate-800 space-y-4">
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-3 border-b border-slate-200 dark:border-slate-800">
+              <div className="p-5 sm:p-6 rounded-2xl neu-flat space-y-4">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-2">
                   <div className="flex items-center gap-2.5">
-                    <div className="p-2.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 shrink-0">
+                    <div className="p-2.5 rounded-2xl neu-inset-sm text-emerald-600 dark:text-emerald-400 shrink-0">
                       <ShieldCheck className="w-5 h-5" />
                     </div>
                     <div>
-                      <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100">
+                      <h4 className="text-sm font-bold text-[var(--text-main)]">
                         {t('security_audit_title')}
                       </h4>
-                      <p className="text-xs text-slate-500 dark:text-slate-400">
-                        Phân tích AST và heuristic kiểm định mã nguồn độc hại & rò rỉ secret
+                      <p className="text-xs text-[var(--text-muted)]">
+                        {language === 'vi' ? 'Phân tích AST và heuristic kiểm định mã nguồn độc hại & rò rỉ secret' : 'AST static analysis & heuristics for malicious patterns and secrets leak'}
                       </p>
                     </div>
                   </div>
 
-                  <SecurityBadge rating={skill.security_rating || 'safe'} score={skill.security_score || 95} size="md" />
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={handleScanSecurity}
+                      disabled={isScanningSecurity}
+                      className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl neu-primary disabled:opacity-50 text-white font-bold text-xs transition-all shadow-sm active:scale-95 cursor-pointer"
+                      title="Chạy kiểm định an toàn AST thời gian thực"
+                    >
+                      <RefreshCw className={`w-3.5 h-3.5 ${isScanningSecurity ? 'animate-spin' : ''}`} />
+                      <span>{isScanningSecurity ? (language === 'vi' ? 'Đang quét...' : 'Scanning...') : (language === 'vi' ? 'Quét lại bảo mật' : 'Rescan Security')}</span>
+                    </button>
+                    <SecurityBadge 
+                      rating={liveSecurityReport?.security_rating || skill.security_rating || 'safe'} 
+                      score={liveSecurityReport?.security_score || skill.security_score || 95} 
+                      size="md" 
+                    />
+                  </div>
                 </div>
 
+                <div className="neu-divider my-1" />
+
+                {/* Live Scan Notification if available */}
+                {liveSecurityReport && (
+                  <div className="p-3.5 rounded-2xl neu-inset-sm text-xs text-blue-700 dark:text-blue-300 flex items-start gap-2.5">
+                    <CheckCircle2 className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" />
+                    <div>
+                      <span className="font-bold">{language === 'vi' ? 'Kết quả kiểm định AST trực tiếp: ' : 'Live AST Verification Result: '}</span>
+                      <span>{liveSecurityReport.badge_text} • {liveSecurityReport.recommendation}</span>
+                    </div>
+                  </div>
+                )}
+
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 font-mono text-xs">
-                  <div className="p-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
-                    <span className="text-slate-400 text-[11px] block">{t('security_rating_label')}</span>
+                  <div className="p-3.5 rounded-2xl neu-inset-sm">
+                    <span className="text-[var(--text-muted)] text-[11px] block">{t('security_rating_label')}</span>
                     <strong className="text-emerald-600 dark:text-emerald-400 text-sm capitalize">
-                      {skill.security_rating || 'safe'}
+                      {liveSecurityReport?.security_rating || skill.security_rating || 'safe'}
                     </strong>
                   </div>
-                  <div className="p-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
-                    <span className="text-slate-400 text-[11px] block">{t('permission_level_label')}</span>
-                    <strong className="text-slate-800 dark:text-slate-200 text-sm">
-                      {skill.permission_level || 'read_only'}
+                  <div className="p-3.5 rounded-2xl neu-inset-sm">
+                    <span className="text-[var(--text-muted)] text-[11px] block">{t('permission_level_label')}</span>
+                    <strong className="text-[var(--text-main)] text-sm">
+                      {liveSecurityReport?.permission_level || skill.permission_level || 'read_only'}
                     </strong>
                   </div>
-                  <div className="p-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
-                    <span className="text-slate-400 text-[11px] block">{t('sandbox_status_label')}</span>
-                    <strong className="text-emerald-500 text-sm">
-                      ✓ Compliant
+                  <div className="p-3.5 rounded-2xl neu-inset-sm">
+                    <span className="text-[var(--text-muted)] text-[11px] block">{t('sandbox_status_label')}</span>
+                    <strong className={`text-sm flex items-center gap-1.5 ${liveSecurityReport ? (liveSecurityReport.sandbox_compliant ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400') : 'text-emerald-600 dark:text-emerald-400'}`}>
+                      {liveSecurityReport ? (
+                        liveSecurityReport.sandbox_compliant ? (
+                          <><CheckCircle2 className="w-3.5 h-3.5 shrink-0" /> Compliant</>
+                        ) : (
+                          <><AlertTriangle className="w-3.5 h-3.5 shrink-0" /> Non-compliant</>
+                        )
+                      ) : (
+                        <><CheckCircle2 className="w-3.5 h-3.5 shrink-0" /> Compliant</>
+                      )}
                     </strong>
                   </div>
                 </div>
 
                 <div className="space-y-2">
-                  <div className="text-xs font-bold text-slate-700 dark:text-slate-300 font-mono uppercase">
+                  <div className="text-xs font-bold text-[var(--text-main)] font-mono uppercase">
                     {t('security_flags_detected')}:
                   </div>
-                  {skill.security_flags && skill.security_flags.length > 0 ? (
+                  {((liveSecurityReport ? liveSecurityReport.flags : skill.security_flags) || []).length > 0 ? (
                     <div className="space-y-2">
-                      {skill.security_flags.map((flag, idx) => (
-                        <div key={idx} className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/40 text-xs text-amber-800 dark:text-amber-300 flex items-start gap-2">
+                      {((liveSecurityReport ? liveSecurityReport.flags : skill.security_flags) || []).map((flag, idx) => (
+                        <div key={idx} className="p-3 rounded-xl neu-inset-sm text-xs text-amber-800 dark:text-amber-300 flex items-start gap-2">
                           <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
                           <div>
                             <strong>{flag.pattern}:</strong> {flag.description}
@@ -935,39 +1033,64 @@ export const SkillDetailModal: React.FC<SkillDetailModalProps> = ({
                       ))}
                     </div>
                   ) : (
-                    <div className="p-3.5 rounded-2xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/40 text-xs text-emerald-800 dark:text-emerald-300 flex items-center gap-2">
+                    <div className="p-3.5 rounded-2xl neu-inset-sm text-xs text-emerald-700 dark:text-emerald-400 flex items-center gap-2">
                       <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
                       <span>{t('no_security_flags')}</span>
                     </div>
                   )}
                 </div>
               </div>
-            </div>
-          )}
 
-          {/* TAB 7: README PREVIEW */}
-          {activeTab === 'readme' && (
-            <div className="space-y-4 animate-fade-in">
-              <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                <FileText className="w-4 h-4 text-sky-500 shrink-0" />
-                <span>Trích Đoạn README Chính Thức Từ Repository</span>
-              </h4>
-              <div className="p-4 sm:p-5 rounded-2xl sm:rounded-3xl bg-slate-950 border border-slate-800 font-mono text-xs text-slate-300 whitespace-pre-wrap break-words overflow-x-auto leading-relaxed shadow-inner max-w-full">
-                {skill.readme_preview || `# ${skill.title || skill.name}\n\n${skill.description}\n\nXem thêm chi tiết tại: ${skill.repository_url}`}
+              {/* Official Repository README Preview */}
+              <div className="p-5 sm:p-6 rounded-2xl neu-flat space-y-4">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 pb-2">
+                  <div className="flex items-center gap-2.5">
+                    <div className="p-2 rounded-xl neu-inset-sm text-[var(--primary)] shrink-0">
+                      <FileText className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-bold text-[var(--text-main)]">
+                        {language === 'vi' ? 'Tài Liệu Gốc / Official README' : 'Official Repository README'}
+                      </h4>
+                      <p className="text-xs text-[var(--text-muted)]">
+                        {language === 'vi' ? 'Trích xuất nguyên bản từ kho mã nguồn repository' : 'Directly extracted from the source repository'}
+                      </p>
+                    </div>
+                  </div>
+
+                  {skill.repository_url && (
+                    <a
+                      href={skill.repository_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs font-semibold text-[var(--primary)] hover:underline flex items-center gap-1 shrink-0"
+                    >
+                      <span>{language === 'vi' ? 'Xem trên GitHub' : 'View on GitHub'}</span>
+                      <ExternalLink className="w-3.5 h-3.5" />
+                    </a>
+                  )}
+                </div>
+
+                <div className="p-4 sm:p-5 rounded-2xl neu-inset max-w-full overflow-hidden">
+                  <MarkdownRenderer
+                    content={skill.readme_preview || `# ${skill.title || skill.name}\n\n${skill.description}\n\nXem thêm chi tiết tại: ${skill.repository_url}`}
+                  />
+                </div>
               </div>
             </div>
           )}
         </div>
 
         {/* Modal Footer */}
-        <div className="p-3.5 sm:p-5 border-t border-slate-200 dark:border-slate-800 bg-slate-50/90 dark:bg-slate-950/90 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 shrink-0">
-          <div className="flex items-center justify-center sm:justify-start gap-4 text-xs text-slate-500 dark:text-slate-400 font-medium">
-            <span className="flex items-center gap-1.5">
-              <Star className="w-4 h-4 text-amber-500 fill-amber-500/20 shrink-0" />
+        <div className="neu-divider" />
+        <div className="p-4 bg-[var(--bg)] flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 shrink-0">
+          <div className="flex items-center justify-center sm:justify-start gap-3 text-xs text-slate-600 dark:text-slate-400 font-mono font-medium">
+            <span className="flex items-center gap-1.5 neu-inset-sm px-3 py-1.5 rounded-xl">
+              <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-500 shrink-0" />
               {skill.stars.toLocaleString()} Stars
             </span>
-            <span className="flex items-center gap-1.5">
-              <GitFork className="w-4 h-4 shrink-0" />
+            <span className="flex items-center gap-1.5 neu-inset-sm px-3 py-1.5 rounded-xl">
+              <GitFork className="w-3.5 h-3.5 text-slate-400 shrink-0" />
               {skill.forks.toLocaleString()} Forks
             </span>
           </div>
@@ -976,7 +1099,7 @@ export const SkillDetailModal: React.FC<SkillDetailModalProps> = ({
             href={skill.repository_url}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl sm:rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition-all shadow-md shadow-emerald-600/20 active:scale-95"
+            className="flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl neu-primary text-white font-bold text-xs transition-transform active:scale-95"
           >
             <span>Mở trên GitHub</span>
             <ExternalLink className="w-3.5 h-3.5 shrink-0" />

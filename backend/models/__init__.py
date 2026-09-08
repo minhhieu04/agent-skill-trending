@@ -6,6 +6,7 @@ from models.user import User
 from models.user_bookmark import UserBookmark
 from models.collection_run import CollectionRun
 from models.audit_log import AuditLog
+from models.daily_digest import DailyDigest
 
 __all__ = [
     "Skill", 
@@ -15,5 +16,6 @@ __all__ = [
     "User", 
     "UserBookmark", 
     "CollectionRun", 
-    "AuditLog"
+    "AuditLog",
+    "DailyDigest"
 ]

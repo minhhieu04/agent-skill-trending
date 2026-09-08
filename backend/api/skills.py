@@ -366,6 +366,7 @@ def get_skill_detail(
     skill = db.query(Skill).filter(Skill.id == skill_id).first()
     if not skill:
         raise HTTPException(status_code=404, detail="Skill not found")
+    SkillService.ensure_enriched(skill)
     if current_user:
         SkillService.populate_user_bookmarks([skill], current_user.id, db)
     return skill

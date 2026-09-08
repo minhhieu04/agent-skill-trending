@@ -24,14 +24,14 @@ export const BookmarksPage: React.FC<BookmarksPageProps> = ({
 
   return (
     <div className="space-y-6">
-      <div className="p-6 rounded-3xl bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 shadow-sm flex items-center justify-between transition-colors">
+      <div className="p-5 sm:p-6 rounded-3xl neu-flat flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="p-3 rounded-2xl bg-purple-500/10 border border-purple-500/20 text-purple-500">
-            <BookmarkCheck className="w-6 h-6" />
+          <div className="w-10 h-10 rounded-2xl neu-inset text-[var(--primary)] flex items-center justify-center">
+            <BookmarkCheck className="w-5 h-5" />
           </div>
           <div>
-            <h2 className="text-xl font-black text-slate-900 dark:text-slate-100">{t('bookmarks_title')}</h2>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+            <h2 className="text-base sm:text-lg font-bold text-[var(--text-main)]">{t('bookmarks_title')}</h2>
+            <p className="text-xs text-[var(--text-muted)] mt-0.5">
               {t('bookmarks_sub')}
             </p>
           </div>
@@ -39,20 +39,20 @@ export const BookmarksPage: React.FC<BookmarksPageProps> = ({
 
         <button
           onClick={onBackToFeed}
-          className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 transition-all duration-200 hover:scale-105 active:scale-95 shadow-sm"
+          className="flex items-center gap-1.5 px-4 py-2 rounded-2xl text-xs font-semibold neu-btn text-[var(--text-muted)] hover:text-[var(--primary)] transition-all"
         >
-          <ArrowLeft className="w-4 h-4" />
-          {t('tab_trending')}
+          <ArrowLeft className="w-3.5 h-3.5" />
+          <span>{t('tab_trending')}</span>
         </button>
       </div>
 
       {loading ? (
         <GridSkeleton count={4} />
       ) : skills.length === 0 ? (
-        <div className="text-center py-20 p-8 rounded-3xl bg-white dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 shadow-sm animate-fade-in">
-          <Bookmark className="w-12 h-12 text-slate-400 mx-auto mb-3 animate-float" />
-          <h3 className="text-base font-bold text-slate-800 dark:text-slate-200">{t('no_bookmarks')}</h3>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-sm mx-auto">
+        <div className="text-center py-16 p-8 rounded-3xl neu-inset">
+          <Bookmark className="w-8 h-8 text-[var(--text-muted)] mx-auto mb-2" />
+          <h3 className="text-sm font-bold text-[var(--text-main)]">{t('no_bookmarks')}</h3>
+          <p className="text-xs text-[var(--text-muted)] mt-1 max-w-sm mx-auto">
             {t('no_bookmarks_hint')}
           </p>
         </div>

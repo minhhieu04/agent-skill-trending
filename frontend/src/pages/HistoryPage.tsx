@@ -13,6 +13,7 @@ import {
   Calendar,
   Filter
 } from 'lucide-react';
+import { NeuSelect } from '../components/NeuSelect';
 import { useLanguage } from '../context/LanguageContext';
 
 export const HistoryPage: React.FC = () => {
@@ -52,58 +53,58 @@ export const HistoryPage: React.FC = () => {
   const getActionBadge = (action: string) => {
     switch (action) {
       case 'login':
-        return <span className="px-2 py-0.5 rounded-md bg-blue-100 dark:bg-blue-500/10 text-blue-700 dark:text-blue-400 border border-blue-200 dark:border-blue-500/20 text-[11px] font-mono">login</span>;
+        return <span className="px-2.5 py-0.5 rounded-lg neu-inset-sm text-[var(--primary)] text-[11px] font-mono font-semibold">login</span>;
       case 'register':
-        return <span className="px-2 py-0.5 rounded-md bg-emerald-100 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20 text-[11px] font-mono">register</span>;
+        return <span className="px-2.5 py-0.5 rounded-lg neu-inset-sm text-emerald-500 text-[11px] font-mono font-semibold">register</span>;
       case 'bookmark':
-        return <span className="px-2 py-0.5 rounded-md bg-purple-100 dark:bg-purple-500/10 text-purple-700 dark:text-purple-400 border border-purple-200 dark:border-purple-500/20 text-[11px] font-mono">bookmark</span>;
+        return <span className="px-2.5 py-0.5 rounded-lg neu-primary text-white text-[11px] font-mono font-bold">bookmark</span>;
       case 'unbookmark':
-        return <span className="px-2 py-0.5 rounded-md bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-400 border border-slate-300 dark:border-slate-700 text-[11px] font-mono">unbookmark</span>;
+        return <span className="px-2.5 py-0.5 rounded-lg neu-inset-sm text-[var(--text-muted)] text-[11px] font-mono">unbookmark</span>;
       case 'trigger_collection':
-        return <span className="px-2 py-0.5 rounded-md bg-amber-100 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-500/20 text-[11px] font-mono">trigger_collection</span>;
+        return <span className="px-2.5 py-0.5 rounded-lg neu-inset-sm text-[var(--primary)] text-[11px] font-mono font-semibold">trigger_collection</span>;
       case 'update_preferences':
-        return <span className="px-2 py-0.5 rounded-md bg-indigo-100 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-500/20 text-[11px] font-mono">update_preferences</span>;
+        return <span className="px-2.5 py-0.5 rounded-lg neu-inset-sm text-[var(--primary)] text-[11px] font-mono font-semibold">update_preferences</span>;
       case 'collection_completed':
-        return <span className="px-2 py-0.5 rounded-md bg-teal-100 dark:bg-teal-500/10 text-teal-700 dark:text-teal-400 border border-teal-200 dark:border-teal-500/20 text-[11px] font-mono">collection_completed</span>;
+        return <span className="px-2.5 py-0.5 rounded-lg neu-inset-sm text-emerald-500 text-[11px] font-mono font-semibold">collection_completed</span>;
       default:
-        return <span className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-400 border border-slate-200 dark:border-slate-700 text-[11px] font-mono">{action}</span>;
+        return <span className="px-2.5 py-0.5 rounded-lg neu-inset-sm text-[var(--text-muted)] font-mono text-[11px]">{action}</span>;
     }
   };
 
   return (
     <div className="space-y-6">
       {/* Header Banner */}
-      <div className="p-6 rounded-3xl bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4 transition-colors">
+      <div className="p-5 sm:p-6 rounded-3xl neu-flat flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-500">
-            <History className="w-6 h-6" />
+          <div className="w-10 h-10 rounded-2xl neu-inset text-[var(--primary)] flex items-center justify-center shrink-0">
+            <History className="w-5 h-5" />
           </div>
           <div>
-            <h2 className="text-xl font-black text-slate-900 dark:text-slate-100">{t('history_title')}</h2>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+            <h2 className="text-base sm:text-lg font-bold text-[var(--text-main)]">{t('history_title')}</h2>
+            <p className="text-xs text-[var(--text-muted)] mt-0.5">
               {t('history_sub')}
             </p>
           </div>
         </div>
 
         {/* Sub-tab Switcher */}
-        <div className="flex items-center p-1 rounded-2xl bg-slate-100 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs">
+        <div className="flex items-center p-1.5 rounded-2xl neu-inset text-xs gap-1">
           <button
             onClick={() => setSubTab('runs')}
-            className={`px-4 py-2 rounded-xl font-bold transition-all duration-200 hover:scale-105 active:scale-95 ${
+            className={`px-3.5 py-1.5 rounded-xl font-semibold transition-all ${
               subTab === 'runs'
-                ? 'bg-amber-500 text-slate-950 shadow-md'
-                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+                ? 'neu-flat text-[var(--primary)]'
+                : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
             }`}
           >
             {t('subtab_runs')} ({runs.length})
           </button>
           <button
             onClick={() => setSubTab('audit')}
-            className={`px-4 py-2 rounded-xl font-bold transition-all duration-200 hover:scale-105 active:scale-95 ${
+            className={`px-3.5 py-1.5 rounded-xl font-semibold transition-all ${
               subTab === 'audit'
-                ? 'bg-amber-500 text-slate-950 shadow-md'
-                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+                ? 'neu-flat text-[var(--primary)]'
+                : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
             }`}
           >
             {t('subtab_audit')} ({auditLogs.length})
@@ -115,15 +116,15 @@ export const HistoryPage: React.FC = () => {
       {subTab === 'runs' && (
         <div className="space-y-4 animate-fade-in">
           <div className="flex items-center justify-between">
-            <h3 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-              <Activity className="w-4 h-4 text-emerald-500" />
+            <h3 className="text-xs font-mono uppercase tracking-wider text-[var(--text-muted)] flex items-center gap-1.5">
+              <Activity className="w-3.5 h-3.5 text-[var(--primary)]" />
               {t('recent_runs')}
             </h3>
             <button
               onClick={() => refetchRuns()}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 transition-all duration-200 hover:scale-105 active:scale-95 shadow-sm"
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-semibold neu-btn text-[var(--text-main)] hover:text-[var(--primary)] transition-all"
             >
-              <RefreshCw className="w-3.5 h-3.5" />
+              <RefreshCw className="w-3 h-3" />
               <span>{t('refresh')}</span>
             </button>
           </div>
@@ -131,25 +132,25 @@ export const HistoryPage: React.FC = () => {
           {loadingRuns ? (
             <TableSkeleton rows={4} />
           ) : runs.length === 0 ? (
-            <div className="text-center py-12 p-6 rounded-3xl bg-white dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 animate-fade-in">
-              <Activity className="w-8 h-8 text-slate-400 mx-auto mb-2 animate-float" />
-              <p className="text-xs text-slate-500">{t('no_history_runs')}</p>
+            <div className="text-center py-12 p-6 rounded-3xl neu-inset">
+              <Activity className="w-8 h-8 text-[var(--text-muted)] mx-auto mb-2" />
+              <p className="text-xs text-[var(--text-muted)]">{t('no_history_runs')}</p>
             </div>
           ) : (
             <div className="space-y-3 animate-fade-in">
               {runs.map((run) => (
                 <div
                   key={run.id}
-                  className="p-5 rounded-3xl bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 shadow-sm space-y-3 transition-all duration-300 ease-spring hover:-translate-y-0.5 hover:shadow-md"
+                  className="p-5 rounded-3xl neu-flat space-y-3 transition-all"
                 >
-                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 pb-2 border-b border-slate-100 dark:border-slate-800">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 pb-2.5 border-b border-[var(--shadow-dark)]/20">
                     <div className="flex items-center gap-2.5">
-                      <div className={`p-2 rounded-xl ${
+                      <div className={`p-2 rounded-xl neu-inset ${
                         run.status === 'completed' 
-                          ? 'bg-emerald-100 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' 
+                          ? 'text-emerald-500' 
                           : run.status === 'running'
-                          ? 'bg-amber-100 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 animate-spin'
-                          : 'bg-rose-100 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400'
+                          ? 'text-amber-500 animate-spin'
+                          : 'text-rose-500'
                       }`}>
                         {run.status === 'completed' ? (
                           <CheckCircle2 className="w-4 h-4" />
@@ -160,50 +161,50 @@ export const HistoryPage: React.FC = () => {
                         )}
                       </div>
                       <div>
-                        <span className="font-black text-slate-900 dark:text-slate-100 text-sm">
+                        <span className="font-bold text-[var(--text-main)] text-sm">
                           {t('scan_batch_prefix')}{run.id}
                         </span>
-                        <span className="text-xs text-slate-400 ml-2 font-mono">
-                          {t('run_by')} <strong className="text-slate-700 dark:text-slate-300">@{run.triggered_by}</strong>
+                        <span className="text-xs text-[var(--text-muted)] ml-2 font-mono">
+                          {t('run_by')} <strong className="text-[var(--text-main)] font-semibold">@{run.triggered_by}</strong>
                         </span>
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-3 text-xs">
-                      <div className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400 font-mono">
-                        <Calendar className="w-3.5 h-3.5" />
+                    <div className="flex items-center gap-2.5 text-xs">
+                      <div className="flex items-center gap-1.5 text-[var(--text-muted)] font-mono">
+                        <Calendar className="w-3.5 h-3.5 text-[var(--primary)]" />
                         <span>{formatDate(run.started_at)}</span>
                       </div>
-                      <span className="px-2.5 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/40 font-mono text-[11px] font-bold">
+                      <span className="px-2.5 py-0.5 rounded-lg neu-inset-sm text-emerald-500 font-mono font-semibold text-[11px]">
                         +{run.total_new_skills} {t('new_skills')}
                       </span>
-                      <span className="px-2.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-mono text-[11px]">
+                      <span className="px-2.5 py-0.5 rounded-lg neu-inset-sm text-[var(--text-muted)] font-mono text-[11px]">
                         {run.total_updated_skills} {t('updated_skills')}
                       </span>
                     </div>
                   </div>
 
                   {run.summary && (
-                    <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200/80 dark:border-slate-800/80 text-xs text-slate-700 dark:text-slate-300">
+                    <div className="p-3 rounded-2xl neu-inset text-xs text-[var(--text-main)]">
                       {run.summary}
                     </div>
                   )}
 
                   {run.error_detail && (
-                    <div className="p-3 rounded-2xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/30 text-xs text-rose-700 dark:text-rose-300 font-mono">
+                    <div className="p-3 rounded-2xl neu-inset text-xs text-rose-500 font-mono">
                       {run.error_detail}
                     </div>
                   )}
 
                   {run.sources_summary && Object.keys(run.sources_summary).length > 0 && (
-                    <div className="flex flex-wrap items-center gap-2 pt-1">
-                      <span className="text-[10px] font-bold text-slate-400 uppercase font-mono mr-1">{t('sources')}</span>
+                    <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                      <span className="text-[10px] font-mono text-[var(--text-muted)] uppercase mr-1">{t('sources')}</span>
                       {Object.entries(run.sources_summary).map(([src, stat]: [string, any]) => (
                         <span
                           key={src}
-                          className="px-2 py-0.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 font-mono text-[11px]"
+                          className="px-2.5 py-0.5 rounded-lg neu-inset-sm text-[var(--text-muted)] font-mono text-[11px]"
                         >
-                          {src}: <strong className="text-emerald-600 dark:text-emerald-400">{typeof stat === 'object' ? stat.total || 0 : stat}</strong>
+                          {src}: <strong className="text-[var(--text-main)]">{typeof stat === 'object' ? stat.total || 0 : stat}</strong>
                         </span>
                       ))}
                     </div>
@@ -219,42 +220,44 @@ export const HistoryPage: React.FC = () => {
       {subTab === 'audit' && (
         <div className="space-y-4">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-            <h3 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-              <ShieldCheck className="w-4 h-4 text-sky-500" />
+            <h3 className="text-xs font-mono uppercase tracking-wider text-[var(--text-muted)] flex items-center gap-1.5">
+              <ShieldCheck className="w-3.5 h-3.5 text-[var(--primary)]" />
               {t('audit_trail')}
             </h3>
 
             {/* Filter Actions */}
-            <div className="flex items-center gap-2 text-xs">
-              <Filter className="w-3.5 h-3.5 text-slate-400" />
-              <select
-                value={actionFilter}
-                onChange={(e) => setActionFilter(e.target.value)}
-                className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 text-xs rounded-xl px-3 py-1.5 outline-none focus:border-emerald-500 cursor-pointer shadow-sm"
-              >
-                <option value="all">{t('all_actions')}</option>
-                <option value="login">Login</option>
-                <option value="register">Register</option>
-                <option value="bookmark">Bookmark</option>
-                <option value="trigger_collection">Trigger Collection</option>
-                <option value="update_preferences">Update Preferences</option>
-              </select>
-            </div>
+            <NeuSelect
+              value={actionFilter}
+              onChange={(val) => setActionFilter(String(val))}
+              options={[
+                { value: 'all', label: t('all_actions') },
+                { value: 'login', label: 'Login' },
+                { value: 'register', label: 'Register' },
+                { value: 'bookmark', label: 'Bookmark' },
+                { value: 'trigger_collection', label: 'Trigger Collection' },
+                { value: 'update_preferences', label: 'Update Preferences' },
+              ]}
+              icon={<Filter className="w-3.5 h-3.5" />}
+              size="sm"
+              variant="inset"
+              searchable={false}
+              title={t('all_actions')}
+            />
           </div>
 
           {loadingAudit ? (
             <TableSkeleton rows={5} />
           ) : auditLogs.length === 0 ? (
-            <div className="text-center py-12 p-6 rounded-3xl bg-white dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800">
-              <ShieldCheck className="w-8 h-8 text-slate-400 mx-auto mb-2" />
-              <p className="text-xs text-slate-500">{t('no_history_runs')}</p>
+            <div className="text-center py-12 p-6 rounded-3xl neu-inset">
+              <ShieldCheck className="w-8 h-8 text-[var(--text-muted)] mx-auto mb-2" />
+              <p className="text-xs text-[var(--text-muted)]">{t('no_history_runs')}</p>
             </div>
           ) : (
-            <div className="rounded-3xl border border-slate-200 dark:border-slate-800 overflow-hidden bg-white dark:bg-slate-900/80 shadow-sm">
+            <div className="rounded-3xl neu-flat overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs border-collapse">
                   <thead>
-                    <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/60 text-slate-500 uppercase tracking-wider font-mono text-[10px]">
+                    <tr className="border-b border-[var(--shadow-dark)]/20 shadow-[0_2px_4px_var(--shadow-dark)] bg-[var(--bg)] text-[var(--text-muted)] uppercase tracking-wider font-mono text-[10px]">
                       <th className="p-3.5 pl-5">{t('col_time')}</th>
                       <th className="p-3.5">{t('col_user')}</th>
                       <th className="p-3.5">{t('col_action')}</th>
@@ -262,22 +265,22 @@ export const HistoryPage: React.FC = () => {
                       <th className="p-3.5 pr-5">{t('col_detail')}</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-sans">
+                  <tbody className="divide-y divide-[var(--shadow-dark)]/15 font-sans">
                     {auditLogs.map((log) => (
-                      <tr key={log.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors">
-                        <td className="p-3.5 pl-5 font-mono text-[11px] text-slate-500 whitespace-nowrap">
+                      <tr key={log.id} className="hover:bg-[var(--shadow-dark)]/10 transition-colors">
+                        <td className="p-3.5 pl-5 font-mono text-[11px] text-[var(--text-muted)] whitespace-nowrap">
                           {formatDate(log.created_at)}
                         </td>
-                        <td className="p-3.5 font-bold text-slate-800 dark:text-slate-200">
+                        <td className="p-3.5 font-bold text-[var(--text-main)]">
                           @{log.username || 'guest'}
                         </td>
                         <td className="p-3.5">
                           {getActionBadge(log.action)}
                         </td>
-                        <td className="p-3.5 font-mono text-slate-500 text-[11px]">
+                        <td className="p-3.5 font-mono text-[var(--text-muted)] text-[11px]">
                           {log.target_type ? `${log.target_type}${log.target_id ? ` #${log.target_id}` : ''}` : '-'}
                         </td>
-                        <td className="p-3.5 pr-5 font-mono text-[10px] text-slate-600 dark:text-slate-400 max-w-xs truncate">
+                        <td className="p-3.5 pr-5 font-mono text-[10px] text-[var(--text-muted)] max-w-xs truncate">
                           {log.detail ? JSON.stringify(log.detail) : '-'}
                         </td>
                       </tr>

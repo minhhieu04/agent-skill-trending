@@ -10,6 +10,7 @@ import {
   Moon, 
   Terminal 
 } from 'lucide-react';
+import { NeuSelect } from './NeuSelect';
 import { useToast } from '../context/ToastContext';
 
 export const ImageToMatrixConverter: React.FC = () => {
@@ -207,22 +208,22 @@ export const ImageToMatrixConverter: React.FC = () => {
   };
 
   return (
-    <div className="p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl space-y-6">
+    <div className="p-5 sm:p-6 rounded-3xl neu-flat space-y-5">
       {/* Top Banner */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-5 border-b border-slate-100 dark:border-slate-800">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-4 border-b border-[var(--shadow-dark)]/20">
         <div className="flex items-center gap-3">
-          <div className="p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-500">
-            <Sparkles className="w-6 h-6" />
+          <div className="w-10 h-10 rounded-2xl neu-inset text-[var(--primary)] flex items-center justify-center shrink-0">
+            <Sparkles className="w-5 h-5" />
           </div>
           <div>
-            <h3 className="text-base font-black text-slate-900 dark:text-slate-100 flex items-center gap-2">
-              Chuyển Đổi Ảnh Thành Mã Nhị Phân 01 & Matrix String Art
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-mono bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold border border-emerald-500/20">
+            <h3 className="text-sm sm:text-base font-bold text-[var(--text-main)] flex items-center gap-2">
+              Chuyển Đổi Ảnh Thành Mã Nhị Phân 01 & Matrix Art
+              <span className="text-[10px] font-mono px-2.5 py-0.5 rounded-full neu-inset-sm text-[var(--primary)] font-semibold">
                 100% Client Privacy
               </span>
             </h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              Tải bất kỳ ảnh nào (chân dung, bạn gái, Phật Tổ, logo, meme) ➔ Tự động biến thành chuỗi nhị phân 01, Matrix Hacker hoặc chữ nghệ thuật thời gian thực.
+            <p className="text-xs text-[var(--text-muted)] mt-0.5">
+              Tải bất kỳ ảnh nào sang chuỗi nhị phân 01, Matrix Hacker hoặc chữ nghệ thuật thời gian thực.
             </p>
           </div>
         </div>
@@ -238,21 +239,21 @@ export const ImageToMatrixConverter: React.FC = () => {
           />
           <button
             onClick={() => fileInputRef.current?.click()}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-all shadow-md shadow-emerald-600/25 active:scale-95"
+            className="flex items-center gap-2 px-4 py-2.5 rounded-2xl neu-primary text-white text-xs font-semibold transition-all active:scale-95"
           >
-            <Upload className="w-4 h-4" />
+            <Upload className="w-3.5 h-3.5" />
             <span>Chọn ảnh từ máy của bạn</span>
           </button>
         </div>
       </div>
 
       {/* Control Sliders & Options */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 rounded-2xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800 text-xs">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 p-5 rounded-2xl neu-inset text-xs">
         {/* Width / Resolution Slider */}
         <div className="space-y-1.5">
-          <div className="flex justify-between font-bold text-slate-700 dark:text-slate-300">
+          <div className="flex justify-between font-bold text-[var(--text-main)]">
             <span>Độ phân giải (Độ rộng):</span>
-            <span className="font-mono text-emerald-600 dark:text-emerald-400">{width} ký tự</span>
+            <span className="font-mono text-[var(--primary)]">{width} ký tự</span>
           </div>
           <input
             type="range"
@@ -261,15 +262,15 @@ export const ImageToMatrixConverter: React.FC = () => {
             step="2"
             value={width}
             onChange={(e) => setWidth(parseInt(e.target.value))}
-            className="w-full accent-emerald-500 cursor-pointer"
+            className="w-full accent-[var(--primary)] cursor-pointer"
           />
         </div>
 
         {/* Threshold / Contrast Slider */}
         <div className="space-y-1.5">
-          <div className="flex justify-between font-bold text-slate-700 dark:text-slate-300">
-            <span>Ngưỡng tương phản sáng/tối:</span>
-            <span className="font-mono text-emerald-600 dark:text-emerald-400">{threshold}</span>
+          <div className="flex justify-between font-bold text-[var(--text-main)]">
+            <span>Ngưỡng tương phản:</span>
+            <span className="font-mono text-[var(--primary)]">{threshold}</span>
           </div>
           <input
             type="range"
@@ -278,59 +279,61 @@ export const ImageToMatrixConverter: React.FC = () => {
             step="1"
             value={threshold}
             onChange={(e) => setThreshold(parseInt(e.target.value))}
-            className="w-full accent-emerald-500 cursor-pointer"
+            className="w-full accent-[var(--primary)] cursor-pointer"
           />
         </div>
 
         {/* Character Mode Selection */}
         <div className="space-y-1.5">
-          <label className="font-bold text-slate-700 dark:text-slate-300 block">Kiểu ký tự Matrix:</label>
-          <select
+          <label className="font-bold text-[var(--text-main)] block text-xs">Kiểu ký tự Matrix:</label>
+          <NeuSelect
             value={charMode}
-            onChange={(e: any) => setCharMode(e.target.value)}
-            className="w-full p-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 font-medium cursor-pointer"
-          >
-            <option value="binary">Số nhị phân thuần (0 và 1)</option>
-            <option value="custom_word">Tùy biến chữ (VD: HIẾU, LOVE)</option>
-            <option value="matrix_chars">Ký tự Matrix Hacker (Katakana/01)</option>
-            <option value="ascii_density">Độ bóng ASCII (@%#*+=-:.)</option>
-          </select>
+            onChange={(val) => setCharMode(val as any)}
+            options={[
+              { value: 'binary', label: 'Số nhị phân thuần (0 và 1)' },
+              { value: 'custom_word', label: 'Tùy biến chữ (VD: HIẾU, LOVE)' },
+              { value: 'matrix_chars', label: 'Ký tự Matrix Hacker (01 & Katakana)' },
+              { value: 'ascii_density', label: 'Độ bóng ASCII (@%#*+=-:.)' },
+            ]}
+            size="md"
+            variant="flat"
+            searchable={false}
+            fullWidth={true}
+          />
         </div>
 
         {/* Color Theme & Invert */}
         <div className="space-y-1.5">
-          <label className="font-bold text-slate-700 dark:text-slate-300 block">Tông màu hiển thị:</label>
+          <label className="font-bold text-[var(--text-main)] block">Tông màu hiển thị:</label>
           <div className="flex items-center gap-2">
             <button
               onClick={() => setColorTheme('green')}
-              className={`w-6 h-6 rounded-full bg-emerald-500 border-2 ${colorTheme === 'green' ? 'border-white ring-2 ring-emerald-500' : 'border-transparent'}`}
+              className={`w-5 h-5 rounded-full bg-emerald-500 border ${colorTheme === 'green' ? 'ring-2 ring-[var(--text-main)]' : 'border-transparent'}`}
               title="Matrix Green"
             />
             <button
               onClick={() => setColorTheme('cyan')}
-              className={`w-6 h-6 rounded-full bg-cyan-400 border-2 ${colorTheme === 'cyan' ? 'border-white ring-2 ring-cyan-400' : 'border-transparent'}`}
+              className={`w-5 h-5 rounded-full bg-cyan-400 border ${colorTheme === 'cyan' ? 'ring-2 ring-[var(--text-main)]' : 'border-transparent'}`}
               title="Cyber Cyan"
             />
             <button
               onClick={() => setColorTheme('amber')}
-              className={`w-6 h-6 rounded-full bg-amber-400 border-2 ${colorTheme === 'amber' ? 'border-white ring-2 ring-amber-400' : 'border-transparent'}`}
+              className={`w-5 h-5 rounded-full bg-amber-400 border ${colorTheme === 'amber' ? 'ring-2 ring-[var(--text-main)]' : 'border-transparent'}`}
               title="Amber Gold"
             />
             <button
               onClick={() => setColorTheme('white')}
-              className={`w-6 h-6 rounded-full bg-slate-100 border-2 ${colorTheme === 'white' ? 'border-emerald-500 ring-2 ring-slate-300' : 'border-transparent'}`}
+              className={`w-5 h-5 rounded-full bg-zinc-100 border ${colorTheme === 'white' ? 'ring-2 ring-[var(--text-main)]' : 'border-transparent'}`}
               title="Classic White"
             />
 
             <button
               onClick={() => setInvert(!invert)}
-              className={`ml-auto px-2.5 py-1 rounded-xl border text-[11px] font-bold flex items-center gap-1 transition-colors ${
-                invert
-                  ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400'
-                  : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300'
+              className={`ml-auto px-3 py-1.5 rounded-xl neu-btn text-[11px] font-semibold flex items-center gap-1 transition-all ${
+                invert ? 'text-[var(--primary)]' : 'text-[var(--text-muted)]'
               }`}
             >
-              {invert ? <Moon className="w-3 h-3" /> : <Sun className="w-3 h-3" />}
+              {invert ? <Moon className="w-3 h-3 text-[var(--primary)]" /> : <Sun className="w-3 h-3" />}
               <span>Đảo ngược</span>
             </button>
           </div>
@@ -339,14 +342,14 @@ export const ImageToMatrixConverter: React.FC = () => {
 
       {/* Custom Word Input (if selected) */}
       {charMode === 'custom_word' && (
-        <div className="flex items-center gap-3 p-3 rounded-2xl bg-emerald-500/5 border border-emerald-500/20 animate-fade-in">
-          <span className="text-xs font-bold text-slate-700 dark:text-slate-300">Nhập từ/tên muốn lặp vào ảnh:</span>
+        <div className="flex items-center gap-3 p-4 rounded-2xl neu-flat animate-fade-in">
+          <span className="text-xs font-bold text-[var(--text-main)]">Nhập từ/tên muốn lặp vào ảnh:</span>
           <input
             type="text"
             value={customWord}
             onChange={(e) => setCustomWord(e.target.value)}
             placeholder="VD: HIẾU, EM_YÊU, 01..."
-            className="p-1.5 px-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs font-mono text-emerald-600 dark:text-emerald-400 font-bold focus:outline-none"
+            className="p-2 px-3 rounded-xl neu-inset bg-transparent text-xs font-mono text-[var(--primary)] font-bold focus:outline-none"
           />
         </div>
       )}
@@ -354,45 +357,45 @@ export const ImageToMatrixConverter: React.FC = () => {
       {/* Main Preview Screen */}
       <div className="space-y-2">
         <div className="flex items-center justify-between">
-          <div className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider font-mono flex items-center gap-1.5">
-            <Terminal className="w-3.5 h-3.5 text-emerald-500" />
-            <span>Màn Hình Ma Trận Ký Tự Nhị Phân 01 (Live Canvas Stream)</span>
+          <div className="text-xs font-mono uppercase tracking-wider text-[var(--text-muted)] flex items-center gap-1.5 font-bold">
+            <Terminal className="w-3.5 h-3.5 text-[var(--primary)]" />
+            <span>Màn Hình Ma Trận Ký Tự Nhị Phân 01</span>
           </div>
 
           {matrixText && (
             <div className="flex items-center gap-2">
               <button
                 onClick={handleDownloadHtml}
-                className="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold transition-all border border-slate-200 dark:border-slate-700 flex items-center gap-1.5"
+                className="px-3 py-1.5 rounded-xl text-xs font-mono neu-btn text-[var(--text-main)] hover:text-[var(--primary)] transition-all flex items-center gap-1.5 font-semibold"
                 title="Tải trang web Matrix phát sáng"
               >
-                <Download className="w-3.5 h-3.5" />
-                <span>Xuất Web HTML</span>
+                <Download className="w-3 h-3" />
+                <span>Xuất HTML</span>
               </button>
 
               <button
                 onClick={handleDownloadTxt}
-                className="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold transition-all border border-slate-200 dark:border-slate-700 flex items-center gap-1.5"
+                className="px-3 py-1.5 rounded-xl text-xs font-mono neu-btn text-[var(--text-main)] hover:text-[var(--primary)] transition-all flex items-center gap-1.5 font-semibold"
               >
-                <Download className="w-3.5 h-3.5" />
+                <Download className="w-3 h-3" />
                 <span>Tải .TXT</span>
               </button>
 
               <button
                 onClick={handleCopy}
-                className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-all shadow-md shadow-emerald-600/20 flex items-center gap-1.5"
+                className="px-3.5 py-1.5 rounded-xl neu-primary text-white text-xs font-mono font-semibold transition-all flex items-center gap-1.5"
               >
-                {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-                <span>{copied ? 'Đã sao chép chuỗi!' : 'Sao chép chuỗi Matrix 01'}</span>
+                {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                <span>{copied ? 'Đã sao chép' : 'Sao chép Matrix 01'}</span>
               </button>
             </div>
           )}
         </div>
 
         {/* Terminal Screen Box */}
-        <div className="relative rounded-3xl bg-slate-950 border border-slate-800 p-6 min-h-[360px] flex items-center justify-center overflow-x-auto shadow-2xl">
+        <div className="rounded-3xl bg-zinc-950 neu-inset p-5 min-h-[360px] flex items-center justify-center overflow-x-auto shadow-inner">
           {isProcessing ? (
-            <div className="flex items-center gap-2 text-xs font-mono text-emerald-400 animate-pulse">
+            <div className="flex items-center gap-2 text-xs font-mono text-zinc-400 animate-pulse">
               <Sparkles className="w-4 h-4" />
               <span>Đang tính toán pixel sang ma trận nhị phân...</span>
             </div>
@@ -403,14 +406,14 @@ export const ImageToMatrixConverter: React.FC = () => {
               {matrixText}
             </pre>
           ) : (
-            <div className="text-center space-y-3 p-8 max-w-md text-slate-400">
-              <div className="w-14 h-14 mx-auto rounded-3xl bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-600">
-                <ImageIcon className="w-7 h-7" />
+            <div className="text-center space-y-3 p-8 max-w-md text-[var(--text-muted)]">
+              <div className="w-12 h-12 mx-auto rounded-2xl neu-inset flex items-center justify-center text-[var(--primary)]">
+                <ImageIcon className="w-6 h-6" />
               </div>
               <div>
-                <h4 className="text-sm font-bold text-slate-300">Chưa có hình ảnh nào được chọn</h4>
-                <p className="text-xs text-slate-500 mt-1">
-                  Hãy nhấn nút <strong>"Chọn ảnh từ máy của bạn"</strong> ở trên để tải bất kỳ bức ảnh chân dung, bạn gái hay hình yêu thích nào.
+                <h4 className="text-sm font-semibold text-[var(--text-main)]">Chưa có hình ảnh nào được chọn</h4>
+                <p className="text-xs text-[var(--text-muted)] mt-1">
+                  Hãy nhấn nút <strong>"Chọn ảnh từ máy của bạn"</strong> ở trên để tải bức ảnh yêu thích.
                 </p>
               </div>
             </div>

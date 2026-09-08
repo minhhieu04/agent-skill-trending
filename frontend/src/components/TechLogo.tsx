@@ -275,7 +275,7 @@ export const TechLogo: React.FC<TechLogoProps> = ({
 
   if (showBackground) {
     return (
-      <div className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center shrink-0 shadow-sm">
+      <div className="p-2 rounded-xl neu-inset-sm flex items-center justify-center shrink-0">
         {renderLogo()}
       </div>
     );

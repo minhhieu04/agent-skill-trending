@@ -11,8 +11,8 @@ def get_engine():
         if db_url.startswith("sqlite"):
             return create_engine(db_url, connect_args={"check_same_thread": False})
         else:
-            # Try PostgreSQL
-            eng = create_engine(db_url, pool_pre_ping=True)
+            # Try PostgreSQL with pre-ping and pool recycle for serverless Neon DB
+            eng = create_engine(db_url, pool_pre_ping=True, pool_recycle=300)
             with eng.connect() as conn:
                 pass
             return eng

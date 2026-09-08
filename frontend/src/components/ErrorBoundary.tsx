@@ -51,18 +51,18 @@ export class ErrorBoundary extends Component<Props, State> {
       }
 
       return (
-        <div className="min-h-[500px] flex items-center justify-center p-4 sm:p-6 bg-slate-950/20 backdrop-blur-sm">
-          <div className="max-w-2xl w-full p-6 sm:p-8 rounded-3xl bg-white dark:bg-slate-900 border border-rose-200 dark:border-rose-900/60 shadow-2xl space-y-5 transition-colors animate-in zoom-in-95">
+        <div className="min-h-[500px] flex items-center justify-center p-4 sm:p-6 bg-black/40 backdrop-blur-xs">
+          <div className="max-w-2xl w-full p-6 sm:p-7 rounded-3xl neu-modal space-y-5 text-[var(--text-main)] animate-in zoom-in-95">
             {/* Error Header */}
-            <div className="flex items-center gap-3.5 pb-4 border-b border-slate-100 dark:border-slate-800">
-              <div className="w-12 h-12 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-500 flex items-center justify-center shrink-0">
-                <AlertTriangle className="w-6 h-6" />
+            <div className="flex items-center gap-3.5 pb-4 border-b border-[var(--shadow-dark)]/20">
+              <div className="w-10 h-10 rounded-2xl neu-inset text-rose-500 flex items-center justify-center shrink-0">
+                <AlertTriangle className="w-5 h-5" />
               </div>
               <div className="flex-1 min-w-0">
-                <h3 className="text-lg font-black text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                <h3 className="text-base font-bold text-[var(--text-main)] flex items-center gap-2">
                   Đã xảy ra lỗi giao diện / Application Error
                 </h3>
-                <p className="text-xs text-rose-600 dark:text-rose-400 font-mono mt-0.5 break-all">
+                <p className="text-xs text-rose-500 font-mono mt-0.5 break-all">
                   {this.state.error?.message || 'Unexpected application render state'}
                 </p>
               </div>
@@ -73,16 +73,16 @@ export class ErrorBoundary extends Component<Props, State> {
               <div className="flex items-center justify-between">
                 <button
                   onClick={() => this.setState((prev) => ({ showDetails: !prev.showDetails }))}
-                  className="flex items-center gap-1.5 text-xs font-mono font-bold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
+                  className="flex items-center gap-1.5 text-xs font-mono font-semibold text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors cursor-pointer"
                 >
-                  <Terminal className="w-3.5 h-3.5 text-rose-500" />
+                  <Terminal className="w-3.5 h-3.5 text-[var(--primary)]" />
                   <span>Chi tiết lỗi & Call Stack</span>
                   {this.state.showDetails ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
                 </button>
 
                 <button
                   onClick={this.handleCopyLog}
-                  className="flex items-center gap-1 px-3 py-1 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold transition-all border border-slate-200 dark:border-slate-700"
+                  className="flex items-center gap-1 px-3 py-1.5 rounded-xl neu-btn-sm text-[var(--text-muted)] hover:text-[var(--primary)] text-xs font-semibold transition-colors cursor-pointer"
                 >
                   {this.state.copied ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
                   <span>{this.state.copied ? 'Đã sao chép Log!' : 'Sao chép Log'}</span>
@@ -90,25 +90,25 @@ export class ErrorBoundary extends Component<Props, State> {
               </div>
 
               {this.state.showDetails && (
-                <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 text-[11px] font-mono text-rose-300 overflow-x-auto max-h-60 leading-relaxed shadow-inner select-all whitespace-pre-wrap">
+                <div className="p-4 rounded-2xl neu-inset text-[11px] font-mono text-rose-400 overflow-x-auto max-h-60 leading-relaxed select-all whitespace-pre-wrap">
                   <div><strong>Error:</strong> {this.state.error?.message}</div>
                   {this.state.error?.stack && (
-                    <div className="mt-2 text-slate-400">{this.state.error.stack}</div>
+                    <div className="mt-2 text-[var(--text-muted)]">{this.state.error.stack}</div>
                   )}
                   {this.state.errorInfo?.componentStack && (
-                    <div className="mt-2 text-slate-500">{this.state.errorInfo.componentStack}</div>
+                    <div className="mt-2 text-[var(--text-muted)]/70">{this.state.errorInfo.componentStack}</div>
                   )}
                 </div>
               )}
             </div>
 
             {/* Actions */}
-            <div className="pt-3 flex items-center justify-end gap-3 border-t border-slate-100 dark:border-slate-800">
+            <div className="pt-3 flex items-center justify-end gap-3 border-t border-[var(--shadow-dark)]/20">
               <button
                 onClick={this.handleReset}
-                className="flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-xs font-bold hover:opacity-90 transition-all shadow-md active:scale-95"
+                className="flex items-center gap-2 px-5 py-2.5 rounded-2xl neu-primary text-white text-xs font-bold transition-all cursor-pointer"
               >
-                <RefreshCw className="w-4 h-4" />
+                <RefreshCw className="w-3.5 h-3.5" />
                 <span>Tải lại trang / Reload Application</span>
               </button>
             </div>

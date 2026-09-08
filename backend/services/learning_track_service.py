@@ -124,10 +124,17 @@ class LearningTrackService:
                 }}
                 """
 
-                response = client.models.generate_content(
-                    model='gemini-2.5-flash',
-                    contents=prompt
-                )
+                response = None
+                for candidate_model in ["gemini-3.6-flash", "gemini-3.5-flash-lite", "gemini-flash-latest", "gemini-3.1-flash-lite"]:
+                    try:
+                        response = client.models.generate_content(
+                            model=candidate_model,
+                            contents=prompt
+                        )
+                        if response and response.text:
+                            break
+                    except Exception as me:
+                        logger.warning(f"Learning track model {candidate_model} failed: {me}")
 
                 if response and response.text:
                     raw_text = response.text.strip()

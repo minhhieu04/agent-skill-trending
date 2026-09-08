@@ -11,8 +11,15 @@ import {
   ArrowUpDown, 
   Code, 
   Terminal,
-  Scale
+  Scale,
+  Bot,
+  Sparkles,
+  TrendingUp,
+  Star,
+  Clock,
+  RotateCcw
 } from 'lucide-react';
+import { NeuSelect } from '../components/NeuSelect';
 import { useLanguage } from '../context/LanguageContext';
 import { useToast } from '../context/ToastContext';
 
@@ -36,6 +43,7 @@ interface TrendingFeedProps {
   onGoToCompare: () => void;
   searchTerm?: string;
   setSearchTerm?: (term: string) => void;
+  onOpenAgentChat?: (initialQuery?: string) => void;
 }
 
 export const TrendingFeed: React.FC<TrendingFeedProps> = ({
@@ -58,6 +66,7 @@ export const TrendingFeed: React.FC<TrendingFeedProps> = ({
   onGoToCompare,
   searchTerm = '',
   setSearchTerm,
+  onOpenAgentChat,
 }) => {
   const { t, language } = useLanguage();
   const { showToast } = useToast();
@@ -106,8 +115,44 @@ export const TrendingFeed: React.FC<TrendingFeedProps> = ({
     setSelectedRuntime('all');
   };
 
+  const sortOptions = [
+    { value: 'trending_score', label: t('sort_trending'), icon: <TrendingUp className="w-3.5 h-3.5 text-blue-500" /> },
+    { value: 'quality_score', label: t('sort_quality'), icon: <Sparkles className="w-3.5 h-3.5 text-amber-500" /> },
+    { value: 'stars', label: t('sort_stars'), icon: <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400" /> },
+    { value: 'recent', label: t('sort_recent'), icon: <Clock className="w-3.5 h-3.5 text-cyan-500" /> },
+  ];
+
+  const totalRuntimeSkills = runtimes.reduce((acc, r) => acc + r.count, 0);
+  const runtimeOptions = [
+    { 
+      value: 'all', 
+      label: language === 'vi' ? 'Tất cả môi trường' : 'All Runtimes', 
+      badge: totalRuntimeSkills > 0 ? totalRuntimeSkills : undefined,
+      icon: <Terminal className="w-3.5 h-3.5 text-[var(--primary)]" />
+    },
+    ...runtimes.map(rt => ({
+      value: rt.name,
+      label: rt.name,
+      badge: rt.count,
+      icon: <Terminal className="w-3.5 h-3.5" />
+    }))
+  ];
+
+  const languageOptions = [
+    { 
+      value: 'all', 
+      label: language === 'vi' ? 'Tất cả ngôn ngữ' : 'All Languages',
+      icon: <Code className="w-3.5 h-3.5 text-[var(--primary)]" />
+    },
+    ...languages.filter(l => l !== 'all').map(lang => ({
+      value: lang,
+      label: lang,
+      icon: <Code className="w-3.5 h-3.5" />
+    }))
+  ];
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {/* Learning Goals & Skills Track Finder Widget */}
       <LearningTrackFinder
         onSelectTrack={handleSelectLearningTrack}
@@ -116,135 +161,210 @@ export const TrendingFeed: React.FC<TrendingFeedProps> = ({
         onClearTrack={handleClearLearningTrack}
       />
 
+      {/* RAG Agent Chat Banner - Neumorphic Soft UI */}
+      {onOpenAgentChat && (
+        <div className="p-5 rounded-3xl neu-flat flex flex-col md:flex-row items-start md:items-center justify-between gap-4 transition-all">
+          <div className="flex items-start sm:items-center gap-3.5">
+            <div className="w-10 h-10 rounded-2xl neu-inset text-[var(--primary)] flex items-center justify-center font-bold shrink-0">
+              <Bot className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="text-xs font-bold text-[var(--text-main)] flex items-center gap-2">
+                <span>{t('agent_chat_trending_banner_title')}</span>
+                <span className="px-2 py-0.5 rounded-lg text-[10px] font-mono neu-inset-sm text-[var(--primary)] font-bold">
+                  RAG SCAN
+                </span>
+              </h3>
+              <p className="text-[11px] text-[var(--text-muted)] mt-1 max-w-2xl leading-relaxed">
+                {t('agent_chat_trending_banner_desc')}
+              </p>
+            </div>
+          </div>
+
+          <button
+            onClick={() => onOpenAgentChat(searchTerm)}
+            className="flex items-center gap-2 px-5 py-2.5 rounded-2xl neu-primary text-xs font-bold text-white shrink-0 whitespace-nowrap active:scale-95 transition-all"
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            <span>{t('agent_chat_trending_banner_btn')}</span>
+          </button>
+        </div>
+      )}
+
       {/* Header & Filter Controls Bar */}
-      <div className="p-4 sm:p-5 rounded-3xl bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 shadow-sm backdrop-blur-md space-y-4 transition-colors">
-        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-          <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-500">
+      <div className="p-5 sm:p-6 rounded-3xl neu-flat space-y-4">
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl neu-inset text-[var(--primary)] flex items-center justify-center shrink-0">
               <Flame className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-lg font-black text-slate-900 dark:text-slate-100">
+              <h2 className="text-sm font-bold text-[var(--text-main)]">
                 {t('feed_title')}
               </h2>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
+              <p className="text-xs text-[var(--text-muted)]">
                 {t('feed_sub')}
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-3 w-full md:w-auto justify-between md:justify-end">
+          <div className="flex items-center gap-2.5 w-full md:w-auto justify-between md:justify-end">
+            {onOpenAgentChat && (
+              <button
+                onClick={() => onOpenAgentChat(searchTerm)}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl neu-btn text-[var(--text-muted)] hover:text-[var(--primary)] text-xs font-semibold"
+                title={t('tab_agent_chat')}
+              >
+                <Bot className="w-3.5 h-3.5 text-[var(--primary)]" />
+                <span className="hidden sm:inline">{t('agent_chat_ask_filter')}</span>
+                <span className="px-1.5 py-0.2 rounded-lg text-[10px] font-mono neu-inset-sm text-[var(--primary)] font-bold">RAG</span>
+              </button>
+            )}
+
             {comparedSkillIds.length > 0 && (
               <button
                 onClick={onGoToCompare}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-sky-500/10 dark:bg-sky-500/20 border border-sky-500/30 text-sky-600 dark:text-sky-300 text-xs font-bold hover:bg-sky-500/20 transition-all"
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl neu-btn text-[var(--primary)] text-xs font-bold"
               >
                 <Scale className="w-3.5 h-3.5" />
                 <span>So sánh ({comparedSkillIds.length})</span>
               </button>
             )}
 
-            <div className="flex items-center gap-2">
-              <ArrowUpDown className="w-4 h-4 text-slate-400" />
-              <select
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value)}
-                className="px-3 py-1.5 text-xs bg-slate-100 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-slate-200 outline-none cursor-pointer focus:border-emerald-500 font-medium"
-              >
-                <option value="trending_score">{t('sort_trending')}</option>
-                <option value="quality_score">{t('sort_quality')}</option>
-                <option value="stars">{t('sort_stars')}</option>
-                <option value="recent">{t('sort_recent')}</option>
-              </select>
-            </div>
+            {/* Custom Sort Select Dropdown */}
+            <NeuSelect
+              value={sortBy}
+              onChange={(val) => setSortBy(String(val))}
+              options={sortOptions}
+              icon={<ArrowUpDown className="w-3.5 h-3.5" />}
+              size="sm"
+              variant="inset"
+              align="right"
+              title={t('sort_by') || 'Sắp xếp'}
+            />
           </div>
         </div>
 
-        {/* Category Pills (Horizontal scrolling) */}
-        <div className="space-y-1.5 pt-2 border-t border-slate-100 dark:border-slate-800">
-          <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-            <Filter className="w-3 h-3" />
-            <span>{t('category_label')}</span>
+        <div className="neu-divider" />
+
+        {/* Category Segmented Navigation */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1.5 text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider">
+              <Filter className="w-3 h-3 text-[var(--primary)]" />
+              <span>{t('category_label')}</span>
+            </div>
+            <span className="text-[11px] font-mono text-[var(--text-muted)]">
+              {categories.reduce((acc, c) => acc + c.count, 0)} {language === 'vi' ? 'kỹ năng sẵn sàng' : 'skills indexed'}
+            </span>
           </div>
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 pt-0.5 scrollbar-none">
             <button
               onClick={() => setSelectedCategory('all')}
-              className={`px-3 py-1 rounded-xl text-xs whitespace-nowrap transition-all duration-200 hover:scale-105 active:scale-95 ${
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-2 cursor-pointer ${
                 selectedCategory === 'all'
-                  ? 'bg-emerald-600 text-white font-bold shadow-md shadow-emerald-600/20'
-                  : 'bg-slate-100 dark:bg-slate-800/80 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+                  ? 'neu-primary text-white shadow-sm'
+                  : 'neu-flat-xs text-[var(--text-muted)] hover:text-[var(--text-main)] hover:neu-flat-sm'
               }`}
             >
-              {t('category_all')} ({categories.reduce((acc, c) => acc + c.count, 0)})
+              <span>{t('category_all')}</span>
+              <span className={`px-1.5 py-0.2 rounded-md text-[10px] font-mono ${
+                selectedCategory === 'all' ? 'bg-white/25 text-white font-bold' : 'neu-inset-sm text-[var(--text-muted)]'
+              }`}>
+                {categories.reduce((acc, c) => acc + c.count, 0)}
+              </span>
             </button>
             {categories.map((cat) => (
               <button
                 key={cat.key}
                 onClick={() => setSelectedCategory(cat.key)}
-                className={`px-3 py-1 rounded-xl text-xs whitespace-nowrap transition-all duration-200 hover:scale-105 active:scale-95 ${
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-2 cursor-pointer ${
                   selectedCategory === cat.key
-                    ? 'bg-emerald-600 text-white font-bold shadow-md shadow-emerald-600/20'
-                    : 'bg-slate-100 dark:bg-slate-800/80 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+                    ? 'neu-primary text-white shadow-sm'
+                    : 'neu-flat-xs text-[var(--text-muted)] hover:text-[var(--text-main)] hover:neu-flat-sm'
                 }`}
               >
-                {cat.title} ({cat.count})
+                <span>{cat.title}</span>
+                <span className={`px-1.5 py-0.2 rounded-md text-[10px] font-mono ${
+                  selectedCategory === cat.key ? 'bg-white/25 text-white font-bold' : 'neu-inset-sm text-[var(--text-muted)]'
+                }`}>
+                  {cat.count}
+                </span>
               </button>
             ))}
           </div>
         </div>
 
-        {/* Runtime & Language Filter Rows */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 pt-1">
-          {/* Runtimes */}
-          <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none">
-            <div className="flex items-center gap-1 text-[11px] font-bold text-slate-400 uppercase tracking-wider shrink-0 mr-1">
-              <Terminal className="w-3 h-3" />
-              <span>{t('runtime_label')}</span>
+        {/* Unified Filter Controls Strip (Runtime & Language) */}
+        <div className="p-2.5 rounded-2xl neu-inset-sm flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-2.5">
+            {/* Runtime Select Dropdown */}
+            <NeuSelect
+              value={selectedRuntime}
+              onChange={(val) => setSelectedRuntime(String(val))}
+              options={runtimeOptions}
+              icon={<Terminal className="w-3.5 h-3.5" />}
+              size="sm"
+              variant="flat"
+              title={t('runtime_label')}
+            />
+
+            {/* Language Select Dropdown */}
+            <NeuSelect
+              value={selectedLanguage}
+              onChange={(val) => setSelectedLanguage(String(val))}
+              options={languageOptions}
+              icon={<Code className="w-3.5 h-3.5" />}
+              size="sm"
+              variant="flat"
+              title={t('language_label')}
+            />
+
+            {/* Popular quick-select runtime chips */}
+            <div className="hidden xl:flex items-center gap-1.5 pl-2 border-l border-[var(--shadow-dark)]/20">
+              <span className="text-[10px] font-mono uppercase text-[var(--text-muted)] tracking-wider">
+                Hot:
+              </span>
+              {runtimes.slice(0, 3).map((rt) => (
+                <button
+                  key={rt.name}
+                  type="button"
+                  onClick={() => setSelectedRuntime(selectedRuntime === rt.name ? 'all' : rt.name)}
+                  className={`px-2 py-1 rounded-lg text-[10px] font-mono transition-all cursor-pointer ${
+                    selectedRuntime === rt.name
+                      ? 'neu-primary text-white font-bold'
+                      : 'neu-flat-xs text-[var(--text-muted)] hover:text-[var(--text-main)]'
+                  }`}
+                >
+                  {rt.name}
+                </button>
+              ))}
             </div>
-            <button
-              onClick={() => setSelectedRuntime('all')}
-              className={`px-2.5 py-0.5 rounded-lg text-xs font-mono shrink-0 transition-all duration-200 hover:scale-105 active:scale-95 ${
-                selectedRuntime === 'all'
-                  ? 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-500/40 font-bold'
-                  : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-300'
-              }`}
-            >
-              {t('category_all')}
-            </button>
-            {runtimes.map((rt) => (
-              <button
-                key={rt.name}
-                onClick={() => setSelectedRuntime(rt.name)}
-                className={`px-2.5 py-0.5 rounded-lg text-xs font-mono shrink-0 transition-all duration-200 hover:scale-105 active:scale-95 ${
-                  selectedRuntime === rt.name
-                    ? 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-500/40 font-bold'
-                    : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-300'
-                }`}
-              >
-                {rt.name}
-              </button>
-            ))}
           </div>
 
-          {/* Languages */}
-          <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none">
-            <div className="flex items-center gap-1 text-[11px] font-bold text-slate-400 uppercase tracking-wider shrink-0 mr-1">
-              <Code className="w-3 h-3" />
-              <span>{t('language_label')}</span>
-            </div>
-            {languages.map((lang) => (
+          <div className="flex items-center gap-3">
+            {/* Reset Filter Button if active */}
+            {(selectedCategory !== 'all' || selectedRuntime !== 'all' || selectedLanguage !== 'all') && (
               <button
-                key={lang}
-                onClick={() => setSelectedLanguage(lang)}
-                className={`px-2.5 py-0.5 rounded-lg text-xs font-mono shrink-0 transition-all duration-200 hover:scale-105 active:scale-95 ${
-                  selectedLanguage === lang
-                    ? 'bg-sky-500/20 text-sky-700 dark:text-sky-300 border border-sky-500/40 font-bold'
-                    : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-300'
-                }`}
+                type="button"
+                onClick={() => {
+                  setSelectedCategory('all');
+                  setSelectedRuntime('all');
+                  setSelectedLanguage('all');
+                }}
+                className="flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-xl text-rose-500 hover:text-rose-600 neu-btn-sm transition-all cursor-pointer"
+                title="Đặt lại toàn bộ bộ lọc"
               >
-                {lang === 'all' ? t('category_all') : lang}
+                <RotateCcw className="w-3 h-3" />
+                <span>{language === 'vi' ? 'Đặt lại' : 'Reset'}</span>
               </button>
-            ))}
+            )}
+
+            <div className="text-xs font-mono text-[var(--text-muted)]">
+              {language === 'vi' ? 'Hiển thị: ' : 'Showing: '}
+              <strong className="text-[var(--primary)] font-bold">{skills.length}</strong>
+            </div>
           </div>
         </div>
       </div>
@@ -253,25 +373,36 @@ export const TrendingFeed: React.FC<TrendingFeedProps> = ({
       {loading ? (
         <GridSkeleton count={8} />
       ) : skills.length === 0 ? (
-        <div className="p-16 text-center rounded-3xl bg-white dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 shadow-sm space-y-3 animate-fade-in">
-          <Filter className="w-12 h-12 text-slate-400 mx-auto animate-float" />
-          <h3 className="text-base font-bold text-slate-800 dark:text-slate-200">{t('no_skills_found')}</h3>
-          <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm mx-auto">
-            {t('no_skills_hint')}
+        <div className="p-12 text-center rounded-3xl neu-flat space-y-4">
+          <Filter className="w-10 h-10 text-[var(--primary)] mx-auto" />
+          <h3 className="text-sm font-bold text-[var(--text-main)]">{t('no_skills_found')}</h3>
+          <p className="text-xs text-[var(--text-muted)] max-w-sm mx-auto">
+            {t('agent_chat_empty_hint')}
           </p>
-          <button
-            onClick={() => {
-              setSelectedCategory('all');
-              setSelectedRuntime('all');
-              setSelectedLanguage('all');
-            }}
-            className="px-4 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white shadow-md shadow-emerald-600/20 transition-all duration-200 hover:scale-105 active:scale-95"
-          >
-            {t('category_all')}
-          </button>
+          <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+            <button
+              onClick={() => {
+                setSelectedCategory('all');
+                setSelectedRuntime('all');
+                setSelectedLanguage('all');
+              }}
+              className="px-4 py-2 rounded-2xl text-xs font-bold neu-btn text-[var(--text-main)]"
+            >
+              {t('category_all')}
+            </button>
+            {onOpenAgentChat && (
+              <button
+                onClick={() => onOpenAgentChat(searchTerm)}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-2xl text-xs font-bold neu-primary text-white transition-all active:scale-95"
+              >
+                <Bot className="w-3.5 h-3.5" />
+                <span>{t('agent_chat_btn_ask_ai')}</span>
+              </button>
+            )}
+          </div>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 animate-fade-in">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 animate-fade-in">
           {skills.map((skill) => (
             <SkillCard
               key={skill.id}

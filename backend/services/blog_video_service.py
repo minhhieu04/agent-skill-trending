@@ -336,10 +336,19 @@ class BlogVideoService:
                 Hãy chèn code snippet thực tế ({skill_lang}), bảng so sánh hoặc markdown alerts.
                 """
                 
-                response = client.models.generate_content(
-                    model='gemini-2.5-flash',
-                    contents=prompt
-                )
+                response = None
+                used_model = "gemini-3.6-flash"
+                for candidate_model in ["gemini-3.6-flash", "gemini-3.5-flash-lite", "gemini-flash-latest", "gemini-3.1-flash-lite"]:
+                    try:
+                        response = client.models.generate_content(
+                            model=candidate_model,
+                            contents=prompt
+                        )
+                        if response and response.text:
+                            used_model = candidate_model
+                            break
+                    except Exception as me:
+                        logger.warning(f"Blog generation model {candidate_model} failed: {me}")
                 
                 if response and response.text:
                     content = response.text.strip()
@@ -362,7 +371,7 @@ class BlogVideoService:
                         _log_gemini_audit("gemini_generation_success", {
                             "type": "blog",
                             "topic": display_title,
-                            "model": "gemini-2.5-flash",
+                            "model": used_model,
                             "word_count": word_count,
                             "token_usage": token_info["token_usage"]
                         })
@@ -375,7 +384,7 @@ class BlogVideoService:
                         "estimated_read_time": read_time,
                         "language": language,
                         "tone": tone,
-                        "provider": "google_gemini_2.5_flash",
+                        "provider": f"google_{used_model.replace('-', '_').replace('.', '_')}",
                         "fallback_used": False,
                         "quota_status": "ok",
                         "finish_reason": token_info["finish_reason"],
@@ -659,10 +668,19 @@ RULES:
 """
 
 
-                response = client.models.generate_content(
-                    model='gemini-2.5-flash',
-                    contents=prompt
-                )
+                response = None
+                used_model = "gemini-3.6-flash"
+                for candidate_model in ["gemini-3.6-flash", "gemini-3.5-flash-lite", "gemini-flash-latest", "gemini-3.1-flash-lite"]:
+                    try:
+                        response = client.models.generate_content(
+                            model=candidate_model,
+                            contents=prompt
+                        )
+                        if response and response.text:
+                            used_model = candidate_model
+                            break
+                    except Exception as me:
+                        logger.warning(f"Storyboard generation model {candidate_model} failed: {me}")
 
                 if response and response.text:
                     cleaned_json = response.text.strip()
@@ -705,41 +723,36 @@ RULES:
                         if not _scene.get("visual_prompt"):
                             _scene["visual_prompt"] = _scene.get("visual_description", "")
 
-                    # Keep editorial facts deterministic and source-backed. Gemini may
-                    # contribute visual direction, but never narration, code, metrics,
-                    # commands, or capability claims.
+                    # Keep AI-generated unique scenes & narration, but enrich with verified repository facts
                     if skill_data and parsed.get("scenes"):
-                        verified_storyboard = BlogVideoService._generate_curated_storyboard(
-                            skill_title,
-                            target_duration,
-                            aspect_ratio,
-                            language,
-                            skill_data=skill_data,
-                        )
+                        repo_url = str(skill_data.get("repository_url") or "")
+                        owner, repository_name = _repository_parts(repo_url, str(skill_data.get("name") or skill_title))
+                        stars = int(skill_data.get("stars") or 0)
+                        forks = int(skill_data.get("forks") or 0)
+                        open_issues = int(skill_data.get("open_issues") or 0)
+                        trending_score = float(skill_data.get("trending_score") or 0)
+                        clone_cmd = f"git clone {repo_url}" if repo_url else f"# Open {skill_title}"
+                        
                         generated_scenes = parsed["scenes"]
-                        generated_visuals_by_type: Dict[str, List[Dict[str, Any]]] = {}
-                        for generated_scene in generated_scenes:
-                            generated_visuals_by_type.setdefault(
-                                str(generated_scene.get("scene_type") or "content"), []
-                            ).append(generated_scene)
-
-                        source_backed_scenes = []
-                        for index, verified_scene in enumerate(verified_storyboard["scenes"]):
-                            scene_type = str(verified_scene.get("scene_type") or "content")
-                            candidates = generated_visuals_by_type.get(scene_type) or []
-                            generated_visual = candidates.pop(0) if candidates else (
-                                generated_scenes[index] if index < len(generated_scenes) else {}
-                            )
-                            source_backed_scenes.append({
-                                **verified_scene,
-                                "image_url": generated_visual.get("image_url") or verified_scene.get("image_url"),
-                                "visual_prompt": generated_visual.get("visual_prompt") or verified_scene.get("visual_prompt"),
-                            })
-
-                        generated_scenes = source_backed_scenes
-                        parsed["scenes"] = generated_scenes
                         for index, scene in enumerate(generated_scenes):
                             scene["scene_number"] = index + 1
+                            scene_type = str(scene.get("scene_type") or "content")
+                            if scene_type == "github":
+                                scene["repository_url"] = repo_url
+                                scene["repository_owner"] = owner
+                                scene["repository_name"] = repository_name
+                                scene["stars_count"] = stars
+                                scene["forks_count"] = forks
+                                scene["open_issues"] = open_issues
+                            elif scene_type == "stat":
+                                scene["stars_count"] = stars
+                                scene["forks_count"] = forks
+                                scene["open_issues"] = open_issues
+                                scene["trending_score"] = trending_score
+                            elif scene_type == "terminal":
+                                if not scene.get("terminal_command"):
+                                    scene["terminal_command"] = clone_cmd
+
                         _fit_scene_durations(generated_scenes, target_duration)
                         parsed["total_duration"] = sum(
                             scene["duration_seconds"] for scene in generated_scenes
@@ -750,7 +763,7 @@ RULES:
                     )
                     parsed["narration_word_count"] = narration["word_count"]
                     parsed["target_word_budget"] = narration["word_budget"]
-                    parsed["provider"] = "google_gemini_2.5_flash"
+                    parsed["provider"] = f"google_{used_model.replace('-', '_').replace('.', '_')}"
                     parsed["fallback_used"] = False
                     parsed["finish_reason"] = token_info["finish_reason"]
                     parsed["is_truncated"] = token_info["is_truncated"]
