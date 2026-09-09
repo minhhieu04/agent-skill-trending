@@ -196,16 +196,17 @@ export const SkillDetailModal: React.FC<SkillDetailModalProps> = ({
     }
   }, [skill?.id]);
 
-  const handleTranslateReadme = async (force: boolean = false, overrideProvider?: string) => {
+  const handleTranslateReadme = async (force: boolean = false, overrideProvider?: string, overrideLang?: string) => {
     if (!skill) return;
     setIsTranslating(true);
     const providerToUse = overrideProvider || selectedProvider;
+    const langToUse = overrideLang || targetLanguage;
     try {
-      const res = await api.translateSkillReadme(skill.id, targetLanguage, force, providerToUse);
+      const res = await api.translateSkillReadme(skill.id, langToUse, force, providerToUse);
       if (res.translated_text) {
         setTranslations((prev) => ({
           ...prev,
-          [targetLanguage]: {
+          [langToUse]: {
             content: res.translated_text,
             model_used: res.model_used,
             provider: res.provider,
@@ -326,39 +327,33 @@ export const SkillDetailModal: React.FC<SkillDetailModalProps> = ({
     });
   }, [providers]);
 
+  const handleSwitchToTranslated = () => {
+    setReadmeMode('translated');
+    const existing = translations[targetLanguage];
+    const isDegraded = existing?.provider === 'translation_engine';
+    // If no translation yet OR current translation is from degraded translation_engine, auto upgrade!
+    if (!existing?.content || isDegraded) {
+      handleTranslateReadme(isDegraded);
+    } else {
+      setActiveTranslationMeta({
+        model_used: existing.model_used,
+        provider: existing.provider,
+      });
+    }
+  };
+
   const handleTargetLanguageChange = (newLang: string) => {
     setTargetLanguage(newLang);
     if (readmeMode === 'translated' && skill) {
-      if (translations[newLang]?.content) {
+      const existing = translations[newLang];
+      const isDegraded = existing?.provider === 'translation_engine';
+      if (existing?.content && !isDegraded) {
         setActiveTranslationMeta({
-          model_used: translations[newLang].model_used,
-          provider: translations[newLang].provider,
+          model_used: existing.model_used,
+          provider: existing.provider,
         });
       } else {
-        setIsTranslating(true);
-        api.translateSkillReadme(skill.id, newLang, false, selectedProvider)
-          .then((res) => {
-            if (res.translated_text) {
-              setTranslations((prev) => ({
-                ...prev,
-                [newLang]: {
-                  content: res.translated_text,
-                  model_used: res.model_used,
-                  provider: res.provider,
-                }
-              }));
-              setActiveTranslationMeta({
-                model_used: res.model_used,
-                provider: res.provider,
-              });
-            }
-          })
-          .catch((err) => {
-            showToast(err.message || 'Lỗi dịch thuật', 'error');
-          })
-          .finally(() => {
-            setIsTranslating(false);
-          });
+        handleTranslateReadme(isDegraded, selectedProvider, newLang);
       }
     }
   };
@@ -1377,7 +1372,13 @@ export const SkillDetailModal: React.FC<SkillDetailModalProps> = ({
                             <span>{language === 'vi' ? 'ĐANG DỊCH...' : 'TRANSLATING...'}</span>
                           </span>
                         ) : (
-                          <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-lg neu-inset-sm text-[var(--primary)] flex items-center gap-1">
+                          <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-lg neu-inset-sm flex items-center gap-1 ${
+                            activeTranslationMeta?.provider === 'local_llm'
+                              ? 'text-emerald-500'
+                              : activeTranslationMeta?.provider === 'translation_engine'
+                              ? 'text-amber-500'
+                              : 'text-[var(--primary)]'
+                          }`}>
                             {activeTranslationMeta?.provider === 'local_llm' ? '🖥️ ' : activeTranslationMeta?.provider === 'translation_engine' ? '🌐 ' : '⚡ '}
                             <span>{activeTranslationMeta?.model_used || (language === 'vi' ? 'ĐÃ DỊCH AI' : 'AI TRANSLATED')}</span>
                           </span>
@@ -1407,12 +1408,7 @@ export const SkillDetailModal: React.FC<SkillDetailModalProps> = ({
                         {language === 'vi' ? 'Bản Gốc' : 'Original'}
                       </button>
                       <button
-                        onClick={() => {
-                          setReadmeMode('translated');
-                          if (!translations[targetLanguage]?.content) {
-                            handleTranslateReadme(false);
-                          }
-                        }}
+                        onClick={handleSwitchToTranslated}
                         className={`px-3 py-1 rounded-lg transition-all flex items-center gap-1.5 cursor-pointer ${
                           readmeMode === 'translated'
                             ? 'bg-[var(--primary)] text-white shadow-xs font-bold'
@@ -1436,7 +1432,7 @@ export const SkillDetailModal: React.FC<SkillDetailModalProps> = ({
                           size="sm"
                           variant="inset"
                           align="right"
-                          dropdownClassName="z-[80] min-w-[170px]"
+                          dropdownClassName="z-[80] min-w-[150px]"
                           title={language === 'vi' ? 'Ngôn ngữ đích' : 'Target language'}
                         />
 
@@ -1448,21 +1444,22 @@ export const SkillDetailModal: React.FC<SkillDetailModalProps> = ({
                           size="sm"
                           variant="inset"
                           align="right"
-                          dropdownClassName="z-[80] min-w-[240px]"
+                          dropdownClassName="z-[80] min-w-[210px]"
                           title={language === 'vi' ? 'Mô hình dịch' : 'Translation engine'}
                         />
 
-                        {/* Single Re-translate Button */}
+                        {/* Re-translate Button */}
                         <button
                           onClick={() => handleTranslateReadme(true)}
                           disabled={isTranslating}
-                          className={`p-1.5 rounded-xl neu-btn text-[var(--primary)] hover:neu-flat transition-all cursor-pointer ${
+                          className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl neu-btn text-xs font-semibold text-[var(--primary)] hover:neu-flat transition-all cursor-pointer ${
                             isTranslating ? 'opacity-50 cursor-wait' : ''
                           }`}
                           title={language === 'vi' ? 'Dịch lại tài liệu với mô hình đã chọn' : 'Re-translate with selected model'}
                           aria-label="Re-translate"
                         >
                           <RefreshCw className={`w-3.5 h-3.5 ${isTranslating ? 'animate-spin text-amber-500' : ''}`} />
+                          <span className="hidden sm:inline">{language === 'vi' ? 'Dịch lại' : 'Re-translate'}</span>
                         </button>
                       </>
                     )}
@@ -1475,7 +1472,7 @@ export const SkillDetailModal: React.FC<SkillDetailModalProps> = ({
                       <button
                         onClick={handleCopyReadme}
                         className="p-1.5 rounded-xl neu-btn text-[var(--text-muted)] hover:text-emerald-500 transition-all cursor-pointer"
-                        title={language === 'vi' ? 'Sao chép nội dung' : 'Copy markdown'}
+                        title={language === 'vi' ? 'Sao chép nội dung Markdown' : 'Copy markdown'}
                         aria-label="Copy Markdown"
                       >
                         {copiedReadme ? (
@@ -1485,17 +1482,17 @@ export const SkillDetailModal: React.FC<SkillDetailModalProps> = ({
                         )}
                       </button>
 
-                      {/* Sync from GitHub Button */}
+                      {/* Sync from GitHub Button with distinct Download icon */}
                       <button
                         onClick={handleRefreshReadme}
                         disabled={isRefreshingReadme || isLoadingReadme}
                         className={`p-1.5 rounded-xl neu-btn text-[var(--text-muted)] hover:text-[var(--primary)] transition-all cursor-pointer ${
                           isRefreshingReadme ? 'opacity-70 cursor-wait' : ''
                         }`}
-                        title={language === 'vi' ? 'Đồng bộ lại README từ GitHub' : 'Re-fetch latest README from GitHub'}
+                        title={language === 'vi' ? 'Tải lại bản gốc từ GitHub' : 'Re-fetch original from GitHub'}
                         aria-label="Refresh README"
                       >
-                        <RefreshCw className={`w-3.5 h-3.5 ${isRefreshingReadme ? 'animate-spin text-[var(--primary)]' : ''}`} />
+                        <Download className={`w-3.5 h-3.5 ${isRefreshingReadme ? 'animate-bounce text-[var(--primary)]' : ''}`} />
                       </button>
 
                       {/* View on GitHub */}
@@ -1513,6 +1510,28 @@ export const SkillDetailModal: React.FC<SkillDetailModalProps> = ({
                     </div>
                   </div>
                 </div>
+
+                {/* Degraded Web Engine Translation Notice */}
+                {readmeMode === 'translated' && activeTranslationMeta?.provider === 'translation_engine' && (
+                  <div className="p-2.5 rounded-xl neu-inset-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-xs bg-amber-500/5 border border-amber-500/20">
+                    <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400">
+                      <AlertTriangle className="w-4 h-4 shrink-0" />
+                      <span>
+                        {language === 'vi'
+                          ? 'Bản dịch này hiện là bản dịch tạm thời từ Web Engine. Bạn có thể bấm nút bên cạnh để dịch chuẩn bằng Local Ollama.'
+                          : 'This is a temporary fallback translation from Web Engine. Click to upgrade with Local Ollama.'}
+                      </span>
+                    </div>
+                    <button
+                      onClick={() => handleTranslateReadme(true, 'local_llm')}
+                      disabled={isTranslating}
+                      className="px-2.5 py-1 rounded-lg neu-btn font-semibold text-xs text-amber-600 dark:text-amber-400 hover:neu-flat shrink-0 cursor-pointer flex items-center gap-1 self-end sm:self-auto"
+                    >
+                      <Cpu className="w-3.5 h-3.5" />
+                      <span>{language === 'vi' ? 'Nâng cấp bằng Local LLM' : 'Upgrade via Local LLM'}</span>
+                    </button>
+                  </div>
+                )}
 
                 {/* Main Content Area */}
                 <div className="p-4 sm:p-5 rounded-2xl neu-inset max-w-full overflow-hidden min-h-[140px]">

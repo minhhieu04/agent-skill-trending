@@ -274,14 +274,15 @@ class ReadmeService:
         target_lang: str = "vi",
     ) -> Optional[str]:
         """Translates markdown content via Ollama, splitting large docs into section chunks if needed."""
-        # For documents under 6000 chars, translate in one shot
-        if len(content) <= 6000:
-            prompt = f"""[System Instructions]\n{system_instruction}\n\n[Original Markdown Content]\n{content}\n"""
+        # For documents under 5000 chars, translate in one shot
+        if len(content) <= 5000:
+            prompt = f"[Original Markdown Content]\n{content}\n"
             async with httpx.AsyncClient(timeout=60.0) as gen_client:
                 gen_resp = await gen_client.post(
                     f"{ollama_url}/api/generate",
                     json={
                         "model": ollama_model,
+                        "system": system_instruction,
                         "prompt": prompt,
                         "stream": False,
                         "options": {"temperature": 0.3}
@@ -293,31 +294,41 @@ class ReadmeService:
                         return text
             return None
 
-        # For large documents (>6000 chars), split by Markdown sections (## ) to prevent timeout & context cutoff
-        raw_sections = re.split(r"(?=\n##\s+)", content)
-        translated_sections: List[str] = []
-
+        # For large documents (>5000 chars), split by Markdown headers (#, ##, ###) or paragraphs
+        raw_sections = re.split(r"(?=\n#{1,3}\s+)", content)
         chunks: List[str] = []
         curr = ""
         for sec in raw_sections:
-            if len(curr) + len(sec) < 4500:
-                curr += sec
+            if len(sec) > 3500:
+                paragraphs = re.split(r"(?=\n\n+)", sec)
+                for p in paragraphs:
+                    if len(curr) + len(p) < 3500:
+                        curr += p
+                    else:
+                        if curr:
+                            chunks.append(curr)
+                        curr = p
             else:
-                if curr:
-                    chunks.append(curr)
-                curr = sec
+                if len(curr) + len(sec) < 3500:
+                    curr += sec
+                else:
+                    if curr:
+                        chunks.append(curr)
+                    curr = sec
         if curr:
             chunks.append(curr)
 
-        max_chunks = 4
-        async with httpx.AsyncClient(timeout=60.0) as gen_client:
+        translated_sections: List[str] = []
+        max_chunks = 3
+        async with httpx.AsyncClient(timeout=45.0) as gen_client:
             for idx, chunk in enumerate(chunks[:max_chunks]):
-                prompt = f"""[System Instructions]\n{system_instruction}\n\n[Markdown Chunk {idx+1}/{min(len(chunks), max_chunks)}]\n{chunk}\n"""
+                prompt = f"[Markdown Section {idx+1}/{min(len(chunks), max_chunks)}]\n{chunk}\n"
                 try:
                     gen_resp = await gen_client.post(
                         f"{ollama_url}/api/generate",
                         json={
                             "model": ollama_model,
+                            "system": system_instruction,
                             "prompt": prompt,
                             "stream": False,
                             "options": {"temperature": 0.3}
@@ -484,7 +495,11 @@ CÁC NGUYÊN TẮC BẮT BUỘC:
                             if resp and resp.text:
                                 return resp.text.strip(), model_name
                         except Exception as m_err:
+                            err_str = str(m_err).lower()
                             logger.warning(f"Gemini translation model {model_name} failed: {m_err}")
+                            if "429" in err_str or "resource_exhausted" in err_str or "quota" in err_str:
+                                logger.info("Gemini project quota exhausted (429). Fast bailing out to next tier...")
+                                break
                             continue
                     return "", ""
 
@@ -658,7 +673,10 @@ Nội dung: {text}"""
                             res_text = resp.text.strip().strip('"').strip("'")
                             if res_text and not cjk_regex.search(res_text):
                                 return res_text
-                    except Exception:
+                    except Exception as m_err:
+                        err_str = str(m_err).lower()
+                        if "429" in err_str or "resource_exhausted" in err_str or "quota" in err_str:
+                            break
                         continue
             except Exception as e:
                 logger.warning(f"Gemini fast summary translation failed: {e}")

@@ -151,3 +151,57 @@ async def test_translate_summary_cjk_fallback():
         cjk_res = await ReadmeService.translate_summary_to_vietnamese("这是一个测试")
         assert cjk_res == ""
 
+
+@pytest.mark.asyncio
+async def test_ollama_chunker_handles_various_markdown_headers():
+    # Long document > 5000 characters using ### headers and paragraphs
+    section = "### Feature Subsection\n\nThis is detailed documentation paragraph. " * 50
+    long_content = f"# Main Title\n\n{section}\n\n## Second Section\n\n{section}"
+    assert len(long_content) > 5000
+
+    from unittest.mock import MagicMock
+    mock_resp = MagicMock()
+    mock_resp.status_code = 200
+    mock_resp.json.return_value = {"response": "Translated chunk"}
+
+    with patch.object(ReadmeService, "get_active_ollama_url", return_value=("http://host.docker.internal:11434", "qwen2.5:7b")), \
+         patch("httpx.AsyncClient.post", new_callable=AsyncMock, return_value=mock_resp) as mock_post:
+        res = await ReadmeService._translate_via_ollama(
+            content=long_content,
+            ollama_url="http://host.docker.internal:11434",
+            ollama_model="qwen2.5:7b",
+            system_instruction="System prompt",
+            target_lang="vi"
+        )
+        assert res is not None
+        assert "Translated chunk" in res
+        # Verify it split into multiple chunk calls with system parameter passed
+        assert mock_post.call_count >= 2
+        call_json = mock_post.call_args_list[0][1]["json"]
+        assert call_json["system"] == "System prompt"
+        assert call_json["model"] == "qwen2.5:7b"
+
+
+@pytest.mark.asyncio
+async def test_gemini_429_fast_bailout_to_ollama():
+    # When Gemini returns 429 RESOURCE_EXHAUSTED, it should fast bailout to Ollama without trying all models
+    from unittest.mock import MagicMock
+    mock_gemini_client = MagicMock()
+    mock_gemini_client.models.generate_content.side_effect = Exception("429 RESOURCE_EXHAUSTED: quota exceeded")
+
+    mock_ollama_resp = MagicMock()
+    mock_ollama_resp.status_code = 200
+    mock_ollama_resp.json.return_value = {"response": "Bản dịch từ Ollama"}
+
+    with patch("services.readme_service.settings.GEMINI_API_KEY", "fake-key"), \
+         patch("google.genai.Client", return_value=mock_gemini_client), \
+         patch.object(ReadmeService, "get_active_ollama_url", return_value=("http://host.docker.internal:11434", "qwen2.5:7b")), \
+         patch("httpx.AsyncClient.post", new_callable=AsyncMock, return_value=mock_ollama_resp):
+
+        res = await ReadmeService.translate_markdown_content("Short text", preferred_provider="auto")
+        assert res["success"] is True
+        assert res["provider"] == "local_llm"
+        # Verify Gemini was aborted after first 429 instead of calling 6 times
+        assert mock_gemini_client.models.generate_content.call_count == 1
+
+
