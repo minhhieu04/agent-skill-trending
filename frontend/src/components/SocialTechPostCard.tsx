@@ -177,12 +177,12 @@ Link bài viết: ${postUrl}
     <article
       id={`post-${post.skill_id}`}
       data-skill-id={post.skill_id}
-      className="rounded-3xl neu-flat border border-white/60 dark:border-white/5 transition-all overflow-hidden flex flex-col justify-between text-[var(--text-main)] scroll-mt-24"
+      className="rounded-3xl neu-flat transition-all overflow-hidden flex flex-col justify-between text-[var(--text-main)] scroll-mt-24"
     >
       {/* 1. AUTHOR & POST HEADER */}
       <div className="p-4 sm:p-5 flex items-start justify-between gap-4 bg-[var(--bg)]">
         <div className="flex items-center gap-3 min-w-0">
-          <div className="w-10 h-10 rounded-2xl neu-inset text-[var(--primary)] flex items-center justify-center font-bold text-sm shrink-0 shadow-inner">
+          <div className="w-10 h-10 rounded-2xl bg-[var(--primary)]/10 text-[var(--primary)] flex items-center justify-center font-bold text-sm shrink-0">
             {initial}
           </div>
           <div className="min-w-0">

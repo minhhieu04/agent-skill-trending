@@ -446,7 +446,7 @@ export const AgentChatPage: React.FC<AgentChatPageProps> = ({
     return (
       <div className="w-full h-[calc(100vh-140px)] min-h-[500px] flex items-center justify-center p-4 sm:p-6 animate-fade-in">
         <div className="max-w-md w-full p-8 rounded-3xl neu-flat text-center space-y-6">
-          <div className="w-16 h-16 mx-auto rounded-3xl neu-inset flex items-center justify-center text-[var(--primary)] shadow-inner">
+          <div className="w-16 h-16 mx-auto rounded-3xl neu-inset flex items-center justify-center text-[var(--primary)]">
             <Lock className="w-8 h-8" />
           </div>
 

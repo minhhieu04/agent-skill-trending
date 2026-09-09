@@ -770,7 +770,7 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
           <div
             ref={datesScrollRef}
             onScroll={updateDatesScrollState}
-            className="flex items-center gap-2 overflow-x-auto pb-1 pt-0.5 scrollbar-none scroll-smooth"
+            className="flex items-center gap-2 overflow-x-auto py-2 px-1 scrollbar-none scroll-smooth"
           >
             {loadingDates ? (
               <div className="h-8 w-48 neu-inset rounded-xl animate-pulse" />
@@ -904,7 +904,7 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
                 }
                 className={`px-3 py-2 rounded-xl neu-btn disabled:opacity-50 flex items-center gap-1.5 text-xs font-semibold cursor-pointer transition-all ${
                   activeDisplayLang === 'en'
-                    ? 'neu-inset text-[var(--primary)] font-bold shadow-inner'
+                    ? 'neu-inset text-[var(--primary)] font-bold'
                     : 'text-[var(--text-muted)] hover:text-[var(--primary)]'
                 }`}
               >
@@ -1047,7 +1047,7 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
               </button>
             </div>
 
-            <div className="flex items-center gap-1.5 px-3 py-1 rounded-full neu-inset-sm text-xs font-mono text-[var(--primary)] font-semibold ml-auto shadow-inner">
+            <div className="flex items-center gap-1.5 px-3 py-1 rounded-full neu-inset-sm text-xs font-mono text-[var(--primary)] font-semibold ml-auto">
               <Sparkles className="w-3.5 h-3.5 text-[var(--primary)] shrink-0" />
               <span className="text-[10px] text-[var(--text-muted)] hidden sm:inline">Model:</span>
               <select
@@ -1226,14 +1226,14 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
             </div>
 
             {/* Cột sidebar cố định (bên phải, sticky top-6, w-80 hoặc w-96 trên desktop) */}
-            <aside className="hidden lg:block w-80 xl:w-96 shrink-0 sticky top-6 max-h-[calc(100vh-4.5rem)] overflow-y-auto scrollbar-none p-1.5 pb-20">
+            <aside className="hidden lg:block w-80 xl:w-96 shrink-0 sticky top-6 pb-12">
               {/* MASTER COMPANION CARD: Khối thống nhất, Soft UI chuẩn, không lồng hộp thừa thãi */}
-              <div className="rounded-3xl neu-flat p-4 sm:p-5 space-y-4 transition-all">
+              <div className="rounded-3xl neu-flat p-4 sm:p-5 space-y-4 transition-all max-h-[calc(100vh-4.5rem)] overflow-y-auto scrollbar-none">
                 {/* 1. HEADER & DANH SÁCH BÀI HÔM NAY */}
                 <div className="space-y-2.5">
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2 min-w-0">
-                      <div className="w-7 h-7 rounded-xl neu-inset text-[var(--primary)] flex items-center justify-center font-bold text-xs shrink-0 shadow-inner">
+                      <div className="w-7 h-7 rounded-xl bg-[var(--primary)]/10 text-[var(--primary)] flex items-center justify-center font-bold text-xs shrink-0">
                         <FileText className="w-3.5 h-3.5" />
                       </div>
                       <h4 className="text-xs font-bold text-[var(--text-main)] uppercase tracking-wider font-mono truncate">
@@ -1247,7 +1247,7 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
 
                   {/* Single Post Compact Banner vs Multi-post Switcher */}
                   {filteredSkills.length === 1 ? (
-                    <div className="flex items-center justify-between p-2.5 rounded-2xl neu-inset-sm bg-black/[0.01] dark:bg-white/[0.01]">
+                    <div className="flex items-center justify-between p-2.5 rounded-2xl bg-[var(--primary)]/5 border border-[var(--primary)]/20 transition-all">
                       <div className="flex items-center gap-2.5 min-w-0">
                         <div className="w-6 h-6 rounded-lg bg-[var(--primary)] text-white text-xs font-mono font-bold flex items-center justify-center shrink-0 shadow-xs">
                           1
@@ -1326,7 +1326,7 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
                   <div className="space-y-2">
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-2 min-w-0">
-                        <div className="w-7 h-7 rounded-xl neu-inset text-amber-500 flex items-center justify-center font-bold text-xs shrink-0 shadow-inner">
+                        <div className="w-7 h-7 rounded-xl bg-amber-500/10 text-amber-500 flex items-center justify-center font-bold text-xs shrink-0">
                           <Compass className="w-3.5 h-3.5" />
                         </div>
                         <h4 className="text-xs font-bold text-[var(--text-main)] uppercase tracking-wider font-mono">
@@ -1445,7 +1445,7 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
                 {activeSummary && (
                   <div className="space-y-2.5">
                     <div className="flex items-center gap-2">
-                      <div className="w-7 h-7 rounded-xl neu-inset text-emerald-500 flex items-center justify-center font-bold text-xs shrink-0 shadow-inner">
+                      <div className="w-7 h-7 rounded-xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center font-bold text-xs shrink-0">
                         <Zap className="w-3.5 h-3.5" />
                       </div>
                       <h4 className="text-xs font-bold text-[var(--text-main)] uppercase tracking-wider font-mono">

@@ -506,7 +506,7 @@ export const AgentChatDrawer: React.FC<AgentChatDrawerProps> = ({
           /* Login Gate inside Drawer */
           <div className="flex-1 flex items-center justify-center p-6 text-center">
             <div className="max-w-xs w-full p-6 rounded-3xl neu-flat space-y-4">
-              <div className="w-14 h-14 mx-auto rounded-3xl neu-inset flex items-center justify-center text-[var(--primary)] shadow-inner">
+              <div className="w-14 h-14 mx-auto rounded-3xl neu-inset flex items-center justify-center text-[var(--primary)]">
                 <Lock className="w-7 h-7" />
               </div>
 

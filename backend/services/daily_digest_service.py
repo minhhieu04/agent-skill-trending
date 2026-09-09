@@ -31,9 +31,29 @@ class DailyDigestService:
     """
 
     @classmethod
+    def normalize_date_str(cls, date_str: str) -> str:
+        """
+        Normalizes date_str to YYYY-MM-DD.
+        Resolves 'today', 'current', 'latest', 'now', or empty strings to today's local date.
+        """
+        if not date_str:
+            return datetime.now().strftime("%Y-%m-%d")
+        clean = str(date_str).strip().lower()
+        if clean in ("today", "current", "latest", "now"):
+            return datetime.now().strftime("%Y-%m-%d")
+        if re.match(r"^\d{4}-\d{2}-\d{2}$", clean):
+            try:
+                datetime.strptime(clean, "%Y-%m-%d")
+                return clean
+            except ValueError:
+                pass
+        return datetime.now().strftime("%Y-%m-%d")
+
+    @classmethod
     def get_available_dates(cls, db: Session) -> List[Dict[str, Any]]:
         """
         Returns a sorted list of unique dates where skills were discovered or digests exist.
+        Ensures only valid dates matching YYYY-MM-DD format are included.
         """
         # Fetch distinct dates from skills
         skill_dates = (
@@ -52,6 +72,8 @@ class DailyDigestService:
             if not d:
                 continue
             date_str = str(d)
+            if not re.match(r"^\d{4}-\d{2}-\d{2}$", date_str):
+                continue
             date_list.append({
                 "date": date_str,
                 "skills_count": count,
@@ -62,9 +84,11 @@ class DailyDigestService:
         # Also include any digests that might not have skills directly on that created_at date
         existing_digest_dates = {item["date"] for item in date_list}
         for d_date, has_audio in digest_map.items():
+            if not d_date or not re.match(r"^\d{4}-\d{2}-\d{2}$", str(d_date)):
+                continue
             if d_date not in existing_digest_dates:
                 date_list.append({
-                    "date": d_date,
+                    "date": str(d_date),
                     "skills_count": 0,
                     "has_digest": True,
                     "has_audio": has_audio,
@@ -99,6 +123,7 @@ class DailyDigestService:
         Finds skills created on or around date_str.
         If very few skills match exact created_at date, supplements with top trending skills.
         """
+        date_str = cls.normalize_date_str(date_str)
         skills = (
             db.query(Skill)
             .filter(func.date(Skill.created_at) == date_str)
@@ -1037,6 +1062,7 @@ class DailyDigestService:
         Generates or fetches the Daily Digest for a specific date.
         If force_regenerate is True, recalculates even if already stored.
         """
+        date_str = cls.normalize_date_str(date_str)
         existing = db.query(DailyDigest).filter(DailyDigest.digest_date == date_str).first()
         if existing and not force_regenerate:
             # Auto-upgrade legacy digests that lack social_post or contain old generic placeholders
@@ -1266,6 +1292,7 @@ class DailyDigestService:
         Translates an existing daily digest to target_lang ('en' or 'vi') using Gemini 3.8 Flash.
         Returns the translated digest payload without overwriting the primary database record.
         """
+        date_str = cls.normalize_date_str(date_str)
         digest = db.query(DailyDigest).filter(DailyDigest.digest_date == date_str).first()
         if not digest:
             digest = await cls.generate_digest(db, date_str=date_str, language=target_lang, model=model)
@@ -1400,6 +1427,7 @@ class DailyDigestService:
         """
         Synthesizes audio for the podcast script using TTSService.
         """
+        date_str = cls.normalize_date_str(date_str)
         digest = await cls.generate_digest(db, date_str, force_regenerate=False)
 
         # If audio exists and not forcing new synthesis, return cached audio (ensure not empty dummy)

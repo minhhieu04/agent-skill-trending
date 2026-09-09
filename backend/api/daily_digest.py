@@ -1,5 +1,8 @@
 import logging
 import base64
+import json
+import re
+from datetime import datetime
 from typing import Optional, List, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy.orm import Session
@@ -13,6 +16,38 @@ from services.tts_service import TTSService
 logger = logging.getLogger("DailyDigestRouter")
 
 router = APIRouter(prefix="/daily-digest", tags=["Daily AI Podcast & Feed"])
+
+
+def validate_and_normalize_date(date_str: str) -> str:
+    """
+    Validates and normalizes date parameter.
+    Resolves 'today', 'current', 'latest', 'now', or empty strings to today's local date (YYYY-MM-DD).
+    Validates against YYYY-MM-DD pattern and validates calendar date validity.
+    Raises HTTPException(400) on invalid date format or calendar date.
+    """
+    if not date_str:
+        return datetime.now().strftime("%Y-%m-%d")
+
+    clean_date = date_str.strip().lower()
+    if clean_date in ("today", "current", "latest", "now"):
+        return datetime.now().strftime("%Y-%m-%d")
+
+    # Must match YYYY-MM-DD format
+    if not re.match(r"^\d{4}-\d{2}-\d{2}$", clean_date):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Định dạng ngày không hợp lệ: '{date_str}'. Định dạng yêu cầu là YYYY-MM-DD hoặc 'today'."
+        )
+
+    # Must be valid calendar date
+    try:
+        valid_date = datetime.strptime(clean_date, "%Y-%m-%d")
+        return valid_date.strftime("%Y-%m-%d")
+    except ValueError:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Ngày không hợp lệ trong lịch: '{date_str}'. Định dạng yêu cầu là YYYY-MM-DD."
+        )
 
 
 class AudioSynthesizeRequest(BaseModel):
