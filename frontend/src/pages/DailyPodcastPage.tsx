@@ -165,6 +165,32 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
     }
   }, [availableDates, selectedDate]);
 
+  const [isCollecting, setIsCollecting] = useState<boolean>(false);
+  const todayLocalStr = React.useMemo(() => {
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = String(now.getMonth() + 1).padStart(2, '0');
+    const d = String(now.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  }, []);
+
+  const handleTriggerCollectionToday = async () => {
+    try {
+      setIsCollecting(true);
+      showToast('Đang kích hoạt cào kỹ năng mới từ GitHub Trending, HackerNews, Reddit...', 'info');
+      await api.triggerCollection();
+      showToast('Bộ thu thập dữ liệu đã bắt đầu! Dữ liệu đang được làm mới...', 'success');
+      setTimeout(() => {
+        queryClient.invalidateQueries({ queryKey: ['dailyDigestDates'] });
+        queryClient.invalidateQueries({ queryKey: ['dailyDigest', selectedDate] });
+        setIsCollecting(false);
+      }, 4000);
+    } catch (err: any) {
+      setIsCollecting(false);
+      showToast(err.message || 'Không thể cào dữ liệu mới lúc này', 'error');
+    }
+  };
+
   // Horizontal Scroll state for available dates
   const datesScrollRef = useRef<HTMLDivElement | null>(null);
   const [canScrollDatesLeft, setCanScrollDatesLeft] = useState(false);
@@ -621,25 +647,38 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
               <Calendar className="w-3.5 h-3.5 text-[var(--primary)]" />
               {t('podcast_select_date')}:
             </span>
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1.5">
               <button
                 type="button"
-                onClick={() => handleScrollDates('left')}
-                disabled={!canScrollDatesLeft}
-                className="w-5 h-5 rounded-lg neu-btn-sm flex items-center justify-center text-[var(--text-muted)] hover:text-[var(--primary)] disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
-                title="Cuộn sang trái"
+                onClick={handleTriggerCollectionToday}
+                disabled={isCollecting}
+                className="neu-btn-sm px-2.5 py-1 rounded-xl text-xs font-semibold text-[var(--text-main)] hover:text-[var(--primary)] flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                title="Cào kỹ năng mới hôm nay từ GitHub Trending, HackerNews, Reddit"
               >
-                <ChevronLeft className="w-3 h-3" />
+                <Zap className={`w-3.5 h-3.5 text-amber-500 ${isCollecting ? 'animate-spin' : ''}`} />
+                <span className="hidden sm:inline">Cào dữ liệu hôm nay</span>
               </button>
-              <button
-                type="button"
-                onClick={() => handleScrollDates('right')}
-                disabled={!canScrollDatesRight}
-                className="w-5 h-5 rounded-lg neu-btn-sm flex items-center justify-center text-[var(--text-muted)] hover:text-[var(--primary)] disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
-                title="Cuộn sang phải"
-              >
-                <ChevronRight className="w-3 h-3" />
-              </button>
+
+              <div className="flex items-center gap-1 ml-1">
+                <button
+                  type="button"
+                  onClick={() => handleScrollDates('left')}
+                  disabled={!canScrollDatesLeft}
+                  className="w-5 h-5 rounded-lg neu-btn-sm flex items-center justify-center text-[var(--text-muted)] hover:text-[var(--primary)] disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+                  title="Cuộn sang trái"
+                >
+                  <ChevronLeft className="w-3 h-3" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleScrollDates('right')}
+                  disabled={!canScrollDatesRight}
+                  className="w-5 h-5 rounded-lg neu-btn-sm flex items-center justify-center text-[var(--text-muted)] hover:text-[var(--primary)] disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+                  title="Cuộn sang phải"
+                >
+                  <ChevronRight className="w-3 h-3" />
+                </button>
+              </div>
             </div>
           </div>
 
@@ -653,6 +692,7 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
             ) : (
               availableDates.map((item) => {
                 const isSelected = item.date === selectedDate;
+                const isTodayDate = item.is_today || item.date === todayLocalStr;
                 const dateParts = item.date.split('-');
                 const label = `${dateParts[2]}/${dateParts[1]}`;
                 return (
@@ -666,6 +706,11 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
                     }`}
                   >
                     <span>{label}</span>
+                    {isTodayDate && (
+                      <span className="px-1.5 py-0.2 text-[9px] rounded-md font-mono font-bold bg-amber-500/15 text-amber-600 dark:text-amber-400">
+                        HÔM NAY
+                      </span>
+                    )}
                     {item.skills_count > 0 && (
                       <span
                         className={`px-1.5 py-0.2 text-[10px] rounded-md font-mono font-medium ${

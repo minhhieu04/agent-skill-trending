@@ -507,6 +507,7 @@ export interface DailyDigestDateInfo {
   skills_count: number;
   has_digest: boolean;
   has_audio: boolean;
+  is_today?: boolean;
 }
 
 export interface DailyPodcastAudioResponse {

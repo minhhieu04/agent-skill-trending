@@ -67,10 +67,29 @@ class DailyDigestService:
                     "date": d_date,
                     "skills_count": 0,
                     "has_digest": True,
-                    "has_audio": has_audio
+                    "has_audio": has_audio,
+                    "is_today": False
                 })
 
-        # Sort descending
+        # ALWAYS guarantee today's date is available at the top for immediate access
+        today_local = datetime.now().strftime("%Y-%m-%d")
+        existing_dates_set = {item["date"] for item in date_list}
+        if today_local not in existing_dates_set:
+            today_skills = db.query(Skill).filter(func.date(Skill.created_at) == today_local).count()
+            date_list.append({
+                "date": today_local,
+                "skills_count": today_skills,
+                "has_digest": today_local in digest_map,
+                "has_audio": digest_map.get(today_local, False),
+                "is_today": True
+            })
+        else:
+            # Mark existing item as today if it matches
+            for item in date_list:
+                if item["date"] == today_local:
+                    item["is_today"] = True
+
+        # Sort descending by date
         date_list.sort(key=lambda x: x["date"], reverse=True)
         return date_list
 
