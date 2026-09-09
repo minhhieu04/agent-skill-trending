@@ -1070,21 +1070,22 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
               </button>
             </div>
 
-            <div className="flex items-center gap-1.5 px-3 py-1 rounded-full neu-inset-sm text-xs font-mono text-[var(--primary)] font-semibold ml-auto">
-              <Sparkles className="w-3.5 h-3.5 text-[var(--primary)] shrink-0" />
-              <span className="text-[10px] text-[var(--text-muted)] hidden sm:inline">Model:</span>
-              <select
+            <div className="ml-auto flex items-center gap-1.5">
+              <NeuSelect
                 value={selectedModel}
-                onChange={(e) => setSelectedModel(e.target.value)}
+                onChange={(val) => setSelectedModel(String(val))}
+                options={AVAILABLE_GEMINI_MODELS.map((m) => ({
+                  value: m.id,
+                  label: m.name,
+                  badge: m.id === 'gemini-3.8-flash' ? 'HOT' : undefined,
+                  icon: <Sparkles className={`w-3.5 h-3.5 ${m.id === 'gemini-3.8-flash' ? 'text-amber-500' : 'text-[var(--primary)]'}`} />,
+                }))}
+                size="sm"
+                variant="inset"
+                align="right"
+                searchable={false}
                 title="Chọn mô hình Gemini ưu tiên khi phân tích hoặc dịch"
-                className="bg-transparent text-[var(--primary)] font-mono text-xs font-bold outline-none cursor-pointer pr-1"
-              >
-                {AVAILABLE_GEMINI_MODELS.map((m) => (
-                  <option key={m.id} value={m.id} className="bg-[var(--bg-main)] text-[var(--text-main)] font-sans">
-                    {m.name}
-                  </option>
-                ))}
-              </select>
+              />
             </div>
           </div>
 
