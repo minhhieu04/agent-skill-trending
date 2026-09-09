@@ -95,15 +95,15 @@ export const BundlesPage: React.FC<BundlesPageProps> = ({ onSelectSkillById }) =
               <div>
                 {/* Top Badge & Header */}
                 <div className="flex items-start justify-between gap-3 mb-3">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-10 h-10 rounded-2xl neu-inset flex items-center justify-center shrink-0">
+                  <div className="flex items-start gap-3 min-w-0 flex-1">
+                    <div className="w-10 h-10 rounded-2xl neu-inset flex items-center justify-center shrink-0 mt-0.5">
                       <TechLogo name={bundle.slug || bundle.title || bundle.icon} className="w-5 h-5" />
                     </div>
-                    <div className="min-w-0">
+                    <div className="min-w-0 flex-1">
                       <span className="text-[10px] font-mono px-2.5 py-0.5 rounded-full neu-inset-sm text-[var(--text-muted)] whitespace-nowrap shrink-0 inline-flex items-center">
                         {bundle.badge}
                       </span>
-                      <h3 className="text-sm sm:text-base font-bold text-[var(--text-main)] mt-1 truncate">
+                      <h3 className="text-sm sm:text-base font-bold text-[var(--text-main)] mt-1 leading-snug line-clamp-2">
                         {cleanTitle(bundle.title)}
                       </h3>
                     </div>
@@ -120,10 +120,10 @@ export const BundlesPage: React.FC<BundlesPageProps> = ({ onSelectSkillById }) =
                 </p>
 
                 {/* Target Stack Tag */}
-                <div className="p-3 rounded-2xl neu-inset text-xs font-mono text-[var(--text-main)] mb-4 flex items-center justify-between gap-2">
+                <div className="p-3 rounded-2xl neu-inset text-xs font-mono text-[var(--text-main)] mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 sm:gap-2">
                   <span className="text-[var(--text-muted)] font-semibold shrink-0">{t('target_stack')}:</span>
-                  <div className="flex items-center gap-1.5 flex-wrap justify-end font-bold text-[var(--primary)] min-w-0">
-                    <TechLogo name={bundle.target_stack} className="w-3.5 h-3.5 inline shrink-0" />
+                  <div className="flex items-center gap-2 font-bold text-[var(--primary)] min-w-0">
+                    <TechLogo name={bundle.target_stack} className="w-4 h-4 shrink-0" />
                     <span className="truncate">{bundle.target_stack}</span>
                   </div>
                 </div>
@@ -139,6 +139,7 @@ export const BundlesPage: React.FC<BundlesPageProps> = ({ onSelectSkillById }) =
                         key={s.id}
                         onClick={() => onSelectSkillById && onSelectSkillById(s.id)}
                         className="p-2.5 rounded-2xl neu-btn flex items-center justify-between text-xs cursor-pointer transition-all gap-2"
+                        title={cleanTitle(s.title)}
                       >
                         <div className="flex items-center gap-2 min-w-0 flex-1 overflow-hidden">
                           <TechLogo name={s.name || s.primary_language || s.title} className="w-3.5 h-3.5 shrink-0" />
@@ -147,8 +148,8 @@ export const BundlesPage: React.FC<BundlesPageProps> = ({ onSelectSkillById }) =
                           </span>
                         </div>
                         <div className="flex items-center gap-2 shrink-0 font-mono text-[11px]">
-                          <span className="text-[var(--text-muted)] hidden xs:inline">{s.category}</span>
-                          <span className="text-[var(--primary)] font-bold">
+                          <span className="text-[var(--text-muted)] hidden sm:inline">{s.category}</span>
+                          <span className="text-[var(--primary)] font-bold whitespace-nowrap">
                             {s.trending_score} pts
                           </span>
                         </div>
@@ -159,22 +160,22 @@ export const BundlesPage: React.FC<BundlesPageProps> = ({ onSelectSkillById }) =
               </div>
 
               {/* Action Buttons */}
-              <div className="pt-3 border-t border-[var(--shadow-dark)]/20 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
+              <div className="pt-3 border-t border-[var(--shadow-dark)]/20 grid grid-cols-2 gap-2.5">
                 <button
                   onClick={() => handleBookmarkBundle(bundle.slug)}
                   disabled={bookmarkingSlug === bundle.slug}
-                  className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-2xl neu-btn text-[var(--text-main)] hover:text-[var(--primary)] text-xs font-semibold active:scale-[0.97] transition-all cursor-pointer whitespace-nowrap"
+                  className="flex items-center justify-center gap-1.5 px-2.5 sm:px-4 py-2.5 rounded-2xl neu-btn text-[var(--text-main)] hover:text-[var(--primary)] text-xs font-semibold active:scale-[0.97] transition-all cursor-pointer min-w-0"
                 >
                   <Bookmark className="w-3.5 h-3.5 shrink-0" />
-                  <span>{t('btn_bookmark_bundle')}</span>
+                  <span className="truncate">{t('btn_bookmark_bundle')}</span>
                 </button>
 
                 <button
                   onClick={() => handleExportBundle(bundle.slug)}
-                  className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-2xl neu-primary text-white text-xs font-semibold active:scale-[0.97] transition-all cursor-pointer whitespace-nowrap"
+                  className="flex items-center justify-center gap-1.5 px-2.5 sm:px-4 py-2.5 rounded-2xl neu-primary text-white text-xs font-semibold active:scale-[0.97] transition-all cursor-pointer min-w-0"
                 >
                   <Download className="w-3.5 h-3.5 shrink-0" />
-                  <span>{t('btn_export_bundle')}</span>
+                  <span className="truncate">{t('btn_export_bundle')}</span>
                 </button>
               </div>
             </div>
