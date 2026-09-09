@@ -212,7 +212,7 @@ const AppContent: React.FC = () => {
 
   useEffect(() => {
     if (mainScrollRef.current) {
-      mainScrollRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+      mainScrollRef.current.scrollTo({ top: 0, behavior: 'instant' });
     }
   }, [activeTab]);
 
@@ -249,15 +249,35 @@ const AppContent: React.FC = () => {
         </div>
 
         {/* Scrollable Main Area */}
-        <main ref={mainScrollRef} className="flex-1 overflow-y-auto px-3 sm:px-5 xl:px-8 pt-2 pb-24 space-y-6">
-          <div className="max-w-[1650px] w-full mx-auto space-y-6">
+        <main
+          ref={mainScrollRef}
+          className={`flex-1 px-3 sm:px-5 xl:px-8 ${
+            activeTab === 'agent_chat'
+              ? 'overflow-hidden pt-1 pb-3 flex flex-col'
+              : 'overflow-y-auto pt-2 pb-24 space-y-6'
+          }`}
+        >
+          <div
+            className={`max-w-[1650px] w-full mx-auto ${
+              activeTab === 'agent_chat'
+                ? 'h-full flex-1 flex flex-col min-h-0'
+                : 'space-y-6'
+            }`}
+          >
             {/* Top Metric Stats Counters - Chỉ hiển thị tại Dashboard chính (Trending) */}
             {activeTab === 'trending' && (
               <StatsHeader stats={stats || null} />
             )}
 
             {/* Active Tab View with Page Transition */}
-            <div key={activeTab} className="animate-page-enter will-change-transform space-y-6">
+            <div
+              key={activeTab}
+              className={`animate-page-enter will-change-transform ${
+                activeTab === 'agent_chat'
+                  ? 'h-full flex-1 flex flex-col min-h-0'
+                  : 'space-y-6'
+              }`}
+            >
               {activeTab === 'trending' && (
                 <TrendingFeed
                   skills={trendingSkills}

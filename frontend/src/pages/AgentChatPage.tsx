@@ -174,8 +174,6 @@ export const AgentChatPage: React.FC<AgentChatPageProps> = ({
         top: messagesContainerRef.current.scrollHeight,
         behavior: 'smooth'
       });
-    } else {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }
   }, [messages.length, loading]);
 
@@ -444,7 +442,7 @@ export const AgentChatPage: React.FC<AgentChatPageProps> = ({
   // If user is not authenticated, show elegant Login Gate screen
   if (!user) {
     return (
-      <div className="w-full h-[calc(100vh-140px)] min-h-[500px] flex items-center justify-center p-4 sm:p-6 animate-fade-in">
+      <div className="w-full h-full flex-1 min-h-0 flex items-center justify-center p-4 sm:p-6 animate-fade-in">
         <div className="max-w-md w-full p-8 rounded-3xl neu-flat text-center space-y-6">
           <div className="w-16 h-16 mx-auto rounded-3xl neu-inset flex items-center justify-center text-[var(--primary)]">
             <Lock className="w-8 h-8" />
@@ -482,7 +480,7 @@ export const AgentChatPage: React.FC<AgentChatPageProps> = ({
   }
 
   return (
-    <div className="flex h-[calc(100vh-140px)] min-h-[600px] rounded-3xl neu-flat overflow-hidden animate-fade-in text-[var(--text-main)] relative">
+    <div className="flex h-full flex-1 min-h-0 rounded-3xl neu-flat overflow-hidden animate-fade-in text-[var(--text-main)] relative">
       {/* Mobile/Tablet Backdrop Overlay for History Sidebar */}
       {isSidebarOpen && (
         <div
