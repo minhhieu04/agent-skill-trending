@@ -311,8 +311,8 @@ class AgentChatService:
             total_score, raw_score = cls._calculate_skill_rag_score(s, full_context_text, filtered_tokens)
             scored_skills.append((total_score, raw_score, s))
 
-        # Filter skills with actual semantic relevance
-        relevant_matches = [item for item in scored_skills if item[1] > 0]
+        # Filter skills with actual semantic relevance (minimum threshold avoids single noise word false positives)
+        relevant_matches = [item for item in scored_skills if item[1] >= 20.0]
         relevant_matches.sort(key=lambda x: (x[0], x[2].trending_score or 0), reverse=True)
 
         k = max(2, min(top_k, 4))
