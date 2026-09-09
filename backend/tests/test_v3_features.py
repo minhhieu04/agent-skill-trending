@@ -113,10 +113,13 @@ def test_bundles_endpoints():
     assert "combined_content" in export_res.json()
 
 def test_playground_simulation():
+    from middleware.auth import create_access_token
+    token = create_access_token({"sub": "hieu", "id": 1})
+    headers = {"Authorization": f"Bearer {token}"}
     res = client.post("/api/v1/playground/simulate", json={
         "prompt": "Viết hàm xử lý concurrent trong Golang",
         "target_ide": "antigravity"
-    })
+    }, headers=headers)
     assert res.status_code == 200
     data = res.json()
     assert "before_code" in data

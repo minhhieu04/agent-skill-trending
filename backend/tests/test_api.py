@@ -1,6 +1,7 @@
 import pytest
 from fastapi.testclient import TestClient
 from main import app, seed_initial_curated_skills
+from middleware.auth import create_access_token
 
 @pytest.fixture(autouse=True)
 def setup_db():
@@ -38,7 +39,6 @@ def test_get_and_update_preferences():
         current_pref = res_get.json()
         assert "preferred_categories" in current_pref
 
-        # PUT
         update_data = {
             "user_name": "Hiếu",
             "preferred_categories": ["coding-agent", "mcp-server"],
@@ -49,7 +49,15 @@ def test_get_and_update_preferences():
             "min_trending_score": 30,
             "only_recent_activity_days": 60
         }
-        res_put = client.put("/api/v1/preferences", json=update_data)
+
+        # Anonymous PUT should be rejected (401)
+        res_anon = client.put("/api/v1/preferences", json=update_data)
+        assert res_anon.status_code == 401
+
+        # Authenticated PUT with valid token
+        token = create_access_token({"sub": "hieu", "id": 1})
+        headers = {"Authorization": f"Bearer {token}"}
+        res_put = client.put("/api/v1/preferences", json=update_data, headers=headers)
         assert res_put.status_code == 200
         updated = res_put.json()
         assert updated["min_stars"] == 100

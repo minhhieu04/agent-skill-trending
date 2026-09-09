@@ -114,8 +114,6 @@ class SkillService:
         pref = None
         if user:
             pref = db.query(UserPreference).filter(UserPreference.user_id == user.id).first()
-        if not pref:
-            pref = db.query(UserPreference).first()
 
         # Efficient Candidate pre-filtering at DB level instead of loading entire table
         candidate_query = db.query(Skill)

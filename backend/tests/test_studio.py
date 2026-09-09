@@ -11,6 +11,7 @@ from models.skill import Skill
 from api.studio import VideoSceneItem
 from services.blog_video_service import BlogVideoService
 from services.tts_service import TTSService
+from middleware.auth import create_access_token
 
 @pytest.fixture(scope="module", autouse=True)
 def setup_db():
@@ -335,6 +336,8 @@ def test_narration_revision_changes_with_script_or_voice_settings():
 
 def test_video_render_rejects_stale_narration_before_rendering():
     revision = TTSService.narration_revision(["original narration"], "voice-a", "+0%", "+0Hz")
+    token = create_access_token({"sub": "hieu", "id": 1})
+    headers = {"Authorization": f"Bearer {token}"}
     response = client.post("/api/v1/studio/video/render", json={
         "storyboard": {
             "total_duration": 4,
@@ -357,7 +360,7 @@ def test_video_render_rejects_stale_narration_before_rendering():
             "status": "success",
             "narration_revision": revision,
         },
-    })
+    }, headers=headers)
     assert response.status_code == 409
     assert "changed after synthesis" in response.json()["detail"]
 

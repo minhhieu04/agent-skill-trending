@@ -72,6 +72,14 @@ def auto_migrate_schema(eng=None):
                     else:
                         conn.execute(text("ALTER TABLE skills ADD COLUMN readme_translations JSON DEFAULT '{}'"))
 
+            # Check audit_logs table for ip_address column
+            if 'audit_logs' in tables:
+                audit_cols = [c['name'] for c in inspector.get_columns('audit_logs')]
+                if 'ip_address' not in audit_cols:
+                    logger.info("Auto-migrating: adding 'ip_address' to audit_logs...")
+                    conn.execute(text("ALTER TABLE audit_logs ADD COLUMN ip_address VARCHAR(64)"))
+
+
         logger.info("✅ Database auto-migration & schema sync completed.")
     except Exception as e:
         logger.warning(f"Auto-migration inspection note: {e}")

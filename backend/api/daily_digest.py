@@ -10,6 +10,8 @@ from pydantic import BaseModel
 
 from database import get_db
 from models.skill import Skill
+from models.user import User
+from middleware.auth import get_current_user
 from services.daily_digest_service import DailyDigestService
 from services.tts_service import TTSService
 
@@ -148,6 +150,7 @@ async def get_daily_digest(
 async def regenerate_daily_digest(
     date_str: str,
     payload: RegenerateRequest = RegenerateRequest(),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
@@ -213,6 +216,7 @@ async def translate_daily_digest(
 async def synthesize_audio(
     date_str: str,
     payload: AudioSynthesizeRequest = AudioSynthesizeRequest(),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """

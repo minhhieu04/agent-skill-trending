@@ -16,6 +16,8 @@ from typing import Optional, List, Dict, Any, Literal
 
 from database import get_db
 from models.skill import Skill
+from models.user import User
+from middleware.auth import get_current_user
 from services.tts_service import TTSService
 from services.blog_video_service import BlogVideoService
 
@@ -391,7 +393,10 @@ async def generate_video_storyboard(payload: StoryboardGenerateRequest, db: Sess
 
 
 @router.post("/video/render")
-async def render_video(payload: VideoRenderRequest):
+async def render_video(
+    payload: VideoRenderRequest,
+    current_user: User = Depends(get_current_user)
+):
     """Renders the same Remotion composition used by the Player to an MP4 file."""
     if not payload.tts_result.audio_base64:
         raise HTTPException(status_code=400, detail="Audio is required before rendering video")

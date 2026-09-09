@@ -70,16 +70,17 @@ def seed_initial_curated_skills():
     try:
         if db.query(User).count() == 0:
             logger.info("Seeding default demo users...")
+            seed_password = settings.SEED_ADMIN_PASSWORD
             admin_user = User(
                 username="hieu",
-                password_hash=get_password_hash("123456"),
+                password_hash=get_password_hash(seed_password),
                 display_name="Hiếu",
                 is_admin=True,
                 created_at=datetime.utcnow()
             )
             dev_user = User(
                 username="developer",
-                password_hash=get_password_hash("123456"),
+                password_hash=get_password_hash(seed_password),
                 display_name="Developer Pro",
                 is_admin=False,
                 created_at=datetime.utcnow()

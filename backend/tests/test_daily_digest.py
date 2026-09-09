@@ -6,6 +6,7 @@ from fastapi.testclient import TestClient
 from main import app, seed_initial_curated_skills
 from database import SessionLocal
 from models.skill import Skill
+from middleware.auth import create_access_token
 
 
 @pytest.fixture(autouse=True)
@@ -216,7 +217,10 @@ def test_regenerate_daily_digest():
         res_dates = client.get("/api/v1/daily-digest/dates")
         date_str = res_dates.json()["dates"][0]["date"]
 
-        res = client.post(f"/api/v1/daily-digest/{date_str}/generate", json={"language": "vi"})
+        token = create_access_token({"sub": "hieu", "id": 1})
+        headers = {"Authorization": f"Bearer {token}"}
+
+        res = client.post(f"/api/v1/daily-digest/{date_str}/generate", json={"language": "vi"}, headers=headers)
         assert res.status_code == 200
         data = res.json()
         assert data["digest_date"] == date_str
@@ -238,9 +242,13 @@ async def test_synthesize_podcast_audio():
             res_dates = client.get("/api/v1/daily-digest/dates")
             date_str = res_dates.json()["dates"][0]["date"]
 
+            token = create_access_token({"sub": "hieu", "id": 1})
+            headers = {"Authorization": f"Bearer {token}"}
+
             res = client.post(
                 f"/api/v1/daily-digest/{date_str}/audio",
-                json={"voice": "vi-VN-NamMinhNeural", "force_regenerate": True}
+                json={"voice": "vi-VN-NamMinhNeural", "force_regenerate": True},
+                headers=headers
             )
             assert res.status_code == 200
             data = res.json()
