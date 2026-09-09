@@ -143,14 +143,14 @@ async def synthesize_audio(
     db: Session = Depends(get_db)
 ):
     """
-    Generates TTS audio for the daily podcast episode using EdgeTTS / Gemini.
+    Generates TTS audio for the daily podcast episode using Google AI Studio / Gemini / EdgeTTS.
     Returns audio_base64 and duration.
     """
     try:
         result = await DailyDigestService.synthesize_podcast_audio(
             db=db,
             date_str=date_str,
-            voice=payload.voice or "vi-VN-NamMinhNeural",
+            voice=payload.voice or "gemini-Aoede",
             rate=payload.rate or "+5%",
             force_regenerate=bool(payload.force_regenerate)
         )
@@ -163,7 +163,7 @@ async def synthesize_audio(
 @router.get("/{date_str}/audio-stream")
 async def stream_podcast_audio(
     date_str: str,
-    voice: str = Query("vi-VN-NamMinhNeural"),
+    voice: str = Query("gemini-Aoede"),
     rate: str = Query("+5%"),
     force: bool = Query(False),
     db: Session = Depends(get_db)

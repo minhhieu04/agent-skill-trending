@@ -128,6 +128,29 @@ def test_chat_with_agent_uiux_query():
         assert data["success"] is True
         skill_names = [item["skill"]["name"] for item in data["recommended_skills"]]
         assert any("design" in name.lower() or "uiux" in name.lower() or "ui-ux" in name.lower() or "ui" in name.lower() for name in skill_names)
+        assert not any("javaguide" in name.lower() for name in skill_names)
+
+        # Match reasons must reflect UI/UX and not mistakenly classify as autonomous subagents
+        first_rec = data["recommended_skills"][0]
+        reasons_text = " ".join(first_rec["match_reasons"]).lower()
+        assert any(k in reasons_text for k in ["grid", "tailwind", "wcag", "giao diện", "palette", "tokens"])
+        assert "autonomous subagents" not in reasons_text
+
+
+def test_chat_with_agent_short_uiux_query():
+    """Verify that short query 'UI UX' accurately retrieves real UI/UX skills without false substring matches."""
+    with TestClient(app) as client:
+        payload = {
+            "query": "UI UX",
+            "language": "vi"
+        }
+        res = client.post("/api/v1/agent-chat/message", json=payload)
+        assert res.status_code == 200
+        data = res.json()
+        assert data["success"] is True
+        skill_names = [item["skill"]["name"].lower() for item in data["recommended_skills"]]
+        assert any("ui-ux" in name or "ui-skill" in name for name in skill_names)
+        assert not any("javaguide" in name for name in skill_names)
 
 
 def test_chat_with_agent_security_vietnamese_diacritics():

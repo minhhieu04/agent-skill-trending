@@ -15,9 +15,71 @@ from config import settings
 
 logger = logging.getLogger("TTSService")
 
-# Curated Hot AI Voices: Gemini 2.0 Live Native Audio + Google WaveNet + Edge-TTS (Diểm Phúc, Minh Hiếu)
+# Curated Hot AI Voices: Google AI Studio Gemini 2.5 Flash TTS + Google WaveNet + Edge-TTS
 CURATED_VOICES = [
-    # --- Vietnamese Voices ---
+    # --- Google AI Studio - Gemini High Quality Multimodal Audio (Bilingual & Natural) ---
+    {
+        "id": "gemini-Aoede",
+        "name": "Gemini AI Studio - Aoede (Nữ - Truyền Cảm, Chuẩn Song Ngữ)",
+        "provider": "gemini_audio",
+        "language": "multi",
+        "gender": "female",
+        "style": "Gemini 2.5 Multimodal Expressive Voice",
+        "description": "Giọng nữ Google AI Studio siêu tự nhiên, nhả chữ mượt mà, phát âm từ vựng tiếng Anh công nghệ cực chuẩn.",
+        "preview_text": "Xin chào anh Hiếu! Tôi là Aoede từ Google AI Studio, sẵn sàng cùng anh điểm tin công nghệ hôm nay.",
+        "recommended_preset": "hype",
+        "badge": "GOOGLE AI STUDIO"
+    },
+    {
+        "id": "gemini-Puck",
+        "name": "Gemini AI Studio - Puck (Nam - Năng Động, Chuẩn Tech)",
+        "provider": "gemini_audio",
+        "language": "multi",
+        "gender": "male",
+        "style": "Gemini 2.5 Multimodal Expressive Voice",
+        "description": "Giọng nam trẻ trung, dứt khoát, năng động, phát âm tên framework và thuật ngữ tiếng Anh bản xứ.",
+        "preview_text": "Chào anh em developers! Puck đây, cùng khám phá những agent skills đột phá nhất hôm nay.",
+        "recommended_preset": "hype",
+        "badge": "GOOGLE AI STUDIO"
+    },
+    {
+        "id": "gemini-Charon",
+        "name": "Gemini AI Studio - Charon (Nam - Trầm Ấm, Chuyên Gia)",
+        "provider": "gemini_audio",
+        "language": "multi",
+        "gender": "male",
+        "style": "Gemini 2.5 Multimodal Expressive Voice",
+        "description": "Giọng nam trầm ấm, bản lĩnh, mang phong thái chuyên gia công nghệ phân tích kiến trúc hệ thống.",
+        "preview_text": "Chào mừng anh Hiếu quay trở lại. Hôm nay chúng ta sẽ cùng mổ xẻ những kiến trúc AI agent hàng đầu.",
+        "recommended_preset": "professional",
+        "badge": "GOOGLE AI STUDIO"
+    },
+    {
+        "id": "gemini-Kore",
+        "name": "Gemini AI Studio - Kore (Nữ - Trong Trẻo, Tự Nhiên)",
+        "provider": "gemini_audio",
+        "language": "multi",
+        "gender": "female",
+        "style": "Gemini 2.5 Multimodal Expressive Voice",
+        "description": "Giọng nữ thanh thoát, trong trẻo, mang lại cảm giác thân thiện khi nghe podcast hoặc bản tin.",
+        "preview_text": "Chào các bạn! Tôi là Kore từ Google AI Studio, đồng hành cùng bạn trong bản tin công nghệ hôm nay.",
+        "recommended_preset": "professional",
+        "badge": "GOOGLE AI STUDIO"
+    },
+    {
+        "id": "gemini-Fenrir",
+        "name": "Gemini AI Studio - Fenrir (Nam - Bản Lĩnh, Khí Chất)",
+        "provider": "gemini_audio",
+        "language": "multi",
+        "gender": "male",
+        "style": "Gemini 2.5 Multimodal Expressive Voice",
+        "description": "Giọng nam đĩnh đạc, uy lực, rất thích hợp cho bài phát biểu Keynote và thông cáo công nghệ lớn.",
+        "preview_text": "Cùng khám phá kỷ nguyên tự động hóa mới cùng hệ sinh thái AI Agents và Google AI Studio.",
+        "recommended_preset": "hype",
+        "badge": "GOOGLE AI STUDIO"
+    },
+
+    # --- Vietnamese Voices (Edge-TTS & Google Cloud WaveNet) ---
     {
         "id": "vi-VN-HoaiMyNeural",
         "name": "Diểm Phúc (Nữ - Truyền Cảm)",
@@ -65,68 +127,6 @@ CURATED_VOICES = [
         "preview_text": "Google Cloud Text to Speech mang đến trải nghiệm âm thanh sống động cho ứng dụng của bạn.",
         "recommended_preset": "professional",
         "badge": "GOOGLE AI"
-    },
-
-    # --- Gemini 2.0 Live Native Audio Voices (Direct Multimodal Streaming) ---
-    {
-        "id": "gemini-Aoede",
-        "name": "Gemini 2.0 Live - Aoede (Nữ - Biểu Cảm)",
-        "provider": "gemini_audio",
-        "language": "multi",
-        "gender": "female",
-        "style": "Gemini 2.0 Multimodal Native Audio",
-        "description": "Mô hình âm thanh Gemini 2.0 Flash Native Audio trực tiếp, biểu cảm linh hoạt, độ trễ siêu thấp.",
-        "preview_text": "Hello! I am Aoede, streaming live from Gemini 2.0 native audio with expressive storytelling tone.",
-        "recommended_preset": "hype",
-        "badge": "GEMINI 2.0"
-    },
-    {
-        "id": "gemini-Puck",
-        "name": "Gemini 2.0 Live - Puck (Nam - Năng Động)",
-        "provider": "gemini_audio",
-        "language": "multi",
-        "gender": "male",
-        "style": "Gemini 2.0 Multimodal Native Audio",
-        "description": "Giọng nam trẻ trung, đầy nhiệt huyết, tối ưu cho video Shorts, TikTok và tech demos.",
-        "preview_text": "Hey what is up developers! Puck here, powered by Gemini 2.0 live native audio stream.",
-        "recommended_preset": "hype",
-        "badge": "GEMINI 2.0"
-    },
-    {
-        "id": "gemini-Charon",
-        "name": "Gemini 2.0 Live - Charon (Nam - Trầm Lắng)",
-        "provider": "gemini_audio",
-        "language": "multi",
-        "gender": "male",
-        "style": "Gemini 2.0 Multimodal Native Audio",
-        "description": "Giọng nam trầm tĩnh, sâu lắng, hoàn hảo cho podcast công nghệ và phân tích kiến trúc.",
-        "preview_text": "Welcome. This is Charon speaking via Gemini 2.0 native audio intelligence.",
-        "recommended_preset": "professional",
-        "badge": "GEMINI 2.0"
-    },
-    {
-        "id": "gemini-Kore",
-        "name": "Gemini 2.0 Live - Kore (Nữ - Trong Trẻo)",
-        "provider": "gemini_audio",
-        "language": "multi",
-        "gender": "female",
-        "style": "Gemini 2.0 Multimodal Native Audio",
-        "description": "Giọng nữ trong trẻo, tự nhiên, thích hợp cho video giải thích sản phẩm và tutorial.",
-        "preview_text": "Hi there! I am Kore, your AI co-host for today's developer deep dive.",
-        "recommended_preset": "professional",
-        "badge": "GEMINI 2.0"
-    },
-    {
-        "id": "gemini-Fenrir",
-        "name": "Gemini 2.0 Live - Fenrir (Nam - Bản Lĩnh)",
-        "provider": "gemini_audio",
-        "language": "multi",
-        "gender": "male",
-        "style": "Gemini 2.0 Multimodal Native Audio",
-        "description": "Giọng nam đĩnh đạc, uy lực, rất thích hợp cho bài thuyết trình Keynote và ra mắt tính năng lớn.",
-        "preview_text": "Let us explore the future of agentic engineering with Gemini 2.0 native capabilities.",
-        "recommended_preset": "hype",
-        "badge": "GEMINI 2.0"
     },
 
     # --- English & International Voices ---

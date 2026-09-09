@@ -1221,7 +1221,7 @@ class DailyDigestService:
         cls,
         db: Session,
         date_str: str,
-        voice: str = "vi-VN-NamMinhNeural",
+        voice: str = "gemini-Aoede",
         rate: str = "+5%",
         force_regenerate: bool = False
     ) -> Dict[str, Any]:

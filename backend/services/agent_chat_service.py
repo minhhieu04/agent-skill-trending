@@ -389,6 +389,7 @@ class AgentChatService:
     ) -> List[str]:
         reasons = []
         name_lower = (skill.name or "").lower()
+        title_lower = (skill.title or "").lower()
         lang_lower = (skill.primary_language or "").lower()
         cat_lower = (skill.category or "").lower()
         tags_lower = [str(t).lower() for t in (skill.tags or [])]
@@ -828,7 +829,7 @@ class AgentChatService:
 
             conclusion = (
                 f"\n---\n"
-                f"### 🚀 Hành động tiếp theo:\n"
+                f"### 🚀 Hành động tiếp theo (RAG Recommendation):\n"
                 f"Bấm **'Xem Chi Tiết'** trên thẻ kỹ năng bên dưới để xem toàn bộ tài liệu cấu hình, hoặc bấm **'Sao Chép Cấu Hình'** để cài đặt trực tiếp vào agent harness của bạn."
             )
 
@@ -899,7 +900,7 @@ class AgentChatService:
 
             conclusion = (
                 f"\n---\n"
-                f"### 🚀 Next Steps:\n"
+                f"### 🚀 Next Steps (RAG Recommendation):\n"
                 f"Click **'View Details'** on any card below to review its full specifications, or copy the export snippet into your agent harness configuration."
             )
 

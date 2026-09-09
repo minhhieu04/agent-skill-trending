@@ -38,19 +38,19 @@ import { copyToClipboard } from '../utils/clipboard';
 
 // Curated AI Voices Fallback
 const DEFAULT_PODCAST_VOICES: VoiceOption[] = [
-  // Vietnamese
-  { id: 'vi-VN-NamMinhNeural', name: 'Minh Hiếu (Nam - Trầm Ấm)', provider: 'edge_tts', language: 'vi-VN', gender: 'male', style: 'Tech Radar, Thời Sự', preview_text: '', badge: 'STUDIO' },
+  // Google AI Studio - Gemini 2.5 Flash Native Audio (Expressive & Bilingual)
+  { id: 'gemini-Aoede', name: 'Gemini AI Studio - Aoede (Nữ - Truyền Cảm, Chuẩn Song Ngữ)', provider: 'gemini_audio', language: 'multi', gender: 'female', style: 'Gemini 2.5 Multimodal Expressive Voice', preview_text: '', badge: 'GOOGLE AI STUDIO' },
+  { id: 'gemini-Puck', name: 'Gemini AI Studio - Puck (Nam - Năng Động, Chuẩn Tech)', provider: 'gemini_audio', language: 'multi', gender: 'male', style: 'Gemini 2.5 Multimodal Expressive Voice', preview_text: '', badge: 'GOOGLE AI STUDIO' },
+  { id: 'gemini-Charon', name: 'Gemini AI Studio - Charon (Nam - Trầm Ấm, Chuyên Gia)', provider: 'gemini_audio', language: 'multi', gender: 'male', style: 'Gemini 2.5 Multimodal Expressive Voice', preview_text: '', badge: 'GOOGLE AI STUDIO' },
+  { id: 'gemini-Kore', name: 'Gemini AI Studio - Kore (Nữ - Trong Trẻo, Tự Nhiên)', provider: 'gemini_audio', language: 'multi', gender: 'female', style: 'Gemini 2.5 Multimodal Expressive Voice', preview_text: '', badge: 'GOOGLE AI STUDIO' },
+  { id: 'gemini-Fenrir', name: 'Gemini AI Studio - Fenrir (Nam - Bản Lĩnh, Khí Chất)', provider: 'gemini_audio', language: 'multi', gender: 'male', style: 'Gemini 2.5 Multimodal Expressive Voice', preview_text: '', badge: 'GOOGLE AI STUDIO' },
+  // Vietnamese Standard (Edge-TTS & Google WaveNet)
+  { id: 'vi-VN-NamMinhNeural', name: 'Minh Hiếu (Nam - Trầm Ấm)', provider: 'edge_tts', language: 'vi-VN', gender: 'male', style: 'Tech Radar, Thời Sự', preview_text: '', badge: 'EDGE-TTS' },
   { id: 'vi-VN-HoaiMyNeural', name: 'Diểm Phúc (Nữ - Truyền Cảm)', provider: 'edge_tts', language: 'vi-VN', gender: 'female', style: 'Viral Reviewer, TikTok Hot', preview_text: '', badge: 'HOT' },
-  { id: 'vi-VN-Wavenet-A', name: 'Google WaveNet (Nữ - Chuẩn Studio)', provider: 'google_tts', language: 'vi-VN', gender: 'female', style: 'Google Cloud WaveNet', preview_text: '', badge: 'GOOGLE AI' },
-  { id: 'vi-VN-Wavenet-B', name: 'Google WaveNet (Nam - Phát Thanh)', provider: 'google_tts', language: 'vi-VN', gender: 'male', style: 'Google Studio Broadcast', preview_text: '', badge: 'GOOGLE AI' },
-  // Gemini 2.0 Live Native Audio
-  { id: 'gemini-Aoede', name: 'Gemini 2.0 Live - Aoede (Nữ - Biểu Cảm)', provider: 'gemini_audio', language: 'multi', gender: 'female', style: 'Gemini 2.0 Multimodal Native Audio', preview_text: '', badge: 'GEMINI 2.0' },
-  { id: 'gemini-Puck', name: 'Gemini 2.0 Live - Puck (Nam - Năng Động)', provider: 'gemini_audio', language: 'multi', gender: 'male', style: 'Gemini 2.0 Multimodal Native Audio', preview_text: '', badge: 'GEMINI 2.0' },
-  { id: 'gemini-Charon', name: 'Gemini 2.0 Live - Charon (Nam - Trầm Lắng)', provider: 'gemini_audio', language: 'multi', gender: 'male', style: 'Gemini 2.0 Multimodal Native Audio', preview_text: '', badge: 'GEMINI 2.0' },
-  { id: 'gemini-Kore', name: 'Gemini 2.0 Live - Kore (Nữ - Trong Trẻo)', provider: 'gemini_audio', language: 'multi', gender: 'female', style: 'Gemini 2.0 Multimodal Native Audio', preview_text: '', badge: 'GEMINI 2.0' },
-  { id: 'gemini-Fenrir', name: 'Gemini 2.0 Live - Fenrir (Nam - Bản Lĩnh)', provider: 'gemini_audio', language: 'multi', gender: 'male', style: 'Gemini 2.0 Multimodal Native Audio', preview_text: '', badge: 'GEMINI 2.0' },
+  { id: 'vi-VN-Wavenet-A', name: 'Google WaveNet (Nữ - Chuẩn Studio)', provider: 'google_tts', language: 'vi-VN', gender: 'female', style: 'Google Cloud WaveNet', preview_text: '', badge: 'GOOGLE CLOUD' },
+  { id: 'vi-VN-Wavenet-B', name: 'Google WaveNet (Nam - Phát Thanh)', provider: 'google_tts', language: 'vi-VN', gender: 'male', style: 'Google Studio Broadcast', preview_text: '', badge: 'GOOGLE CLOUD' },
   // English & Global Studio
-  { id: 'en-US-Journey-F', name: 'Google Journey (Female - Expressive)', provider: 'google_tts', language: 'en-US', gender: 'female', style: 'DeepMind Next-Gen Journey', preview_text: '', badge: 'GOOGLE AI' },
+  { id: 'en-US-Journey-F', name: 'Google Journey (Female - Expressive)', provider: 'google_tts', language: 'en-US', gender: 'female', style: 'DeepMind Next-Gen Journey', preview_text: '', badge: 'GOOGLE CLOUD' },
   { id: 'en-US-ChristopherNeural', name: 'Christopher (Male - Keynote)', provider: 'edge_tts', language: 'en-US', gender: 'male', style: 'Apple Keynote, Silicon Valley', preview_text: '', badge: 'STUDIO' },
   { id: 'en-US-JennyNeural', name: 'Jenny (Female - Dynamic Tech Host)', provider: 'edge_tts', language: 'en-US', gender: 'female', style: 'Silicon Valley Tech Host', preview_text: '', badge: 'HOT' },
   { id: 'en-US-GuyNeural', name: 'Alex (Male - Casual Silicon Valley)', provider: 'edge_tts', language: 'en-US', gender: 'male', style: 'Casual Founder & Hacker', preview_text: '', badge: 'CASUAL' },
@@ -78,7 +78,7 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
   const [currentTime, setCurrentTime] = useState<number>(0);
   const [duration, setDuration] = useState<number>(0);
   const [playbackRate, setPlaybackRate] = useState<number>(1.0);
-  const [selectedVoice, setSelectedVoice] = useState<string>('vi-VN-NamMinhNeural');
+  const [selectedVoice, setSelectedVoice] = useState<string>('gemini-Aoede');
   const [isAudioLoading, setIsAudioLoading] = useState<boolean>(false);
 
   // Active View Tab inside Hero: 'script' | 'highlights'
@@ -129,17 +129,17 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
   );
 
   const voiceSelectOptions = React.useMemo(() => [
-    ...vietnameseVoices.map((v) => ({
-      value: v.id,
-      label: v.name,
-      badge: v.badge,
-      group: 'Giọng Đọc Tiếng Việt',
-    })),
     ...geminiVoices.map((v) => ({
       value: v.id,
       label: v.name,
       badge: v.badge,
-      group: 'Gemini 2.0 Live Native Audio',
+      group: 'Google AI Studio (Siêu Tự Nhiên & Chuẩn Song Ngữ)',
+    })),
+    ...vietnameseVoices.map((v) => ({
+      value: v.id,
+      label: v.name,
+      badge: v.badge,
+      group: 'Giọng Đọc Tiếng Việt Tiêu Chuẩn',
     })),
     ...internationalVoices.map((v) => ({
       value: v.id,
@@ -147,7 +147,7 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
       badge: v.badge,
       group: 'English & Global Studio',
     })),
-  ], [vietnameseVoices, geminiVoices, internationalVoices]);
+  ], [geminiVoices, vietnameseVoices, internationalVoices]);
 
   // 2. Fetch available dates
   const { data: datesData, isLoading: loadingDates } = useQuery<{ dates: DailyDigestDateInfo[] }>({
