@@ -28,7 +28,13 @@ export function loadChatSessions(): AgentChatSession[] {
     if (raw) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed) && parsed.length > 0) {
-        return parsed;
+        // Strictly filter out any empty sessions (messages.length > 0)
+        const validSessions = parsed.filter(
+          (s: AgentChatSession) => s && Array.isArray(s.messages) && s.messages.length > 0
+        );
+        if (validSessions.length > 0) {
+          return validSessions;
+        }
       }
     }
 
@@ -53,16 +59,24 @@ export function loadChatSessions(): AgentChatSession[] {
     console.warn('Failed to parse chat sessions from localStorage', e);
   }
 
-  // Fallback: create fresh session
-  const initial = createNewSession();
-  saveChatSessions([initial]);
-  return [initial];
+  // Fallback: return empty list without writing empty sessions to localStorage
+  return [];
 }
 
 export function saveChatSessions(sessions: AgentChatSession[]): void {
   try {
+    // Only persist sessions that have at least 1 message
+    const validSessions = (sessions || []).filter(
+      (s) => s && Array.isArray(s.messages) && s.messages.length > 0
+    );
+
+    if (validSessions.length === 0) {
+      localStorage.removeItem(AGENT_CHAT_SESSIONS_KEY);
+      return;
+    }
+
     // Keep at most 50 sessions and at most 100 messages per session to prevent localStorage quota overflow
-    const trimmed = (sessions || []).slice(0, 50).map((s) => ({
+    const trimmed = validSessions.slice(0, 50).map((s) => ({
       ...s,
       messages: (s.messages || []).slice(-100)
     }));

@@ -23,6 +23,12 @@ class AudioSynthesizeRequest(BaseModel):
 
 class RegenerateRequest(BaseModel):
     language: Optional[str] = "vi"
+    model: Optional[str] = "gemini-3.8-flash"
+
+
+class TranslateDigestRequest(BaseModel):
+    target_language: Optional[str] = "en"
+    model: Optional[str] = "gemini-3.8-flash"
 
 
 @router.get("/voices")
@@ -114,6 +120,7 @@ async def regenerate_daily_digest(
             db=db,
             date_str=date_str,
             language=payload.language or "vi",
+            model=payload.model or "gemini-3.8-flash",
             force_regenerate=True
         )
         return {
@@ -136,6 +143,28 @@ async def regenerate_daily_digest(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.post("/{date_str}/translate")
+async def translate_daily_digest(
+    date_str: str,
+    payload: TranslateDigestRequest = TranslateDigestRequest(),
+    db: Session = Depends(get_db)
+):
+    """
+    Translates the daily digest and skill summaries to target language (e.g. 'en' or 'vi') using Gemini 3.8 Flash.
+    """
+    try:
+        translated = await DailyDigestService.translate_digest(
+            db=db,
+            date_str=date_str,
+            target_lang=payload.target_language or "en",
+            model=payload.model or "gemini-3.8-flash"
+        )
+        return translated
+    except Exception as e:
+        logger.error(f"Error translating daily digest for {date_str}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.post("/{date_str}/audio")
 async def synthesize_audio(
     date_str: str,
@@ -143,14 +172,14 @@ async def synthesize_audio(
     db: Session = Depends(get_db)
 ):
     """
-    Generates TTS audio for the daily podcast episode using EdgeTTS / Gemini.
+    Generates TTS audio for the daily podcast episode using Google AI Studio / Gemini / EdgeTTS.
     Returns audio_base64 and duration.
     """
     try:
         result = await DailyDigestService.synthesize_podcast_audio(
             db=db,
             date_str=date_str,
-            voice=payload.voice or "vi-VN-NamMinhNeural",
+            voice=payload.voice or "gemini-Aoede",
             rate=payload.rate or "+5%",
             force_regenerate=bool(payload.force_regenerate)
         )
@@ -163,7 +192,7 @@ async def synthesize_audio(
 @router.get("/{date_str}/audio-stream")
 async def stream_podcast_audio(
     date_str: str,
-    voice: str = Query("vi-VN-NamMinhNeural"),
+    voice: str = Query("gemini-Aoede"),
     rate: str = Query("+5%"),
     force: bool = Query(False),
     db: Session = Depends(get_db)

@@ -28,9 +28,11 @@ import {
   ShieldCheck, 
   Video, 
   RefreshCw,
-  Target
+  Target,
+  Languages,
+  Loader2
 } from 'lucide-react';
-import { Skill, SecurityReport } from '../types';
+import { Skill, SecurityReport, TranslationProviderOption } from '../types';
 import { useToast } from '../context/ToastContext';
 import { useLanguage } from '../context/LanguageContext';
 import { ExportModal } from './ExportModal';
@@ -90,6 +92,170 @@ export const SkillDetailModal: React.FC<SkillDetailModalProps> = ({
     } finally {
       setIsScanningSecurity(false);
     }
+  };
+
+  // Official README & AI Translation State
+  const [readmeContent, setReadmeContent] = useState<string>('');
+  const [isLoadingReadme, setIsLoadingReadme] = useState<boolean>(false);
+  const [isRefreshingReadme, setIsRefreshingReadme] = useState<boolean>(false);
+  const [isTranslating, setIsTranslating] = useState<boolean>(false);
+  const [readmeMode, setReadmeMode] = useState<'original' | 'translated'>('original');
+  const [targetLanguage, setTargetLanguage] = useState<string>('vi');
+  const [providers, setProviders] = useState<TranslationProviderOption[]>([]);
+  const [selectedProvider, setSelectedProvider] = useState<string>('auto');
+  const [translations, setTranslations] = useState<Record<string, { content: string; model_used?: string; provider?: string; translated_at?: string }>>({});
+  const [activeTranslationMeta, setActiveTranslationMeta] = useState<{ model_used?: string; provider?: string } | null>(null);
+  const [copiedReadme, setCopiedReadme] = useState(false);
+  const [summaryText, setSummaryText] = useState<string>('');
+  const [isTranslatingSummary, setIsTranslatingSummary] = useState<boolean>(false);
+
+  // Load available translation providers (Gemini, Ollama status, Web Engine)
+  useEffect(() => {
+    api.getTranslationProviders()
+      .then((data) => {
+        if (Array.isArray(data) && data.length > 0) {
+          setProviders(data);
+        }
+      })
+      .catch((err) => {
+        console.warn('Could not load translation providers:', err);
+      });
+  }, []);
+
+  useEffect(() => {
+    if (!skill) {
+      setReadmeContent('');
+      setTranslations({});
+      setReadmeMode('original');
+      setActiveTranslationMeta(null);
+      setSummaryText('');
+      return;
+    }
+
+    const initialSummary = skill.ai_summary || skill.description || '';
+    setSummaryText(initialSummary);
+
+    // Auto-detect CJK / foreign characters and auto-translate summary to Vietnamese
+    const cjkRegex = /[\u4e00-\u9fff]/;
+    if (initialSummary && cjkRegex.test(initialSummary)) {
+      setIsTranslatingSummary(true);
+      api.translateSkillSummary(skill.id)
+        .then((res) => {
+          if (res.ai_summary && !cjkRegex.test(res.ai_summary)) {
+            setSummaryText(res.ai_summary);
+            skill.ai_summary = res.ai_summary;
+          }
+        })
+        .catch((err) => {
+          console.warn('Could not auto-translate summary:', err);
+        })
+        .finally(() => {
+          setIsTranslatingSummary(false);
+        });
+    }
+
+    const initial = skill.readme_preview || '';
+    setReadmeContent(initial);
+    const initialTrans = skill.readme_translations || {};
+    setTranslations(initialTrans);
+
+    if (initialTrans['vi']?.content) {
+      setActiveTranslationMeta({
+        model_used: initialTrans['vi'].model_used,
+        provider: initialTrans['vi'].provider,
+      });
+    } else {
+      setActiveTranslationMeta(null);
+    }
+
+    const isPlaceholder = !initial || initial.length < 100 || (initial.startsWith('#') && initial.includes('Xem thêm chi tiết tại:'));
+    if (isPlaceholder && skill.repository_url) {
+      setIsLoadingReadme(true);
+      api.getSkillReadme(skill.id)
+        .then((data) => {
+          if (data.readme) {
+            setReadmeContent(data.readme);
+          }
+          if (data.translations) {
+            setTranslations(data.translations);
+            if (data.translations['vi']?.content) {
+              setActiveTranslationMeta({
+                model_used: data.translations['vi'].model_used,
+                provider: data.translations['vi'].provider,
+              });
+            }
+          }
+        })
+        .catch((err) => {
+          console.warn('Could not auto-fetch README:', err);
+        })
+        .finally(() => {
+          setIsLoadingReadme(false);
+        });
+    }
+  }, [skill?.id]);
+
+  const handleTranslateReadme = async (force: boolean = false, overrideProvider?: string) => {
+    if (!skill) return;
+    setIsTranslating(true);
+    const providerToUse = overrideProvider || selectedProvider;
+    try {
+      const res = await api.translateSkillReadme(skill.id, targetLanguage, force, providerToUse);
+      if (res.translated_text) {
+        setTranslations((prev) => ({
+          ...prev,
+          [targetLanguage]: {
+            content: res.translated_text,
+            model_used: res.model_used,
+            provider: res.provider,
+          }
+        }));
+        setActiveTranslationMeta({
+          model_used: res.model_used,
+          provider: res.provider,
+        });
+        setReadmeMode('translated');
+        showToast(
+          language === 'vi'
+            ? `Dịch thành công bằng ${res.model_used || 'AI'}!`
+            : `Translated successfully using ${res.model_used || 'AI'}!`,
+          'success'
+        );
+      }
+    } catch (err: any) {
+      showToast(err.message || 'Lỗi khi dịch tài liệu', 'error');
+    } finally {
+      setIsTranslating(false);
+    }
+  };
+
+  const handleRefreshReadme = async () => {
+    if (!skill) return;
+    setIsRefreshingReadme(true);
+    try {
+      const res = await api.refreshSkillReadme(skill.id);
+      if (res.readme) {
+        setReadmeContent(res.readme);
+        setTranslations({});
+        setReadmeMode('original');
+        setActiveTranslationMeta(null);
+        showToast(language === 'vi' ? 'Đã tải README mới nhất từ GitHub!' : 'Fetched latest README from GitHub!', 'success');
+      }
+    } catch (err: any) {
+      showToast(err.message || 'Lỗi khi đồng bộ README', 'error');
+    } finally {
+      setIsRefreshingReadme(false);
+    }
+  };
+
+  const handleCopyReadme = () => {
+    const textToCopy = readmeMode === 'translated' && translations[targetLanguage]?.content
+      ? translations[targetLanguage].content
+      : readmeContent || skill?.description || '';
+    navigator.clipboard.writeText(textToCopy);
+    setCopiedReadme(true);
+    showToast(language === 'vi' ? 'Đã sao chép nội dung Markdown!' : 'Copied Markdown to clipboard!', 'success');
+    setTimeout(() => setCopiedReadme(false), 2000);
   };
 
   if (!skill) return null;
@@ -462,12 +628,46 @@ export const SkillDetailModal: React.FC<SkillDetailModalProps> = ({
                 <h3 className="text-lg sm:text-2xl font-black text-[var(--text-main)] leading-snug">
                   {language === 'vi' ? `Hiểu rõ bản chất & Làm chủ ${skill.title || skill.name} trong 5 phút` : `Master ${skill.title || skill.name} in 5 Minutes`}
                 </h3>
-                <p className="text-xs sm:text-sm text-[var(--text-muted)] leading-relaxed">
-                  {skill.ai_summary || skill.description}
-                </p>
-                <div className="pt-2 flex flex-wrap items-center gap-3 sm:gap-4 text-xs font-medium text-[var(--text-muted)]">
-                  <span className="flex items-center gap-1.5"><Target className="w-3.5 h-3.5 text-[var(--primary)] shrink-0" /> {language === 'vi' ? 'Dành cho:' : 'Audience:'} <strong className="text-[var(--text-main)]">{skill.target_audience || 'Developers'}</strong></span>
-                  <span className="flex items-center gap-1.5"><Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400 shrink-0" /> {language === 'vi' ? 'Đánh giá:' : 'Community:'} <strong className="text-amber-500">{skill.stars.toLocaleString()} Stars</strong></span>
+                <div className="relative flex flex-col gap-1.5">
+                  <p className="text-xs sm:text-sm text-[var(--text-muted)] leading-relaxed">
+                    {summaryText || skill.ai_summary || skill.description}
+                  </p>
+                  {isTranslatingSummary && (
+                    <div className="flex items-center gap-1.5 text-[11px] text-[var(--primary)] font-medium">
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                      <span>{language === 'vi' ? 'Đang dịch tóm tắt sang Tiếng Việt...' : 'Translating summary to Vietnamese...'}</span>
+                    </div>
+                  )}
+                </div>
+                <div className="pt-2 flex flex-wrap items-center justify-between gap-3 sm:gap-4 text-xs font-medium text-[var(--text-muted)]">
+                  <div className="flex flex-wrap items-center gap-3 sm:gap-4">
+                    <span className="flex items-center gap-1.5"><Target className="w-3.5 h-3.5 text-[var(--primary)] shrink-0" /> {language === 'vi' ? 'Dành cho:' : 'Audience:'} <strong className="text-[var(--text-main)]">{skill.target_audience || 'Developers'}</strong></span>
+                    <span className="flex items-center gap-1.5"><Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400 shrink-0" /> {language === 'vi' ? 'Đánh giá:' : 'Community:'} <strong className="text-amber-500">{skill.stars.toLocaleString()} Stars</strong></span>
+                  </div>
+                  <button
+                    onClick={async () => {
+                      if (!skill || isTranslatingSummary) return;
+                      setIsTranslatingSummary(true);
+                      try {
+                        const res = await api.translateSkillSummary(skill.id);
+                        if (res.ai_summary) {
+                          setSummaryText(res.ai_summary);
+                          skill.ai_summary = res.ai_summary;
+                          showToast(language === 'vi' ? 'Đã dịch tóm tắt sang Tiếng Việt!' : 'Summary translated to Vietnamese!', 'success');
+                        }
+                      } catch (err: any) {
+                        showToast(err.message || 'Lỗi dịch tóm tắt', 'error');
+                      } finally {
+                        setIsTranslatingSummary(false);
+                      }
+                    }}
+                    disabled={isTranslatingSummary}
+                    className="flex items-center gap-1 text-[11px] font-semibold text-[var(--primary)] hover:underline cursor-pointer"
+                    title={language === 'vi' ? 'Dịch tóm tắt sang Tiếng Việt bằng AI' : 'Translate summary with AI'}
+                  >
+                    <Sparkles className="w-3 h-3 text-amber-500" />
+                    <span>{language === 'vi' ? 'Dịch tóm tắt AI' : 'Translate Summary'}</span>
+                  </button>
                 </div>
               </div>
 
@@ -1041,40 +1241,316 @@ export const SkillDetailModal: React.FC<SkillDetailModalProps> = ({
                 </div>
               </div>
 
-              {/* Official Repository README Preview */}
+              {/* Official Repository README with Multi-Tier AI Translation */}
               <div className="p-5 sm:p-6 rounded-2xl neu-flat space-y-4">
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 pb-2">
+                {/* Header & Controls Bar */}
+                <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-3 pb-2 border-b border-[var(--border)]">
                   <div className="flex items-center gap-2.5">
                     <div className="p-2 rounded-xl neu-inset-sm text-[var(--primary)] shrink-0">
                       <FileText className="w-4 h-4" />
                     </div>
                     <div>
-                      <h4 className="text-sm font-bold text-[var(--text-main)]">
-                        {language === 'vi' ? 'Tài Liệu Gốc / Official README' : 'Official Repository README'}
-                      </h4>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h4 className="text-sm font-bold text-[var(--text-main)]">
+                          {language === 'vi' ? 'Tài Liệu Gốc / Official README' : 'Official Repository README'}
+                        </h4>
+                        <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-lg neu-inset-sm text-[var(--primary)]">
+                          {readmeMode === 'translated' ? 'AI TRANSLATED' : 'RAW MARKDOWN'}
+                        </span>
+                      </div>
                       <p className="text-xs text-[var(--text-muted)]">
-                        {language === 'vi' ? 'Trích xuất nguyên bản từ kho mã nguồn repository' : 'Directly extracted from the source repository'}
+                        {language === 'vi' 
+                          ? 'Trích xuất nguyên bản từ kho mã nguồn repository • Hỗ trợ dịch đa tầng bằng AI' 
+                          : 'Directly extracted from source repository • Multi-tier AI translation supported'}
                       </p>
                     </div>
                   </div>
 
-                  {skill.repository_url && (
-                    <a
-                      href={skill.repository_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-xs font-semibold text-[var(--primary)] hover:underline flex items-center gap-1 shrink-0"
+                  {/* Actions & Language Toolbar */}
+                  <div className="flex items-center gap-2 flex-wrap w-full lg:w-auto justify-start lg:justify-end">
+                    {/* View Mode Toggle: Original vs Translated */}
+                    <div className="flex items-center p-0.5 rounded-xl neu-inset-sm text-xs font-semibold">
+                      <button
+                        onClick={() => setReadmeMode('original')}
+                        className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
+                          readmeMode === 'original'
+                            ? 'bg-[var(--primary)] text-white shadow-xs font-bold'
+                            : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
+                        }`}
+                        title="Xem tài liệu nguyên bản từ GitHub"
+                      >
+                        {language === 'vi' ? 'Bản Gốc' : 'Original'}
+                      </button>
+                      <button
+                        onClick={() => {
+                          setReadmeMode('translated');
+                          // If no translation exists for current target language, trigger it
+                          if (!translations[targetLanguage]?.content) {
+                            handleTranslateReadme(false);
+                          }
+                        }}
+                        className={`px-2.5 py-1 rounded-lg transition-all flex items-center gap-1 cursor-pointer ${
+                          readmeMode === 'translated'
+                            ? 'bg-[var(--primary)] text-white shadow-xs font-bold'
+                            : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
+                        }`}
+                        title="Xem bản dịch AI"
+                      >
+                        <Sparkles className="w-3 h-3" />
+                        <span>{language === 'vi' ? 'Bản Dịch AI' : 'AI Translated'}</span>
+                      </button>
+                    </div>
+
+                    {/* Target Language Dropdown */}
+                    <div className="relative inline-flex items-center gap-1">
+                      <Languages className="w-3.5 h-3.5 text-[var(--text-muted)] shrink-0" />
+                      <select
+                        value={targetLanguage}
+                        onChange={(e) => {
+                          const newLang = e.target.value;
+                          setTargetLanguage(newLang);
+                          if (readmeMode === 'translated') {
+                            if (translations[newLang]?.content) {
+                              setActiveTranslationMeta({
+                                model_used: translations[newLang].model_used,
+                                provider: translations[newLang].provider,
+                              });
+                            } else {
+                              // Trigger translation for new language
+                              setIsTranslating(true);
+                              api.translateSkillReadme(skill.id, newLang, false, selectedProvider)
+                                .then((res) => {
+                                  if (res.translated_text) {
+                                    setTranslations((prev) => ({
+                                      ...prev,
+                                      [newLang]: {
+                                        content: res.translated_text,
+                                        model_used: res.model_used,
+                                        provider: res.provider,
+                                      }
+                                    }));
+                                    setActiveTranslationMeta({
+                                      model_used: res.model_used,
+                                      provider: res.provider,
+                                    });
+                                  }
+                                })
+                                .catch((err) => {
+                                  showToast(err.message || 'Lỗi dịch thuật', 'error');
+                                })
+                                .finally(() => {
+                                  setIsTranslating(false);
+                                });
+                            }
+                          }
+                        }}
+                        className="px-2.5 py-1.5 rounded-xl neu-inset-sm text-xs font-medium text-[var(--text-main)] bg-[var(--bg)] focus:outline-none cursor-pointer"
+                        title={language === 'vi' ? 'Chọn ngôn ngữ đích' : 'Select target language'}
+                      >
+                        <option value="vi">🇻🇳 Tiếng Việt</option>
+                        <option value="en">🇬🇧 English</option>
+                        <option value="ja">🇯🇵 日本語</option>
+                        <option value="zh">🇨🇳 简体中文</option>
+                        <option value="ko">🇰🇷 한국어</option>
+                      </select>
+                    </div>
+
+                    {/* AI Model / Provider Selector */}
+                    <div className="relative inline-flex items-center gap-1">
+                      <Cpu className="w-3.5 h-3.5 text-[var(--text-muted)] shrink-0" />
+                      <select
+                        value={selectedProvider}
+                        onChange={(e) => {
+                          const newProvider = e.target.value;
+                          setSelectedProvider(newProvider);
+                          if (readmeMode === 'translated') {
+                            handleTranslateReadme(true, newProvider);
+                          }
+                        }}
+                        className="px-2.5 py-1.5 rounded-xl neu-inset-sm text-xs font-medium text-[var(--text-main)] bg-[var(--bg)] focus:outline-none cursor-pointer max-w-[170px] sm:max-w-none truncate"
+                        title={language === 'vi' ? 'Chọn mô hình / AI Provider dịch' : 'Select AI Model / Provider'}
+                      >
+                        {providers.length > 0 ? (
+                          providers.map((p) => {
+                            const isLocal = p.id === 'local_llm';
+                            const note = !p.available 
+                              ? (isLocal ? ' (Chỉ khi dev local)' : ' (Chưa sẵn sàng)')
+                              : (p.id === 'auto' ? ' (Tối ưu)' : '');
+                            return (
+                              <option 
+                                key={p.id} 
+                                value={p.id}
+                                disabled={!p.available && isLocal}
+                              >
+                                {p.name.replace(/^⚡\s*/, '').replace(/^🖥️\s*/, '').replace(/^🌐\s*/, '')}{note}
+                              </option>
+                            );
+                          })
+                        ) : (
+                          <>
+                            <option value="auto">⚡ Tự động tối ưu (Auto Cascade)</option>
+                            <option value="gemini-3.8-flash">Google Gemini 3.8 Flash</option>
+                            <option value="gemini-3.7-flash">Google Gemini 3.7 Flash</option>
+                            <option value="gemini-3.6-flash">Google Gemini 3.6 Flash</option>
+                            <option value="local_llm" disabled>Local Ollama (Chỉ khi dev local)</option>
+                            <option value="translation_engine">Translation Engine (Web)</option>
+                          </>
+                        )}
+                      </select>
+                    </div>
+
+                    {/* AI Translate Trigger Button */}
+                    <button
+                      onClick={() => handleTranslateReadme(Boolean(translations[targetLanguage]?.content))}
+                      disabled={isTranslating}
+                      className={`flex items-center gap-1 px-3 py-1.5 rounded-xl neu-btn text-xs font-bold transition-all cursor-pointer ${
+                        isTranslating ? 'opacity-70 cursor-wait' : 'text-[var(--primary)] hover:neu-flat'
+                      }`}
+                      title={language === 'vi' ? 'Bấm để dịch tài liệu bằng mô hình đã chọn' : 'Translate README with selected model'}
                     >
-                      <span>{language === 'vi' ? 'Xem trên GitHub' : 'View on GitHub'}</span>
-                      <ExternalLink className="w-3.5 h-3.5" />
-                    </a>
-                  )}
+                      {isTranslating ? (
+                        <>
+                          <Loader2 className="w-3.5 h-3.5 animate-spin text-[var(--primary)]" />
+                          <span>{language === 'vi' ? 'Đang dịch...' : 'Translating...'}</span>
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                          <span>
+                            {translations[targetLanguage]?.content 
+                              ? (language === 'vi' ? 'Dịch lại' : 'Re-translate')
+                              : (language === 'vi' ? 'Dịch bằng AI' : 'Translate AI')}
+                          </span>
+                        </>
+                      )}
+                    </button>
+
+                    {/* Sync from GitHub Button */}
+                    <button
+                      onClick={handleRefreshReadme}
+                      disabled={isRefreshingReadme || isLoadingReadme}
+                      className={`p-1.5 rounded-xl neu-btn text-[var(--text-muted)] hover:text-[var(--primary)] transition-all cursor-pointer ${
+                        isRefreshingReadme ? 'opacity-70 cursor-wait' : ''
+                      }`}
+                      title={language === 'vi' ? 'Đồng bộ lại README từ GitHub' : 'Re-fetch latest README from GitHub'}
+                      aria-label="Refresh README"
+                    >
+                      <RefreshCw className={`w-3.5 h-3.5 ${isRefreshingReadme ? 'animate-spin text-[var(--primary)]' : ''}`} />
+                    </button>
+
+                    {/* Copy Markdown Button */}
+                    <button
+                      onClick={handleCopyReadme}
+                      className="p-1.5 rounded-xl neu-btn text-[var(--text-muted)] hover:text-emerald-500 transition-all cursor-pointer"
+                      title={language === 'vi' ? 'Sao chép nội dung Markdown' : 'Copy Markdown'}
+                      aria-label="Copy Markdown"
+                    >
+                      {copiedReadme ? (
+                        <Check className="w-3.5 h-3.5 text-emerald-500" />
+                      ) : (
+                        <Copy className="w-3.5 h-3.5" />
+                      )}
+                    </button>
+
+                    {/* View on GitHub */}
+                    {skill.repository_url && (
+                      <a
+                        href={skill.repository_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs font-semibold text-[var(--primary)] hover:underline flex items-center gap-1 shrink-0 p-1.5 rounded-xl neu-btn"
+                        title={language === 'vi' ? 'Mở trên GitHub' : 'Open on GitHub'}
+                      >
+                        <ExternalLink className="w-3.5 h-3.5" />
+                      </a>
+                    )}
+                  </div>
                 </div>
 
-                <div className="p-4 sm:p-5 rounded-2xl neu-inset max-w-full overflow-hidden">
-                  <MarkdownRenderer
-                    content={skill.readme_preview || `# ${skill.title || skill.name}\n\n${skill.description}\n\nXem thêm chi tiết tại: ${skill.repository_url}`}
-                  />
+                {/* AI Translation Info Banner (Displayed when in translated mode) */}
+                {readmeMode === 'translated' && (
+                  <div className="p-3 rounded-xl neu-inset-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-xs">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-bold text-[var(--text-main)] flex items-center gap-1.5">
+                        <Sparkles className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                        {language === 'vi' ? 'Mô hình đã dịch' : 'Translation Model'}:
+                      </span>
+                      <span className="neu-flat px-2 py-0.5 rounded-lg font-mono font-bold text-[var(--primary)] flex items-center gap-1">
+                        {activeTranslationMeta?.provider === 'gemini' && '⚡ '}
+                        {activeTranslationMeta?.provider === 'local_llm' && '🖥️ '}
+                        {activeTranslationMeta?.provider === 'translation_engine' && '🌐 '}
+                        {activeTranslationMeta?.model_used || selectedProvider}
+                      </span>
+                      <span className="text-[var(--text-muted)] text-[11px]">
+                        {activeTranslationMeta?.provider === 'local_llm' 
+                          ? (language === 'vi' ? '• Chạy cục bộ offline qua Ollama' : '• Running locally via Ollama')
+                          : activeTranslationMeta?.provider === 'translation_engine'
+                          ? (language === 'vi' ? '• Dịch tự động qua Web Engine' : '• Web Engine Translation')
+                          : (language === 'vi' ? '• Cloud AI (Bảo toàn cú pháp & code)' : '• Cloud AI (Preserving code blocks)')}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-2 self-end sm:self-auto">
+                      <button
+                        onClick={() => handleTranslateReadme(true)}
+                        disabled={isTranslating}
+                        className="text-[11px] font-bold text-[var(--primary)] hover:underline cursor-pointer flex items-center gap-1"
+                        title={language === 'vi' ? 'Dịch lại tài liệu bằng mô hình đã chọn' : 'Re-translate with selected model'}
+                      >
+                        <RefreshCw className={`w-3 h-3 ${isTranslating ? 'animate-spin' : ''}`} />
+                        <span>{language === 'vi' ? 'Dịch lại' : 'Re-translate'}</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Main Content Area */}
+                <div className="p-4 sm:p-5 rounded-2xl neu-inset max-w-full overflow-hidden min-h-[140px]">
+                  {isLoadingReadme ? (
+                    <div className="py-12 flex flex-col items-center justify-center gap-3 text-center text-[var(--text-muted)]">
+                      <Loader2 className="w-6 h-6 animate-spin text-[var(--primary)]" />
+                      <p className="text-xs font-mono font-medium">
+                        {language === 'vi' ? 'Đang trích xuất README từ GitHub repository...' : 'Extracting authentic README from GitHub...'}
+                      </p>
+                    </div>
+                  ) : isTranslating ? (
+                    <div className="py-12 flex flex-col items-center justify-center gap-3 text-center text-[var(--text-muted)]">
+                      <Loader2 className="w-6 h-6 animate-spin text-amber-500" />
+                      <p className="text-xs font-mono font-medium text-[var(--text-main)]">
+                        {language === 'vi' 
+                          ? 'AI đang dịch tài liệu Markdown (ưu tiên Gemini 3.8 Flash / Local Ollama)...' 
+                          : 'AI is translating Markdown (Gemini 3.8 Flash / Local Ollama)...'}
+                      </p>
+                      <p className="text-[11px] text-[var(--text-muted)]">
+                        {language === 'vi' 
+                          ? 'Giữ nguyên toàn bộ lệnh terminal, mã nguồn và cấu trúc bảng' 
+                          : 'Preserving terminal commands, code samples and table formats'}
+                      </p>
+                    </div>
+                  ) : readmeMode === 'translated' && !translations[targetLanguage]?.content ? (
+                    <div className="py-10 flex flex-col items-center justify-center gap-3 text-center">
+                      <p className="text-xs text-[var(--text-muted)]">
+                        {language === 'vi' 
+                          ? 'Chưa có bản dịch cho ngôn ngữ này.' 
+                          : 'No translation available for this language yet.'}
+                      </p>
+                      <button
+                        onClick={() => handleTranslateReadme(false)}
+                        className="flex items-center gap-1.5 px-4 py-2 rounded-xl neu-primary text-xs font-bold cursor-pointer"
+                      >
+                        <Sparkles className="w-3.5 h-3.5" />
+                        <span>{language === 'vi' ? 'Dịch ngay bằng AI' : 'Translate with AI now'}</span>
+                      </button>
+                    </div>
+                  ) : (
+                    <MarkdownRenderer
+                      content={
+                        readmeMode === 'translated' && translations[targetLanguage]?.content
+                          ? translations[targetLanguage].content
+                          : (readmeContent || `# ${skill.title || skill.name}\n\n${skill.description || 'Chưa có tài liệu chi tiết.'}\n\nXem thêm chi tiết tại: ${skill.repository_url}`)
+                      }
+                    />
+                  )}
                 </div>
               </div>
             </div>

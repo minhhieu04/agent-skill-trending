@@ -20,6 +20,7 @@ export interface Skill {
   comparison_notes?: string;
   target_audience?: string;
   readme_preview?: string;
+  readme_translations?: Record<string, { content: string; model_used?: string; provider?: string; translated_at?: string }>;
   demo_url?: string;
   category: string;
   tags: string[];
@@ -44,6 +45,32 @@ export interface Skill {
   source_type: string;
   created_at: string;
   updated_at: string;
+}
+
+export interface ReadmeData {
+  skill_id: number;
+  readme: string;
+  is_fallback: boolean;
+  translations: Record<string, { content: string; model_used?: string; provider?: string; translated_at?: string }>;
+  source: string;
+}
+
+export interface TranslateReadmeResult {
+  skill_id: number;
+  target_language: string;
+  translated_text: string;
+  provider: string;
+  model_used: string;
+  cached: boolean;
+}
+
+export interface TranslationProviderOption {
+  id: string;
+  name: string;
+  description: string;
+  available: boolean;
+  badge?: string;
+  category: string;
 }
 
 export interface ExportConfig {
@@ -407,6 +434,7 @@ export interface AgentChatSession {
 
 export interface AgentChatResponse {
   success: boolean;
+  session_id?: string;
   message: string;
   recommended_skills: AgentChatRecommendedSkill[];
   suggested_followups: string[];
@@ -417,6 +445,39 @@ export interface AgentChatResponse {
   };
   model_used: string;
   is_ai_powered: boolean;
+}
+
+export interface AgentChatSessionSummary {
+  id: string;
+  title: string;
+  message_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AgentChatMessageDetail {
+  id: number;
+  session_id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  recommended_skills?: AgentChatRecommendedSkill[];
+  suggested_followups?: string[];
+  retrieval_stats?: {
+    total_skills_scanned: number;
+    candidates_matched: number;
+    top_selected: number;
+  };
+  model_used?: string;
+  is_ai_powered?: boolean;
+  created_at: string;
+}
+
+export interface AgentChatSessionDetail {
+  id: string;
+  title: string;
+  created_at: string;
+  updated_at: string;
+  messages: AgentChatMessageDetail[];
 }
 
 export interface AgentChatSuggestion {
@@ -507,6 +568,7 @@ export interface DailyDigestDateInfo {
   skills_count: number;
   has_digest: boolean;
   has_audio: boolean;
+  is_today?: boolean;
 }
 
 export interface DailyPodcastAudioResponse {

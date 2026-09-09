@@ -26,7 +26,6 @@ import {
   Plus,
   ArrowUp,
   ArrowDown,
-  User,
   Palette,
   Scale,
   BarChart3,
@@ -92,7 +91,7 @@ export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({
 
   const [blogPost, setBlogPost] = useState<BlogPost | null>(null);
   const [storyboard, setStoryboard] = useState<VideoStoryboard | null>(null);
-  const [selectedVoice, setSelectedVoice] = useState<string>('vi-VN-HoaiMyNeural');
+  const [selectedVoice, setSelectedVoice] = useState<string>('gemini-Aoede');
   const [readingSpeed, setReadingSpeed] = useState<string>('+15%');
   const [pitch, setPitch] = useState<string>('+2Hz');
   const [voicePreset, setVoicePreset] = useState<'hype' | 'professional' | 'podcast'>('hype');
@@ -129,7 +128,9 @@ export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({
       for (let i = 0; i < byteCharacters.length; i++) {
         byteArray[i] = byteCharacters.charCodeAt(i);
       }
-      const blob = new Blob([byteArray], { type: 'audio/mp3' });
+      const isWav = byteArray.length > 4 && byteArray[0] === 0x52 && byteArray[1] === 0x49 && byteArray[2] === 0x46 && byteArray[3] === 0x46;
+      const mimeType = isWav ? 'audio/wav' : 'audio/mp3';
+      const blob = new Blob([byteArray], { type: mimeType });
       const url = URL.createObjectURL(blob);
       setAudioBlobUrl(url);
       return () => URL.revokeObjectURL(url); // cleanup on unmount or ttsResult change
@@ -647,11 +648,13 @@ export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({
       byteNumbers[i] = byteCharacters.charCodeAt(i);
     }
     const byteArray = new Uint8Array(byteNumbers);
-    const blob = new Blob([byteArray], { type: 'audio/mp3' });
+    const isWav = byteArray.length > 4 && byteArray[0] === 0x52 && byteArray[1] === 0x49 && byteArray[2] === 0x46 && byteArray[3] === 0x46;
+    const ext = isWav ? 'wav' : 'mp3';
+    const blob = new Blob([byteArray], { type: isWav ? 'audio/wav' : 'audio/mp3' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `ai_voice_${selectedVoice}_${Date.now()}.mp3`;
+    a.download = `ai_voice_${selectedVoice}_${Date.now()}.${ext}`;
     a.click();
     URL.revokeObjectURL(url);
     showToast(t('downloaded_file'));
@@ -1208,20 +1211,8 @@ export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({
                     : 'neu-btn-sm text-[var(--text-muted)] hover:text-[var(--text-main)]'
                 }`}
               >
-                <Radio className="w-3 h-3 text-[var(--primary)]" />
-                <span>Gemini 2.0 Live Audio</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setVoiceProviderFilter('google_tts')}
-                className={`px-3 py-1.5 text-xs font-semibold rounded-xl transition-all flex items-center gap-1.5 cursor-pointer ${
-                  voiceProviderFilter === 'google_tts'
-                    ? 'neu-inset text-[var(--primary)] font-bold'
-                    : 'neu-btn-sm text-[var(--text-muted)] hover:text-[var(--text-main)]'
-                }`}
-              >
                 <Sparkles className="w-3 h-3 text-[var(--primary)]" />
-                <span>Google WaveNet Studio</span>
+                <span>Google AI Studio (Gemini 3.1 Live)</span>
               </button>
               <button
                 type="button"
@@ -1232,8 +1223,8 @@ export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({
                     : 'neu-btn-sm text-[var(--text-muted)] hover:text-[var(--text-main)]'
                 }`}
               >
-                <Zap className="w-3 h-3" />
-                <span>Microsoft Edge-TTS</span>
+                <Zap className="w-3 h-3 text-amber-500" />
+                <span>Microsoft Edge-TTS (Diểm Phúc & Minh Hiếu)</span>
               </button>
             </div>
 
@@ -1262,7 +1253,14 @@ export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({
                             ? 'neu-primary text-white' 
                             : 'neu-inset text-[var(--text-muted)]'
                         }`}>
-                          <User className="w-4 h-4" />
+                          {voice.id.includes('Aoede') ? <Star className={`w-4 h-4 ${isSelected ? 'text-white' : 'text-amber-500'}`} /> :
+                           voice.id.includes('Puck') ? <Flame className={`w-4 h-4 ${isSelected ? 'text-white' : 'text-orange-500'}`} /> :
+                           voice.id.includes('Charon') ? <Target className={`w-4 h-4 ${isSelected ? 'text-white' : 'text-indigo-500'}`} /> :
+                           voice.id.includes('Kore') ? <Sparkles className={`w-4 h-4 ${isSelected ? 'text-white' : 'text-emerald-500'}`} /> :
+                           voice.id.includes('Fenrir') ? <Radio className={`w-4 h-4 ${isSelected ? 'text-white' : 'text-cyan-500'}`} /> :
+                           voice.id.includes('HoaiMy') ? <Zap className={`w-4 h-4 ${isSelected ? 'text-white' : 'text-amber-500'}`} /> :
+                           voice.id.includes('NamMinh') ? <Mic className={`w-4 h-4 ${isSelected ? 'text-white' : 'text-sky-500'}`} /> :
+                           <Volume2 className={`w-4 h-4 ${isSelected ? 'text-white' : 'text-[var(--primary)]'}`} />}
                         </div>
                         <div>
                           <div className="font-bold text-sm text-[var(--text-main)] flex items-center gap-1.5">

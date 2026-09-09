@@ -95,7 +95,7 @@ class AgentChatService:
             },
             {
                 "title": "💡 Người mới: Nên chọn kỹ năng nào trước?",
-                "query": "Tôi mới tiếp cận Agentic Coding và thấy quá nhiều kỹ năng bị bội thực. Hãy đề xuất 2-3 kỹ năng nền tảng nhất nên cài đặt trước.",
+                "query": "Tôi mới tiếp cận Agentic Coding và muốn tìm các kỹ năng cốt lõi. Hãy đề xuất 2-3 kỹ năng nền tảng nhất nên cài đặt trước.",
                 "icon": "compass",
                 "category": "Khởi Đầu Nhanh"
             }
@@ -219,29 +219,37 @@ class AgentChatService:
                     if rw in readme_lower:
                         score += 10.0
 
+        def _match_token(tok: str, target: str) -> bool:
+            if not target or not tok:
+                return False
+            # Short tokens (<= 3 chars, e.g. ui, ux, go, ai) require word boundary to avoid matching 'guide', 'linux', 'algorithm'
+            if len(tok) <= 3:
+                return bool(re.search(r'(?:\b|_)' + re.escape(tok) + r'(?:\b|_)', target, re.IGNORECASE))
+            return tok.lower() in target.lower()
+
         # 2. Token matches across metadata
         for t in query_tokens:
             if len(t) < 2:
                 continue
-            if t in name_lower:
+            if _match_token(t, name_lower):
                 score += 30.0
-            if t in title_lower:
+            if _match_token(t, title_lower):
                 score += 25.0
             if t == lang_lower:
                 score += 35.0
-            if t in cat_lower:
+            if _match_token(t, cat_lower):
                 score += 25.0
-            if any(t in tag for tag in tags_lower):
+            if any(_match_token(t, tag) for tag in tags_lower):
                 score += 20.0
-            if any(t in r for r in runtimes_lower):
+            if any(_match_token(t, r) for r in runtimes_lower):
                 score += 15.0
-            if any(t in u for u in use_cases_lower):
+            if any(_match_token(t, u) for u in use_cases_lower):
                 score += 15.0
-            if t in ai_summary_lower or t in desc_lower:
+            if _match_token(t, ai_summary_lower) or _match_token(t, desc_lower):
                 score += 10.0
-            if t in readme_lower:
+            if _match_token(t, readme_lower):
                 score += 6.0
-            if t in notes_lower or t in audience_lower:
+            if _match_token(t, notes_lower) or _match_token(t, audience_lower):
                 score += 8.0
 
         raw_score = score
@@ -381,13 +389,27 @@ class AgentChatService:
     ) -> List[str]:
         reasons = []
         name_lower = (skill.name or "").lower()
+        title_lower = (skill.title or "").lower()
         lang_lower = (skill.primary_language or "").lower()
         cat_lower = (skill.category or "").lower()
         tags_lower = [str(t).lower() for t in (skill.tags or [])]
         is_vi = language == "vi"
 
-        # 1. Golang & Concurrency
-        if "golang" in name_lower or "go" == lang_lower or any("golang" in t or "concurrency" in t for t in tags_lower):
+        # 1. UI/UX & Tailwind CSS / Design Systems
+        if (
+            any(k in name_lower for k in ["ui-ux", "uiux", "ui-skills", "design", "tailwind", "accessibility", "screenshot-to-code"]) or
+            any(k in title_lower for k in ["ui/ux", "design", "tailwind", "accessibility"]) or
+            any(k in t for t in tags_lower for k in ["ui-design", "design-system", "tailwind", "mobile-ui", "uikit"])
+        ):
+            if is_vi:
+                reasons.append("Cung cấp hệ thống 8pt grid, Tailwind CSS tokens & dark/light palette chuẩn mực")
+                reasons.append("Chuẩn hóa component heuristics và tuân thủ tiêu chuẩn tiếp cận WCAG 2.1 AA cho giao diện")
+            else:
+                reasons.append("Provides 8pt spatial grid scale, Tailwind CSS tokens & optimized light/dark palettes")
+                reasons.append("Enforces component heuristics and WCAG 2.1 AA accessibility compliance for modern UIs")
+
+        # 2. Golang & Concurrency
+        elif "golang" in name_lower or "go-agent" in name_lower or (re.search(r'(?:\b|_)go(?:\b|_)', name_lower) and "uber" in name_lower) or "go" == lang_lower or any("golang" in t or "concurrency" in t or "goroutine" in t for t in tags_lower):
             if is_vi:
                 reasons.append("Chống rò rỉ goroutine leak, race condition & chuẩn hóa table-driven test trong Go")
                 reasons.append("Áp dụng trực tiếp quy chuẩn Uber Go Style Guide & Clean Architecture")
@@ -395,17 +417,8 @@ class AgentChatService:
                 reasons.append("Prevents goroutine leaks, race conditions & enforces idiomatic table-driven tests")
                 reasons.append("Directly implements Uber Go Style Guide and clean architecture")
 
-        # 2. Google Antigravity & Subagents
-        elif "antigravity" in name_lower or "google" in name_lower or any("antigravity" in t or "subagent" in t for t in tags_lower):
-            if is_vi:
-                reasons.append("Hỗ trợ kiến trúc Autonomous Subagents & chuẩn hóa cấu trúc file SKILL.md")
-                reasons.append("Tương thích hoàn hảo với Google Antigravity & Gemini CLI")
-            else:
-                reasons.append("Enables autonomous subagent workflows & standardized SKILL.md specs")
-                reasons.append("100% compatible with Google Antigravity and Gemini CLI harnesses")
-
         # 3. Next.js & React Server Components
-        elif "nextjs" in name_lower or "next" in name_lower or any("nextjs" in t or "react" in t for t in tags_lower):
+        elif "nextjs" in name_lower or "next.js" in name_lower or "next" in name_lower or any("nextjs" in t or "react" in t for t in tags_lower):
             if is_vi:
                 reasons.append("Chuẩn hóa Next.js 15 App Router, React Server Components và Server Actions")
                 reasons.append("Tích hợp Zod input validation và chiến lược revalidateTag SEO tối ưu")
@@ -413,17 +426,17 @@ class AgentChatService:
                 reasons.append("Standardizes Next.js 15 App Router, React Server Components & Server Actions")
                 reasons.append("Integrates Zod schema validation and optimal revalidateTag caching for SEO")
 
-        # 4. UI/UX & Tailwind CSS
-        elif "design" in name_lower or "uiux" in name_lower or any("tailwind" in t or "design-system" in t for t in tags_lower):
+        # 4. Google Antigravity & Subagents (strictly for Antigravity orchestration, not any skill that happens to run on it)
+        elif "google/skills" in name_lower or "subagent" in name_lower or ("antigravity" in name_lower and not any(k in name_lower for k in ["ui", "design", "go", "next"])):
             if is_vi:
-                reasons.append("Cung cấp hệ thống 8pt grid, Tailwind CSS tokens & dark/light palette")
-                reasons.append("Đạt chuẩn tiếp cận WCAG 2.1 AA cho giao diện web/mobile hiện đại")
+                reasons.append("Hỗ trợ kiến trúc Autonomous Subagents & chuẩn hóa cấu trúc file SKILL.md")
+                reasons.append("Tương thích hoàn hảo với Google Antigravity & Gemini CLI")
             else:
-                reasons.append("Provides 8pt spatial grid scale, Tailwind CSS tokens & contrast palettes")
-                reasons.append("Complies with WCAG 2.1 AA accessibility standards for modern web/mobile UIs")
+                reasons.append("Enables autonomous subagent workflows & standardized SKILL.md specs")
+                reasons.append("100% compatible with Google Antigravity and Gemini CLI harnesses")
 
         # 5. Security, Audit & Sandboxing
-        elif "security" in name_lower or "cybersecurity" in name_lower or "scan" in name_lower or any("security" in t or "audit" in t for t in tags_lower):
+        elif any(k in name_lower for k in ["security", "cybersecurity", "scan", "audit", "sandbox", "guardrail"]) or any(k in t for t in tags_lower for k in ["security", "audit", "sandbox"]):
             if is_vi:
                 reasons.append("Kiểm toán quyền hạn runtime, phát hiện nguy cơ command injection và privilege leak")
                 reasons.append("Cung cấp guardrails an toàn và phân tích cách ly sandbox cho Agentic workflows")
@@ -471,9 +484,16 @@ class AgentChatService:
     @classmethod
     def _generate_quick_tip(cls, skill: Skill, language: str = "vi") -> str:
         name_lower = (skill.name or "").lower()
+        title_lower = (skill.title or "").lower()
         is_vi = language == "vi"
 
-        if "google/skills" in name_lower or "antigravity" in name_lower:
+        if any(k in name_lower for k in ["ui-ux", "uiux", "ui-skill", "design", "tailwind", "accessibility", "screenshot-to-code"]) or any(k in title_lower for k in ["ui/ux", "design"]):
+            return (
+                "Khai báo Tailwind tokens trong tailwind.config.js và kiểm tra tương phản màu WCAG 2.1 trước khi render."
+                if is_vi else
+                "Declare Tailwind tokens in tailwind.config.js and verify WCAG 2.1 contrast ratios before rendering."
+            )
+        elif "google/skills" in name_lower or "subagent" in name_lower or ("antigravity" in name_lower and not any(k in name_lower for k in ["ui", "design"])):
             return (
                 "Chạy `npx skills add google/skills` hoặc đưa vào thư mục `.gemini/config/skills/`."
                 if is_vi else
@@ -485,17 +505,11 @@ class AgentChatService:
                 if is_vi else
                 "Place configuration at `.github/copilot-instructions.md` in repository root."
             )
-        elif "go-agent-skill" in name_lower or "golang" in name_lower:
+        elif "go-agent-skill" in name_lower or "golang" in name_lower or "uber-go" in name_lower:
             return (
                 "Dùng `go test -race ./...` để kiểm chứng hiệu quả sau khi apply chỉ dẫn của skill."
                 if is_vi else
                 "Run `go test -race ./...` to verify concurrency safety after applying skill rules."
-            )
-        elif "design" in name_lower or "uiux" in name_lower:
-            return (
-                "Sử dụng các biến Tailwind token và kiểm tra độ tương phản trước khi render UI."
-                if is_vi else
-                "Leverage Tailwind CSS tokens and verify contrast ratios before rendering UI."
             )
         elif "nextjs" in name_lower:
             return (
@@ -509,7 +523,7 @@ class AgentChatService:
                 if is_vi else
                 "Declare the server configuration in your agent harness settings (e.g. cursor.json or antigravity)."
             )
-        elif "security" in name_lower or "scan" in name_lower:
+        elif "security" in name_lower or "scan" in name_lower or "audit" in name_lower:
             return (
                 "Chạy lệnh quét bảo mật trước khi cấp quyền can thiệp filesystem hoặc mạng."
                 if is_vi else
@@ -585,42 +599,48 @@ class AgentChatService:
                 context_json = json.dumps(context_items, ensure_ascii=False, indent=2)
 
                 lang_prompt = (
-                    "Trả lời hoàn toàn bằng Tiếng Việt tự nhiên, súc tích, chuẩn văn phong Kỹ sư Phần mềm & AI Architect."
+                    "Trả lời hoàn toàn bằng Tiếng Việt kỹ thuật tự nhiên, sắc bén, chuẩn văn phong Senior AI Architect & Principal Engineer."
                     if language == "vi"
-                    else "Respond in natural, professional English suited for a Senior Software Engineer & AI Architect."
+                    else "Respond entirely in natural, authoritative English suited for a Principal AI Architect & Senior Software Engineer."
                 )
 
                 system_prompt = f"""
-                Bạn là Trợ lý AI Cố vấn Kỹ năng Chuyên sâu (Agent Skills Advisor) trong hệ thống Agent Skill Trending 2026.
-                Người dùng phản ánh: "Hiện tại có quá nhiều kỹ năng nhưng không có chi tiết hoặc quá nhiều khiến họ bị bội thực thông tin, bộ lọc khó dùng".
-                Hệ thống RAG đã quét toàn bộ {total_skills_count} kỹ năng trong cơ sở dữ liệu và chọn lọc ra ĐÚNG {len(top_candidates)} kỹ năng phù hợp nhất cho họ.
+                Bạn là Cố vấn Kỹ năng AI (Agent Skills Advisor) chuyên sâu tại hệ thống Agent Skill Trending 2026.
+                Bạn đang trao đổi trực tiếp với một kỹ sư phần mềm / kiến trúc sư giải pháp.
 
-                Dữ liệu các kỹ năng được RAG trích xuất:
+                QUY TẮC BẮT BUỘC VỀ VĂN PHONG:
+                1. TUYỆT ĐỐI KHÔNG sử dụng câu chào rập khuôn, sáo rỗng hoặc văn mẫu máy móc (CẤM các câu như "Chào bạn! Tôi hoàn toàn thấu hiểu...", "Tôi hiểu bạn bị bội thực thông tin...", "Hệ thống RAG đã quét toàn bộ...").
+                2. BẮT ĐẦU TRỰC DIỆN: Đi thẳng vào trọng tâm kỹ thuật, phân tích góc nhìn kiến trúc giải quyết trực tiếp yêu cầu hoặc bài toán người dùng đặt ra.
+                3. PHÂN TÍCH CHUYÊN SÂU:
+                   - Giải thích rõ tại sao từng kỹ năng được RAG chọn lọc lại giải quyết triệt để vấn đề thực tế (ví dụ: memory/goroutine leaks, race conditions, WCAG contrast violations, CSS tokens consistency, prompt injection, sandboxing, v.v.).
+                   - Đưa ra so sánh hoặc gợi ý phối hợp giữa các kỹ năng nếu có nhiều lựa chọn (Architecture Synergy).
+                4. HÀNH ĐỘNG THỰC CHIẾN (Actionable): Cung cấp mẹo áp dụng cụ thể (cách khai báo SKILL.md, lệnh kiểm thử, hoặc cấu hình agent harness).
+                5. KẾT THÚC BẰNG GỢI Ý: Đưa ra 2-3 câu hỏi gợi ý tiếp theo (Follow-up Questions) ngắn gọn, sắc bén ở cuối.
+
+                Dữ liệu kỹ năng được hệ thống RAG trích xuất:
                 {context_json}
 
-                Lịch sử trò chuyện gần nhất:
-                {history_str or '(Phiên trò chuyện mới)'}
+                Lịch sử trao đổi gần nhất:
+                {history_str or '(Bắt đầu phiên thảo luận mới)'}
 
-                Yêu cầu / Câu hỏi của người dùng:
+                Yêu cầu / Câu hỏi của kỹ sư:
                 "{clean_query}"
-
-                Nhiệm vụ của bạn:
-                1. Đi thẳng vào vấn đề, giải quyết tình trạng "bội thực thông tin" bằng cách tập trung phân tích sâu {len(top_candidates)} kỹ năng cốt lõi này.
-                2. Với MỖI kỹ năng, giải thích rõ:
-                   - Lý do tại sao nó là lựa chọn chuẩn xác cho bài toán của họ.
-                   - Vấn đề thực tế mà nó giải quyết triệt để (ví dụ: rò rỉ bộ nhớ, code smells, UI thiếu tương phản, v.v.).
-                   - Mẹo áp dụng thực chiến (Actionable Tip).
-                3. Đưa ra 2-3 câu hỏi gợi ý tiếp theo (follow-up questions) để người dùng tiếp tục khai thác nếu cần.
 
                 {lang_prompt}
 
-                Định dạng trả về: Chuỗi Markdown hoàn chỉnh, có tiêu đề rõ ràng, bullet points và code blocks (nếu cần).
-                Không bọc câu trả lời trong block JSON, hãy trả về văn bản Markdown trực tiếp để hiển thị trong khung chat.
+                Định dạng trả về: Chuỗi Markdown chuẩn, phân mục rõ ràng với bullet points và code blocks (nếu cần). Không bọc toàn bộ câu trả lời trong block JSON.
                 """
 
                 def _generate_with_gemini_sync():
-                    # Active models in 2026
-                    for candidate_model in ["gemini-3.6-flash", "gemini-3.5-flash"]:
+                    # Active models in 2026 with graceful fallback across quotas
+                    for candidate_model in [
+                        "gemini-3.9-flash",
+                        "gemini-3.8-flash",
+                        "gemini-3.7-flash",
+                        "gemini-3.6-flash",
+                        "gemini-3.5-flash",
+                        "gemini-flash-latest"
+                    ]:
                         try:
                             resp = client.models.generate_content(
                                 model=candidate_model,
@@ -630,17 +650,14 @@ class AgentChatService:
                                 return resp.text.strip(), candidate_model
                         except Exception as me:
                             logger.warning(f"Model {candidate_model} failed: {me}")
-                            err_msg = str(me)
-                            # If quota exceeded or 429, break immediately to avoid blocking retries
-                            if "429" in err_msg or "RESOURCE_EXHAUSTED" in err_msg or "quota" in err_msg.lower():
-                                break
+                            continue
                     return "", ""
 
                 # Run synchronous generation off the async event loop
                 ai_text, model_name = await asyncio.to_thread(_generate_with_gemini_sync)
 
                 if ai_text:
-                    followups = cls._extract_followups(ai_text, language)
+                    followups = cls._extract_followups(ai_text, language=language, query=clean_query)
                     return {
                         "success": True,
                         "message": ai_text,
@@ -667,11 +684,69 @@ class AgentChatService:
         )
 
     @classmethod
-    def _extract_followups(cls, text: str, language: str = "vi") -> List[str]:
-        """Extracts follow-up questions from response text or provides defaults."""
+    def _extract_followups(cls, text: str, language: str = "vi", query: str = "") -> List[str]:
+        """Extracts follow-up questions from response text or provides domain-aware defaults."""
+        import re
+        extracted = []
+        lines = text.split("\n")
+        in_followup_section = False
+
+        for line in lines:
+            stripped = line.strip()
+            if any(k in stripped.lower() for k in ["câu hỏi gợi ý", "gợi ý tiếp theo", "suggested follow", "follow-up questions"]):
+                in_followup_section = True
+                continue
+            if in_followup_section:
+                if stripped.startswith(("#", "---")):
+                    break
+                if stripped.startswith(("-", "*", "1.", "2.", "3.")) and ("?" in stripped or len(stripped) > 10):
+                    clean = re.sub(r"^[-*0-9.\s]+", "", stripped).strip()
+                    if clean:
+                        extracted.append(clean)
+                        if len(extracted) >= 3:
+                            break
+
+        if len(extracted) >= 2:
+            return extracted[:3]
+
+        # Domain-aware dynamic defaults
+        q_lower = query.lower()
+        is_vi = language == "vi"
+
+        if any(k in q_lower for k in ["ui", "ux", "giao diện", "design", "tailwind"]):
+            return [
+                "Làm sao để trích xuất token màu và typography vào Tailwind config?",
+                "Kỹ năng này có kiểm tra độ tương phản WCAG 2.1 tự động không?",
+                "Cách áp dụng skill này vào dự án React / Next.js hiện tại?"
+            ] if is_vi else [
+                "How do I export color and typography tokens into Tailwind config?",
+                "Does this skill include automated WCAG 2.1 contrast checks?",
+                "How do I apply this skill to an existing Next.js project?"
+            ]
+        elif any(k in q_lower for k in ["go", "golang", "goroutine", "concurrency"]):
+            return [
+                "Làm sao để tích hợp rule phòng chống goroutine leak vào CI/CD?",
+                "Cho tôi xem ví dụ test race condition với table-driven tests.",
+                "Kỹ năng này áp dụng cho Go 1.22+ net/http như thế nào?"
+            ] if is_vi else [
+                "How do I integrate goroutine leak prevention into CI/CD?",
+                "Can you show a race condition test using table-driven tests?",
+                "How does this skill support Go 1.22+ enhanced routing?"
+            ]
+        elif any(k in q_lower for k in ["security", "bảo mật", "sandbox", "audit"]):
+            return [
+                "Làm sao để thiết lập sandbox an toàn khi agent chạy bash script?",
+                "Cách ngăn chặn prompt injection khi nạp tài liệu ngoại vi?",
+                "Skill này có hỗ trợ audit quyền truy cập filesystem không?"
+            ] if is_vi else [
+                "How do I configure a secure sandbox for agent bash executions?",
+                "How can I mitigate prompt injection from retrieved context?",
+                "Does this skill support auditing filesystem permissions?"
+            ]
+
         defaults_vi = [
-            "Làm sao để tích hợp skill này vào Google Antigravity?",
-            "Cho tôi xem ví dụ code trước và sau khi áp dụng.",
+            "Làm sao để tích hợp kỹ năng này vào Google Antigravity?",
+            "Cho tôi xem ví dụ code trước và sau khi áp dụng quy chuẩn này.",
             "Kỹ năng này có thể kết hợp với MCP Server nào không?"
         ]
         defaults_en = [
@@ -679,7 +754,7 @@ class AgentChatService:
             "Show me a before/after code snippet with this skill applied.",
             "Can I combine this skill with an MCP server?"
         ]
-        return defaults_vi if language == "vi" else defaults_en
+        return defaults_vi if is_vi else defaults_en
 
     @classmethod
     def _synthesize_local_rag_response(
@@ -690,63 +765,48 @@ class AgentChatService:
         language: str = "vi"
     ) -> Dict[str, Any]:
         """
-        Provides intelligent, deterministic fallback text when Gemini API key is not present or offline.
+        Provides intelligent, dynamic, context-aware RAG synthesis when Gemini API key is offline or absent.
         """
+        is_vi = language == "vi"
         has_direct_matches = any(item.get("is_direct_match", True) for item in skills)
+        q_clean = query.strip()
+        q_lower = q_clean.lower()
 
-        if language == "en":
-            if has_direct_matches:
+        if is_vi:
+            if any(k in q_lower for k in ["ui", "ux", "giao diện", "design", "tailwind", "css", "wcag", "frontend"]):
                 intro = (
-                    f"Hello! I understand how overwhelming it is to sift through dozens of AI Agent skills with generic filters. "
-                    f"To save you time and cognitive load, our **RAG (Retrieval-Augmented Generation) engine** scanned all **{total_scanned} skills** in the database "
-                    f"and curated the **{len(skills)} most impactful skills** specifically matching your request: *\"{query}\"*.\n\n"
-                    f"Here is your focused breakdown:\n"
+                    f"Đối với bài toán chuẩn hóa **UI/UX & Design System** (*\"{q_clean}\"*), "
+                    f"trọng tâm là đảm bảo tính nhất quán của Tailwind tokens, độ tương phản WCAG 2.1 AA và kiến trúc component heuristics. "
+                    f"Dưới đây là **{len(skills)} giải pháp kỹ thuật tối ưu nhất** giải quyết trực tiếp yêu cầu này:\n\n"
+                )
+            elif any(k in q_lower for k in ["go", "golang", "goroutine", "concurrency", "channel", "race"]):
+                intro = (
+                    f"Về bài toán **Concurrency & Microservices trong Go** (*\"{q_clean}\"*), "
+                    f"điểm then chốt là kiểm soát vòng đời goroutine, timeout channel và tuân thủ quy chuẩn Uber Go Style Guide. "
+                    f"Dưới đây là **{len(skills)} kỹ năng chuẩn mực** dành cho kiến trúc của bạn:\n\n"
+                )
+            elif any(k in q_lower for k in ["next", "nextjs", "react", "fullstack", "server action"]):
+                intro = (
+                    f"Đối với kiến trúc **Next.js 15 Fullstack & Server Actions** (*\"{q_clean}\"*), "
+                    f"mục tiêu cốt lõi là kiểm soát type-safety với Zod, phân tách ranh giới Server/Client Component và tối ưu SEO revalidation. "
+                    f"Dưới đây là **{len(skills)} quy chuẩn trọng tâm** cho dự án của bạn:\n\n"
+                )
+            elif any(k in q_lower for k in ["security", "bảo mật", "sandbox", "audit", "lỗ hổng", "injection"]):
+                intro = (
+                    f"Về giải pháp **Bảo Mật, Phân Quyền & Sandbox** (*\"{q_clean}\"*), "
+                    f"ưu tiên hàng đầu là kiểm toán quyền can thiệp filesystem/mạng và ngăn chặn rủi ro prompt/command injection. "
+                    f"Dưới đây là **{len(skills)} guardrails an toàn** được khuyến nghị áp dụng:\n\n"
+                )
+            elif any(k in q_lower for k in ["antigravity", "gemini", "agent harness", "skill"]):
+                intro = (
+                    f"Về cấu hình **Agent Harness & Autonomous Subagents** (*\"{q_clean}\"*), "
+                    f"nguyên tắc quan trọng là chuẩn hóa cấu trúc file SKILL.md, phân quyền rõ ràng và cô lập tác vụ cho từng subagent. "
+                    f"Dưới đây là **{len(skills)} kỹ năng nền tảng** phù hợp nhất:\n\n"
                 )
             else:
                 intro = (
-                    f"Hello! Our **RAG engine** scanned all **{total_scanned} skills** in the database. "
-                    f"While your query didn't trigger an exact technical keyword match, here are the **{len(skills)} most foundational and versatile AI Agent skills** "
-                    f"to get you started without information overload:\n\n"
-                )
-
-            sections = []
-            for idx, item in enumerate(skills, 1):
-                s = item["skill"]
-                reasons_md = "\n".join([f"  - {r}" for r in item["match_reasons"]])
-                sections.append(
-                    f"### {idx}. 🎯 **{s.title or s.name}** `({item['relevance_score']}% Match)`\n"
-                    f"- **Author / Repo:** `{s.author or 'community'}` | **Stars:** ⭐ {(s.stars or 0):,}\n"
-                    f"- **Why it fits your need:**\n{reasons_md}\n"
-                    f"- **Core Value:** {s.description or s.ai_summary or 'Production-grade agent standard.'}\n"
-                    f"- **💡 Quick Tip:** {item['quick_tip']}\n"
-                )
-
-            conclusion = (
-                f"\n---\n"
-                f"### 🚀 Next Steps:\n"
-                f"You can click **'View Details'** on any card below to read the full specs, or copy the export command directly into your IDE harness."
-            )
-
-            full_message = intro + "\n".join(sections) + conclusion
-            followups = [
-                "How do I install this skill into Google Antigravity?",
-                "Can you show me a simulation of how the agent behaves?",
-                "Which tech stack starter pack does this belong to?"
-            ]
-
-        else:
-            if has_direct_matches:
-                intro = (
-                    f"Chào bạn! Tôi hoàn toàn thấu hiểu việc bị **bội thực thông tin** khi kho dữ liệu có hàng trăm kỹ năng khác nhau và các bộ lọc thông thường không nói rõ bạn cần gì.\n\n"
-                    f"Hệ thống **RAG (Retrieval-Augmented Generation)** đã quét toàn bộ **{total_scanned} skills** trong cơ sở dữ liệu và chắt lọc ra đúng **{len(skills)} kỹ năng tinh hoa nhất** "
-                    f"dành riêng cho yêu cầu: *\"{query}\"*.\n\n"
-                    f"Dưới đây là phân tích chi tiết từng giải pháp để bạn áp dụng ngay:\n"
-                )
-            else:
-                intro = (
-                    f"Chào bạn! Hệ thống **RAG** đã quét toàn bộ **{total_scanned} skills** trong kho dữ liệu. "
-                    f"Yêu cầu của bạn chưa khớp chính xác với một từ khóa công nghệ chuyên biệt nào, nhưng để giúp bạn tránh **bội thực thông tin**, "
-                    f"dưới đây là **{len(skills)} kỹ năng nền tảng và phổ biến nhất** bạn nên bắt đầu trước:\n\n"
+                    f"Phân tích yêu cầu kỹ thuật *\"{q_clean}\"*, "
+                    f"dưới đây là **{len(skills)} giải pháp tinh hoa** đáp ứng trực tiếp bài toán và kiến trúc triển khai của bạn:\n\n"
                 )
 
             sections = []
@@ -754,27 +814,105 @@ class AgentChatService:
                 s = item["skill"]
                 reasons_md = "\n".join([f"  - {r}" for r in item["match_reasons"]])
                 summary = s.ai_summary or s.description or "Bộ quy chuẩn chất lượng cao dành cho Coding Agent."
-                runtimes_display = (', '.join(s.runtimes)) if s.runtimes else 'Mọi IDE'
+                runtimes_display = (', '.join(s.runtimes)) if s.runtimes else 'Mọi IDE / Harness'
                 sections.append(
                     f"### {idx}. 🎯 **{s.title or s.name}** `({item['relevance_score']}% Phù Hợp)`\n"
                     f"- **Tác giả:** `{s.author or 'cộng đồng'}` | **Đánh giá:** ⭐ {(s.stars or 0):,} stars | **Runtime:** `{runtimes_display}`\n"
-                    f"- **Vì sao giải quyết bài toán của bạn:**\n{reasons_md}\n"
-                    f"- **Bản chất kỹ năng:** {summary}\n"
-                    f"- **💡 Mẹo thực chiến:** {item['quick_tip']}\n"
+                    f"- **Giải pháp cho bài toán của bạn:**\n{reasons_md}\n"
+                    f"- **Giá trị kiến trúc:** {summary}\n"
+                    f"- **💡 Mẹo áp dụng thực chiến:** {item['quick_tip']}\n"
+                )
+
+            synergy = ""
+            if len(skills) > 1:
+                first_name = skills[0]["skill"].name
+                second_name = skills[1]["skill"].name
+                synergy = (
+                    f"\n---\n"
+                    f"### 💡 Gợi ý phối hợp kiến trúc (Architecture Synergy):\n"
+                    f"Bạn nên kết hợp song song `{first_name}` làm nền tảng định hình quy chuẩn "
+                    f"và `{second_name}` để thực thi kiểm thử hoặc tinh chỉnh chuyên sâu, tạo thành chu trình kiểm soát kép an toàn.\n"
                 )
 
             conclusion = (
                 f"\n---\n"
-                f"### 🚀 Hướng dẫn hành động nhanh:\n"
-                f"Bạn không cần phải nhớ hàng tá quy tắc — chỉ cần bấm **'Xem Chi Tiết'** ở thẻ kỹ năng bên dưới để đọc toàn bộ SKILL.md, hoặc bấm **'Sao Chép Cấu Hình'** để cài đặt trực tiếp vào Antigravity, Cursor hoặc Codex!"
+                f"### 🚀 Hành động tiếp theo (RAG Recommendation):\n"
+                f"Bấm **'Xem Chi Tiết'** trên thẻ kỹ năng bên dưới để xem toàn bộ tài liệu cấu hình, hoặc bấm **'Sao Chép Cấu Hình'** để cài đặt trực tiếp vào agent harness của bạn."
             )
 
-            full_message = intro + "\n".join(sections) + conclusion
-            followups = [
-                "Làm sao để tích hợp kỹ năng này vào Google Antigravity?",
-                "Cho tôi xem ví dụ trước và sau khi áp dụng quy chuẩn này.",
-                "Kỹ năng này có gói Bundle nào đi kèm không?"
-            ]
+            full_message = intro + "\n".join(sections) + synergy + conclusion
+            followups = cls._extract_followups(full_message, language="vi", query=q_clean)
+
+        else:
+            if any(k in q_lower for k in ["ui", "ux", "design", "tailwind", "css", "wcag", "frontend"]):
+                intro = (
+                    f"Addressing your **UI/UX & Design System** requirements (*\"{q_clean}\"*), "
+                    f"the primary focus is enforcing Tailwind token consistency, WCAG 2.1 AA accessibility, and responsive component heuristics. "
+                    f"Here are the **{len(skills)} best-fitting technical skills** for your stack:\n\n"
+                )
+            elif any(k in q_lower for k in ["go", "golang", "goroutine", "concurrency", "channel", "race"]):
+                intro = (
+                    f"Regarding **Go Concurrency & Microservice Resilience** (*\"{q_clean}\"*), "
+                    f"the key imperative is controlling goroutine lifecycles, context timeouts, and race detection. "
+                    f"Here are the **{len(skills)} focused engineering standards** recommended for your architecture:\n\n"
+                )
+            elif any(k in q_lower for k in ["next", "nextjs", "react", "fullstack", "server action"]):
+                intro = (
+                    f"Addressing **Next.js 15 Fullstack & Server Actions** (*\"{q_clean}\"*), "
+                    f"the critical priorities are strict Zod schema validation, safe server-client boundaries, and SEO caching strategies. "
+                    f"Here are the **{len(skills)} core skills** to enforce these patterns:\n\n"
+                )
+            elif any(k in q_lower for k in ["security", "sandbox", "audit", "injection"]):
+                intro = (
+                    f"Regarding **Agent Security Posture & Sandboxing** (*\"{q_clean}\"*), "
+                    f"the foremost objective is auditing runtime tool execution and preventing prompt/command injections. "
+                    f"Here are the **{len(skills)} robust security guardrails** for your workflow:\n\n"
+                )
+            elif any(k in q_lower for k in ["antigravity", "gemini", "agent harness", "skill"]):
+                intro = (
+                    f"Regarding **Agent Harness Orchestration & Subagent Workflows** (*\"{q_clean}\"*), "
+                    f"the main objective is standardizing SKILL.md specifications and isolated subagent handoffs. "
+                    f"Here are the **{len(skills)} foundational skills** for your setup:\n\n"
+                )
+            else:
+                intro = (
+                    f"Analyzing your technical inquiry *\"{q_clean}\"*, "
+                    f"here are the **{len(skills)} top-tier skills** tailored directly to your engineering requirements:\n\n"
+                )
+
+            sections = []
+            for idx, item in enumerate(skills, 1):
+                s = item["skill"]
+                reasons_md = "\n".join([f"  - {r}" for r in item["match_reasons"]])
+                summary = s.ai_summary or s.description or "Production-grade agent standard."
+                runtimes_display = (', '.join(s.runtimes)) if s.runtimes else 'Any IDE / Harness'
+                sections.append(
+                    f"### {idx}. 🎯 **{s.title or s.name}** `({item['relevance_score']}% Match)`\n"
+                    f"- **Author / Repo:** `{s.author or 'community'}` | **Stars:** ⭐ {(s.stars or 0):,} | **Runtime:** `{runtimes_display}`\n"
+                    f"- **Why it fits your need:**\n{reasons_md}\n"
+                    f"- **Architectural Value:** {summary}\n"
+                    f"- **💡 Actionable Pro Tip:** {item['quick_tip']}\n"
+                )
+
+            synergy = ""
+            if len(skills) > 1:
+                first_name = skills[0]["skill"].name
+                second_name = skills[1]["skill"].name
+                synergy = (
+                    f"\n---\n"
+                    f"### 💡 Architectural Synergy:\n"
+                    f"We recommend pairing `{first_name}` as your baseline governance standard "
+                    f"with `{second_name}` for domain execution, giving your agent end-to-end reliability.\n"
+                )
+
+            conclusion = (
+                f"\n---\n"
+                f"### 🚀 Next Steps (RAG Recommendation):\n"
+                f"Click **'View Details'** on any card below to review its full specifications, or copy the export snippet into your agent harness configuration."
+            )
+
+            full_message = intro + "\n".join(sections) + synergy + conclusion
+            followups = cls._extract_followups(full_message, language="en", query=q_clean)
 
         return {
             "success": True,

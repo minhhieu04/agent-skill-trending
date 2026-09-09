@@ -25,7 +25,11 @@ import {
   ChevronRight,
   AlertTriangle,
   Cpu,
-  Terminal
+  Terminal,
+  Mic,
+  Flame,
+  Globe,
+  Compass
 } from 'lucide-react';
 import { api } from '../api/client';
 import { DailyDigest, DailyDigestDateInfo, SkillDigestSummary, SocialMediaPost, VoiceOption } from '../types';
@@ -38,24 +42,43 @@ import { copyToClipboard } from '../utils/clipboard';
 
 // Curated AI Voices Fallback
 const DEFAULT_PODCAST_VOICES: VoiceOption[] = [
-  // Vietnamese
-  { id: 'vi-VN-NamMinhNeural', name: 'Minh Hiếu (Nam - Trầm Ấm)', provider: 'edge_tts', language: 'vi-VN', gender: 'male', style: 'Tech Radar, Thời Sự', preview_text: '', badge: 'STUDIO' },
-  { id: 'vi-VN-HoaiMyNeural', name: 'Diểm Phúc (Nữ - Truyền Cảm)', provider: 'edge_tts', language: 'vi-VN', gender: 'female', style: 'Viral Reviewer, TikTok Hot', preview_text: '', badge: 'HOT' },
-  { id: 'vi-VN-Wavenet-A', name: 'Google WaveNet (Nữ - Chuẩn Studio)', provider: 'google_tts', language: 'vi-VN', gender: 'female', style: 'Google Cloud WaveNet', preview_text: '', badge: 'GOOGLE AI' },
-  { id: 'vi-VN-Wavenet-B', name: 'Google WaveNet (Nam - Phát Thanh)', provider: 'google_tts', language: 'vi-VN', gender: 'male', style: 'Google Studio Broadcast', preview_text: '', badge: 'GOOGLE AI' },
-  // Gemini 2.0 Live Native Audio
-  { id: 'gemini-Aoede', name: 'Gemini 2.0 Live - Aoede (Nữ - Biểu Cảm)', provider: 'gemini_audio', language: 'multi', gender: 'female', style: 'Gemini 2.0 Multimodal Native Audio', preview_text: '', badge: 'GEMINI 2.0' },
-  { id: 'gemini-Puck', name: 'Gemini 2.0 Live - Puck (Nam - Năng Động)', provider: 'gemini_audio', language: 'multi', gender: 'male', style: 'Gemini 2.0 Multimodal Native Audio', preview_text: '', badge: 'GEMINI 2.0' },
-  { id: 'gemini-Charon', name: 'Gemini 2.0 Live - Charon (Nam - Trầm Lắng)', provider: 'gemini_audio', language: 'multi', gender: 'male', style: 'Gemini 2.0 Multimodal Native Audio', preview_text: '', badge: 'GEMINI 2.0' },
-  { id: 'gemini-Kore', name: 'Gemini 2.0 Live - Kore (Nữ - Trong Trẻo)', provider: 'gemini_audio', language: 'multi', gender: 'female', style: 'Gemini 2.0 Multimodal Native Audio', preview_text: '', badge: 'GEMINI 2.0' },
-  { id: 'gemini-Fenrir', name: 'Gemini 2.0 Live - Fenrir (Nam - Bản Lĩnh)', provider: 'gemini_audio', language: 'multi', gender: 'male', style: 'Gemini 2.0 Multimodal Native Audio', preview_text: '', badge: 'GEMINI 2.0' },
-  // English & Global Studio
-  { id: 'en-US-Journey-F', name: 'Google Journey (Female - Expressive)', provider: 'google_tts', language: 'en-US', gender: 'female', style: 'DeepMind Next-Gen Journey', preview_text: '', badge: 'GOOGLE AI' },
-  { id: 'en-US-ChristopherNeural', name: 'Christopher (Male - Keynote)', provider: 'edge_tts', language: 'en-US', gender: 'male', style: 'Apple Keynote, Silicon Valley', preview_text: '', badge: 'STUDIO' },
-  { id: 'en-US-JennyNeural', name: 'Jenny (Female - Dynamic Tech Host)', provider: 'edge_tts', language: 'en-US', gender: 'female', style: 'Silicon Valley Tech Host', preview_text: '', badge: 'HOT' },
-  { id: 'en-US-GuyNeural', name: 'Alex (Male - Casual Silicon Valley)', provider: 'edge_tts', language: 'en-US', gender: 'male', style: 'Casual Founder & Hacker', preview_text: '', badge: 'CASUAL' },
-  { id: 'en-GB-SoniaNeural', name: 'Sonia (Female - British Accent)', provider: 'edge_tts', language: 'en-GB', gender: 'female', style: 'BBC Tech Reporter', preview_text: '', badge: 'UK ACCENT' },
+  // Google AI Studio - Gemini 3.1 Live Native Audio (Top Community Choice)
+  { id: 'gemini-Aoede', name: 'Aoede (Nữ - Siêu Tự Nhiên, Chuẩn Song Ngữ)', provider: 'gemini_audio', language: 'multi', gender: 'female', style: 'Gemini 3.1 Multimodal Expressive Voice', preview_text: '', badge: 'COMMUNITY CHOICE' },
+  { id: 'gemini-Puck', name: 'Puck (Nam - Năng Động, Chuẩn Tech Reviewer)', provider: 'gemini_audio', language: 'multi', gender: 'male', style: 'Gemini 3.1 Multimodal Expressive Voice', preview_text: '', badge: 'TRENDING REVIEW' },
+  { id: 'gemini-Charon', name: 'Charon (Nam - Trầm Ấm, Chuyên Gia Kiến Trúc)', provider: 'gemini_audio', language: 'multi', gender: 'male', style: 'Gemini 3.1 Multimodal Expressive Voice', preview_text: '', badge: 'SYSTEM ARCHITECT' },
+  { id: 'gemini-Kore', name: 'Kore (Nữ - Trong Trẻo, Host Hướng Dẫn)', provider: 'gemini_audio', language: 'multi', gender: 'female', style: 'Gemini 3.1 Multimodal Expressive Voice', preview_text: '', badge: 'TUTORIAL HOST' },
+  { id: 'gemini-Fenrir', name: 'Fenrir (Nam - Bản Lĩnh, Keynote Leader)', provider: 'gemini_audio', language: 'multi', gender: 'male', style: 'Gemini 3.1 Multimodal Expressive Voice', preview_text: '', badge: 'KEYNOTE LEADER' },
+  // Tiêu Chuẩn Giọng Đọc Việt Nam Được Giữ Lại (Diểm Phúc & Minh Hiếu)
+  { id: 'vi-VN-HoaiMyNeural', name: 'Diểm Phúc (Nữ - Truyền Cảm, TikTok Hot)', provider: 'edge_tts', language: 'vi-VN', gender: 'female', style: 'Viral Reviewer, TikTok Hot', preview_text: '', badge: 'TIKTOK VIRAL' },
+  { id: 'vi-VN-NamMinhNeural', name: 'Minh Hiếu (Nam - Trầm Ấm, Radar Tech)', provider: 'edge_tts', language: 'vi-VN', gender: 'male', style: 'Tech Radar, Thời Sự', preview_text: '', badge: 'TECH RADAR' },
+  // Tiếng Anh Quốc Tế (Silicon Valley & DeepMind)
+  { id: 'en-US-Journey-F', name: 'Google Journey (Female - Expressive)', provider: 'google_tts', language: 'en-US', gender: 'female', style: 'DeepMind Next-Gen Journey', preview_text: '', badge: 'DEEPMIND' },
+  { id: 'en-US-ChristopherNeural', name: 'Christopher (Male - Silicon Valley Keynote)', provider: 'edge_tts', language: 'en-US', gender: 'male', style: 'Tech Podcast & Keynote', preview_text: '', badge: 'SILICON VALLEY' },
+  { id: 'en-US-JennyNeural', name: 'Jenny (Female - Dynamic Tech Host)', provider: 'edge_tts', language: 'en-US', gender: 'female', style: 'Tutorial & Explainer', preview_text: '', badge: 'DYNAMIC HOST' },
 ];
+
+const AVAILABLE_GEMINI_MODELS = [
+  { id: 'gemini-3.8-flash', name: 'Gemini 3.8 Flash (Mới nhất)' },
+  { id: 'gemini-3-flash-preview', name: 'Gemini 3 Flash' },
+  { id: 'gemini-3.5-flash', name: 'Gemini 3.5 Flash' },
+  { id: 'gemini-3.6-flash', name: 'Gemini 3.6 Flash' },
+  { id: 'gemini-3.1-pro-preview', name: 'Gemini 3.1 Pro' },
+];
+
+const formatModelName = (model?: string) => {
+  if (!model) return 'Gemini 3.8 Flash';
+  if (model.includes('3.8-flash')) return 'Gemini 3.8 Flash';
+  if (model.includes('3.1-pro')) return 'Gemini 3.1 Pro';
+  if (model.includes('3.6-flash')) return 'Gemini 3.6 Flash';
+  if (model.includes('3.5-flash-lite')) return 'Gemini 3.5 Flash Lite';
+  if (model.includes('3.5-flash')) return 'Gemini 3.5 Flash';
+  if (model.includes('3-flash')) return 'Gemini 3 Flash';
+  if (model.includes('3.1-flash-lite')) return 'Gemini 3.1 Flash Lite';
+  if (model.includes('2.5-flash')) return 'Gemini 2.5 Flash';
+  if (model.includes('2.5-pro')) return 'Gemini 2.5 Pro';
+  if (model.includes('flash-latest')) return 'Gemini Flash';
+  return model.replace('models/', '').replace(/^gemini-/, 'Gemini ');
+};
 
 interface DailyPodcastPageProps {
   onSelectSkillById?: (id: number) => void;
@@ -78,8 +101,14 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
   const [currentTime, setCurrentTime] = useState<number>(0);
   const [duration, setDuration] = useState<number>(0);
   const [playbackRate, setPlaybackRate] = useState<number>(1.0);
-  const [selectedVoice, setSelectedVoice] = useState<string>('vi-VN-NamMinhNeural');
+  const [selectedVoice, setSelectedVoice] = useState<string>('gemini-Aoede');
   const [isAudioLoading, setIsAudioLoading] = useState<boolean>(false);
+
+  // Digest Model & Translation State (Gemini 3.8 Flash First)
+  const [selectedModel, setSelectedModel] = useState<string>('gemini-3.8-flash');
+  const [translatedDigest, setTranslatedDigest] = useState<DailyDigest | null>(null);
+  const [activeDisplayLang, setActiveDisplayLang] = useState<'vi' | 'en'>('vi');
+  const [isTranslating, setIsTranslating] = useState<boolean>(false);
 
   // Active View Tab inside Hero: 'script' | 'highlights'
   const [heroTab, setHeroTab] = useState<'script' | 'highlights'>('script');
@@ -128,26 +157,42 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
     (v) => v.language.startsWith('en') || (!v.id.startsWith('gemini-') && v.language !== 'vi-VN')
   );
 
+  const getVoiceSelectIcon = (voiceId: string) => {
+    if (voiceId.includes('Aoede')) return <Star className="w-3.5 h-3.5 text-amber-500 shrink-0" />;
+    if (voiceId.includes('Puck')) return <Flame className="w-3.5 h-3.5 text-orange-500 shrink-0" />;
+    if (voiceId.includes('Charon')) return <Target className="w-3.5 h-3.5 text-indigo-500 shrink-0" />;
+    if (voiceId.includes('Kore')) return <Sparkles className="w-3.5 h-3.5 text-emerald-500 shrink-0" />;
+    if (voiceId.includes('Fenrir')) return <Radio className="w-3.5 h-3.5 text-cyan-500 shrink-0" />;
+    if (voiceId.includes('HoaiMy')) return <Zap className="w-3.5 h-3.5 text-amber-500 shrink-0" />;
+    if (voiceId.includes('NamMinh')) return <Mic className="w-3.5 h-3.5 text-sky-500 shrink-0" />;
+    if (voiceId.includes('Journey')) return <Compass className="w-3.5 h-3.5 text-purple-500 shrink-0" />;
+    if (voiceId.includes('Christopher')) return <Globe className="w-3.5 h-3.5 text-blue-500 shrink-0" />;
+    return <Volume2 className="w-3.5 h-3.5 text-[var(--primary)] shrink-0" />;
+  };
+
   const voiceSelectOptions = React.useMemo(() => [
-    ...vietnameseVoices.map((v) => ({
-      value: v.id,
-      label: v.name,
-      badge: v.badge,
-      group: 'Giọng Đọc Tiếng Việt',
-    })),
     ...geminiVoices.map((v) => ({
       value: v.id,
       label: v.name,
       badge: v.badge,
-      group: 'Gemini 2.0 Live Native Audio',
+      icon: getVoiceSelectIcon(v.id),
+      group: 'Google AI Studio (Siêu Tự Nhiên & Chuẩn Song Ngữ)',
+    })),
+    ...vietnameseVoices.map((v) => ({
+      value: v.id,
+      label: v.name,
+      badge: v.badge,
+      icon: getVoiceSelectIcon(v.id),
+      group: 'Giọng Đọc Tiếng Việt Tiêu Chuẩn',
     })),
     ...internationalVoices.map((v) => ({
       value: v.id,
       label: v.name,
       badge: v.badge,
+      icon: getVoiceSelectIcon(v.id),
       group: 'English & Global Studio',
     })),
-  ], [vietnameseVoices, geminiVoices, internationalVoices]);
+  ], [geminiVoices, vietnameseVoices, internationalVoices]);
 
   // 2. Fetch available dates
   const { data: datesData, isLoading: loadingDates } = useQuery<{ dates: DailyDigestDateInfo[] }>({
@@ -164,6 +209,32 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
       setSelectedDate(availableDates[0].date);
     }
   }, [availableDates, selectedDate]);
+
+  const [isCollecting, setIsCollecting] = useState<boolean>(false);
+  const todayLocalStr = React.useMemo(() => {
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = String(now.getMonth() + 1).padStart(2, '0');
+    const d = String(now.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  }, []);
+
+  const handleTriggerCollectionToday = async () => {
+    try {
+      setIsCollecting(true);
+      showToast('Đang kích hoạt cào kỹ năng mới từ GitHub Trending, HackerNews, Reddit...', 'info');
+      await api.triggerCollection();
+      showToast('Bộ thu thập dữ liệu đã bắt đầu! Dữ liệu đang được làm mới...', 'success');
+      setTimeout(() => {
+        queryClient.invalidateQueries({ queryKey: ['dailyDigestDates'] });
+        queryClient.invalidateQueries({ queryKey: ['dailyDigest', selectedDate] });
+        setIsCollecting(false);
+      }, 4000);
+    } catch (err: any) {
+      setIsCollecting(false);
+      showToast(err.message || 'Không thể cào dữ liệu mới lúc này', 'error');
+    }
+  };
 
   // Horizontal Scroll state for available dates
   const datesScrollRef = useRef<HTMLDivElement | null>(null);
@@ -199,6 +270,15 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
     queryFn: () => api.getDailyDigest(selectedDate),
     enabled: Boolean(selectedDate),
   });
+
+  // Active digest: translated version if user toggled to English, else server digest
+  const activeDigest = (activeDisplayLang === 'en' && translatedDigest) ? translatedDigest : digest;
+
+  // Reset translated digest when date changes
+  useEffect(() => {
+    setTranslatedDigest(null);
+    setActiveDisplayLang('vi');
+  }, [selectedDate]);
 
   // Track bookmarked skills reactively
   const { data: bookmarkedSkills = [] } = useQuery<any[]>({
@@ -340,12 +420,42 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
     }
   };
 
-  // 4. Regenerate Digest Mutation
+  // 4. Translate Summary Handler (Gemini 3.8 Flash)
+  const handleToggleTranslate = async () => {
+    if (activeDisplayLang === 'en') {
+      setActiveDisplayLang('vi');
+      showToast('Đã chuyển về bản tóm tắt Tiếng Việt', 'info');
+      return;
+    }
+
+    if (translatedDigest) {
+      setActiveDisplayLang('en');
+      showToast('Đã hiển thị bản tóm tắt Tiếng Anh', 'success');
+      return;
+    }
+
+    try {
+      setIsTranslating(true);
+      showToast(`Đang dịch toàn bộ bản tóm tắt sang Tiếng Anh bằng ${formatModelName(selectedModel)}...`, 'info');
+      const trans = await api.translateDailyDigest(selectedDate, 'en', selectedModel);
+      setTranslatedDigest(trans);
+      setActiveDisplayLang('en');
+      showToast('Dịch bản tóm tắt thành công!', 'success');
+    } catch (err: any) {
+      showToast(err?.message || 'Dịch bản tóm tắt thất bại', 'error');
+    } finally {
+      setIsTranslating(false);
+    }
+  };
+
+  // 5. Regenerate Digest Mutation with chosen model
   const regenerateMutation = useMutation({
-    mutationFn: () => api.regenerateDailyDigest(selectedDate, language),
+    mutationFn: () => api.regenerateDailyDigest(selectedDate, language, selectedModel),
     onSuccess: (updatedDigest) => {
       queryClient.setQueryData(['dailyDigest', selectedDate], updatedDigest);
       queryClient.invalidateQueries({ queryKey: ['dailyDigestDates'] });
+      setTranslatedDigest(null);
+      setActiveDisplayLang('vi');
       // Reset audio so it re-synthesizes on play
       if (audioRef.current) {
         audioRef.current.pause();
@@ -353,7 +463,7 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
       }
       setIsPlaying(false);
       setCurrentTime(0);
-      showToast('Đã dùng AI phân tích và tạo lại bản tin podcast!', 'success');
+      showToast(`Đã dùng AI (${formatModelName(updatedDigest.source_model)}) phân tích và tạo lại bản tin podcast!`, 'success');
     },
     onError: (err: any) => {
       showToast(err.message || 'Lỗi khi tái tạo bản tin', 'error');
@@ -442,7 +552,7 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
   };
 
   // Filter skills in digest
-  const rawSkills: SkillDigestSummary[] = digest?.skill_summaries || [];
+  const rawSkills: SkillDigestSummary[] = activeDigest?.skill_summaries || [];
   const categoriesInDigest = Array.from(new Set(rawSkills.map((s) => s.category))).filter(Boolean);
 
   const filteredSkills = rawSkills.filter((s) => {
@@ -552,7 +662,7 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
   };
 
   // Safely extract highlights list regardless of backend runtime data shape (array, string, JSON string)
-  const rawHighlights: any = digest?.highlights;
+  const rawHighlights: any = activeDigest?.highlights;
   const safeHighlights: string[] = Array.isArray(rawHighlights)
     ? rawHighlights
     : typeof rawHighlights === 'string'
@@ -621,25 +731,38 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
               <Calendar className="w-3.5 h-3.5 text-[var(--primary)]" />
               {t('podcast_select_date')}:
             </span>
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1.5">
               <button
                 type="button"
-                onClick={() => handleScrollDates('left')}
-                disabled={!canScrollDatesLeft}
-                className="w-5 h-5 rounded-lg neu-btn-sm flex items-center justify-center text-[var(--text-muted)] hover:text-[var(--primary)] disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
-                title="Cuộn sang trái"
+                onClick={handleTriggerCollectionToday}
+                disabled={isCollecting}
+                className="neu-btn-sm px-2.5 py-1 rounded-xl text-xs font-semibold text-[var(--text-main)] hover:text-[var(--primary)] flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                title="Cào kỹ năng mới hôm nay từ GitHub Trending, HackerNews, Reddit"
               >
-                <ChevronLeft className="w-3 h-3" />
+                <Zap className={`w-3.5 h-3.5 text-amber-500 ${isCollecting ? 'animate-spin' : ''}`} />
+                <span className="hidden sm:inline">Cào dữ liệu hôm nay</span>
               </button>
-              <button
-                type="button"
-                onClick={() => handleScrollDates('right')}
-                disabled={!canScrollDatesRight}
-                className="w-5 h-5 rounded-lg neu-btn-sm flex items-center justify-center text-[var(--text-muted)] hover:text-[var(--primary)] disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
-                title="Cuộn sang phải"
-              >
-                <ChevronRight className="w-3 h-3" />
-              </button>
+
+              <div className="flex items-center gap-1 ml-1">
+                <button
+                  type="button"
+                  onClick={() => handleScrollDates('left')}
+                  disabled={!canScrollDatesLeft}
+                  className="w-5 h-5 rounded-lg neu-btn-sm flex items-center justify-center text-[var(--text-muted)] hover:text-[var(--primary)] disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+                  title="Cuộn sang trái"
+                >
+                  <ChevronLeft className="w-3 h-3" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleScrollDates('right')}
+                  disabled={!canScrollDatesRight}
+                  className="w-5 h-5 rounded-lg neu-btn-sm flex items-center justify-center text-[var(--text-muted)] hover:text-[var(--primary)] disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+                  title="Cuộn sang phải"
+                >
+                  <ChevronRight className="w-3 h-3" />
+                </button>
+              </div>
             </div>
           </div>
 
@@ -653,6 +776,7 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
             ) : (
               availableDates.map((item) => {
                 const isSelected = item.date === selectedDate;
+                const isTodayDate = item.is_today || item.date === todayLocalStr;
                 const dateParts = item.date.split('-');
                 const label = `${dateParts[2]}/${dateParts[1]}`;
                 return (
@@ -666,6 +790,11 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
                     }`}
                   >
                     <span>{label}</span>
+                    {isTodayDate && (
+                      <span className="px-1.5 py-0.2 text-[9px] rounded-md font-mono font-bold bg-amber-500/15 text-amber-600 dark:text-amber-400">
+                        HÔM NAY
+                      </span>
+                    )}
                     {item.skills_count > 0 && (
                       <span
                         className={`px-1.5 py-0.2 text-[10px] rounded-md font-mono font-medium ${
@@ -710,7 +839,7 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
             {loadingDigest ? (
               <div className="h-7 w-3/4 neu-inset rounded-xl animate-pulse" />
             ) : (
-              digest?.title || `Bản Tin AI Radar Ngày ${selectedDate}`
+              activeDigest?.title || `Bản Tin AI Radar Ngày ${selectedDate}`
             )}
           </h2>
 
@@ -762,7 +891,40 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
               />
             </div>
 
-            <div className="flex items-center gap-2 shrink-0 justify-end">
+            <div className="flex items-center gap-2 shrink-0 justify-end flex-wrap">
+              {/* Translate Summary (VI / EN) Toggle Button */}
+              <button
+                onClick={handleToggleTranslate}
+                disabled={isTranslating || loadingDigest}
+                title={
+                  activeDisplayLang === 'en'
+                    ? 'Chuyển về bản gốc Tiếng Việt'
+                    : 'Dịch toàn bộ bản tóm tắt và các bài viết sang Tiếng Anh bằng Gemini 3.8 Flash'
+                }
+                className={`px-3 py-2 rounded-xl neu-btn disabled:opacity-50 flex items-center gap-1.5 text-xs font-semibold cursor-pointer transition-all ${
+                  activeDisplayLang === 'en'
+                    ? 'neu-inset text-[var(--primary)] font-bold shadow-inner'
+                    : 'text-[var(--text-muted)] hover:text-[var(--primary)]'
+                }`}
+              >
+                <Globe
+                  className={`w-3.5 h-3.5 ${
+                    isTranslating
+                      ? 'animate-spin text-[var(--primary)]'
+                      : activeDisplayLang === 'en'
+                      ? 'text-[var(--primary)]'
+                      : 'text-sky-500'
+                  }`}
+                />
+                <span className="text-[11px] whitespace-nowrap">
+                  {isTranslating
+                    ? 'Đang dịch...'
+                    : activeDisplayLang === 'en'
+                    ? 'Xem Tiếng Việt'
+                    : 'Dịch tóm tắt (EN)'}
+                </span>
+              </button>
+
               {/* Force Audio Re-synthesize Button */}
               <button
                 onClick={() => {
@@ -884,9 +1046,22 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
               </button>
             </div>
 
-            <span className="text-[10px] sm:text-[11px] text-[var(--text-muted)] font-mono ml-auto">
-              Model: {digest?.source_model || 'Gemini 2.5 Flash'}
-            </span>
+            <div className="flex items-center gap-1.5 px-3 py-1 rounded-full neu-inset-sm text-xs font-mono text-[var(--primary)] font-semibold ml-auto shadow-inner">
+              <Sparkles className="w-3.5 h-3.5 text-[var(--primary)] shrink-0" />
+              <span className="text-[10px] text-[var(--text-muted)] hidden sm:inline">Model:</span>
+              <select
+                value={selectedModel}
+                onChange={(e) => setSelectedModel(e.target.value)}
+                title="Chọn mô hình Gemini ưu tiên khi phân tích hoặc dịch"
+                className="bg-transparent text-[var(--primary)] font-mono text-xs font-bold outline-none cursor-pointer pr-1"
+              >
+                {AVAILABLE_GEMINI_MODELS.map((m) => (
+                  <option key={m.id} value={m.id} className="bg-[var(--bg-main)] text-[var(--text-main)] font-sans">
+                    {m.name}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
 
           <div className="pt-1">
@@ -898,9 +1073,9 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
                     <div className="h-3.5 bg-[var(--shadow-dark)]/20 rounded-lg w-5/6" />
                     <div className="h-3.5 bg-[var(--shadow-dark)]/20 rounded-lg w-4/6" />
                   </div>
-                ) : digest?.podcast_script ? (
+                ) : activeDigest?.podcast_script ? (
                   <div className="whitespace-pre-line font-sans">
-                    {digest.podcast_script}
+                    {activeDigest.podcast_script}
                   </div>
                 ) : (
                   <p className="text-[var(--text-muted)] italic">Chưa có kịch bản cho ngày này. Bấm Tái tạo bài để tạo.</p>
@@ -1052,7 +1227,7 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
             {/* Cột sidebar cố định (bên phải, sticky top-6, w-80 hoặc w-96 trên desktop) */}
             <aside className="hidden lg:block w-80 xl:w-96 shrink-0 sticky top-6 max-h-[calc(100vh-4.5rem)] overflow-y-auto scrollbar-none pr-0.5 space-y-4">
               {/* 1. Danh sách các bài viết hôm nay (Today's Digest Posts) */}
-              <div className="rounded-3xl neu-flat p-4 sm:p-5 space-y-3.5">
+              <div className="rounded-3xl neu-flat p-4 sm:p-5 space-y-3">
                 <div className="flex items-center justify-between gap-2 pb-2 border-b border-[var(--shadow-dark)]/20">
                   <div className="flex items-center gap-2">
                     <div className="w-7 h-7 rounded-xl neu-inset text-[var(--primary)] flex items-center justify-center font-bold text-xs shrink-0 shadow-inner">
@@ -1067,13 +1242,13 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
                       </span>
                     </div>
                   </div>
-                  <span className="px-2 py-0.5 rounded-full neu-inset-sm text-[10px] font-mono text-[var(--primary)] font-bold">
+                  <span className="px-2.5 py-0.5 rounded-full neu-inset-sm text-[10px] font-mono text-[var(--primary)] font-bold">
                     {selectedDate ? selectedDate.split('-').slice(1).reverse().join('/') : 'TODAY'}
                   </span>
                 </div>
 
                 {/* Danh sách bài viết click chuyển nhanh */}
-                <div className="space-y-2 max-h-[280px] overflow-y-auto pr-1 scrollbar-none">
+                <div className="space-y-1.5 max-h-[250px] overflow-y-auto pr-1 scrollbar-none">
                   {filteredSkills.map((item, idx) => {
                     const isCurrentActive = item.skill_id === activePostSkillId;
                     return (
@@ -1081,26 +1256,35 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
                         key={item.skill_id}
                         type="button"
                         onClick={() => handleJumpToPost(item.skill_id)}
-                        className={`w-full text-left p-2.5 rounded-2xl transition-all cursor-pointer flex items-start gap-2.5 ${
+                        className={`w-full text-left p-2 rounded-xl transition-all duration-200 cursor-pointer flex items-center gap-2.5 relative group ${
                           isCurrentActive
-                            ? 'neu-inset text-[var(--primary)] !border-l-4 !border-l-[var(--primary)] font-semibold shadow-inner'
-                            : 'neu-btn text-[var(--text-muted)] hover:text-[var(--text-main)]'
+                            ? 'neu-inset text-[var(--primary)] font-medium shadow-inner'
+                            : 'hover:neu-flat-sm text-[var(--text-muted)] hover:text-[var(--text-main)]'
                         }`}
                       >
+                        {isCurrentActive && (
+                          <div className="absolute left-0 top-1.5 bottom-1.5 w-1 bg-[var(--primary)] rounded-r" />
+                        )}
                         <span
-                          className={`w-5 h-5 rounded-lg flex items-center justify-center text-[10px] font-mono font-bold shrink-0 mt-0.5 ${
+                          className={`w-5 h-5 rounded-lg flex items-center justify-center text-[10px] font-mono font-bold shrink-0 transition-colors ${
                             isCurrentActive
                               ? 'bg-[var(--primary)] text-white shadow-sm'
-                              : 'neu-inset-sm text-[var(--text-muted)]'
+                              : 'neu-inset-sm text-[var(--text-muted)] group-hover:text-[var(--text-main)]'
                           }`}
                         >
                           {idx + 1}
                         </span>
-                        <div className="min-w-0 flex-1 space-y-0.5">
-                          <div className="text-xs font-bold truncate text-[var(--text-main)]">
+                        <div className="min-w-0 flex-1">
+                          <div
+                            className={`text-xs truncate ${
+                              isCurrentActive
+                                ? 'font-bold text-[var(--primary)]'
+                                : 'font-semibold text-[var(--text-main)]'
+                            }`}
+                          >
                             {item.title}
                           </div>
-                          <div className="flex items-center gap-2 text-[10px] font-mono text-[var(--text-muted)] truncate">
+                          <div className="flex items-center gap-2 text-[10px] font-mono text-[var(--text-muted)] truncate mt-0.5">
                             <span className="truncate">{item.name}</span>
                             <span>•</span>
                             <span className="text-amber-500 flex items-center gap-0.5 shrink-0 font-medium">
@@ -1115,13 +1299,13 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
                 </div>
               </div>
 
-              {/* 2. Mục lục bài viết (Quick Jump Outline) */}
+              {/* 2. Mục lục bài viết (Editorial Tree Outline) */}
               {activeSummary && activePost && (
                 <div className="rounded-3xl neu-flat p-4 sm:p-5 space-y-3">
                   <div className="flex items-center justify-between gap-2 pb-2 border-b border-[var(--shadow-dark)]/20">
                     <div className="flex items-center gap-2 min-w-0">
                       <div className="w-7 h-7 rounded-xl neu-inset text-amber-500 flex items-center justify-center font-bold text-xs shrink-0 shadow-inner">
-                        <LayoutGrid className="w-3.5 h-3.5" />
+                        <Compass className="w-3.5 h-3.5" />
                       </div>
                       <div className="min-w-0">
                         <h4 className="text-xs font-bold text-[var(--text-main)] uppercase tracking-wider font-mono">
@@ -1134,33 +1318,40 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
                     </div>
                   </div>
 
-                  <div className="space-y-1.5 text-xs font-medium">
+                  {/* Sleek tree rail outline */}
+                  <div className="relative pl-3 border-l-2 border-[var(--shadow-dark)]/25 ml-2 space-y-1 text-xs py-0.5">
                     <button
                       type="button"
                       onClick={() => handleJumpToSection(`post-${activePost.skill_id}-hook`)}
-                      className="w-full text-left px-3 py-1.5 rounded-xl neu-btn-sm text-[var(--text-muted)] hover:text-[var(--primary)] flex items-center gap-2 transition-all active:scale-[0.98] cursor-pointer"
+                      className="w-full text-left px-2.5 py-1.5 rounded-lg text-[var(--text-muted)] hover:text-[var(--primary)] hover:bg-[var(--primary)]/10 flex items-center gap-2 transition-all cursor-pointer group"
                     >
-                      <Sparkles className="w-3.5 h-3.5 text-[var(--primary)] shrink-0" />
-                      <span className="truncate">Điểm nhấn & Editorial Hook</span>
+                      <Sparkles className="w-3.5 h-3.5 text-[var(--primary)] shrink-0 group-hover:scale-110 transition-transform" />
+                      <span className="truncate group-hover:translate-x-0.5 transition-transform font-medium">
+                        Điểm nhấn & Hook
+                      </span>
                     </button>
 
                     <button
                       type="button"
                       onClick={() => handleJumpToSection(`post-${activePost.skill_id}-story`)}
-                      className="w-full text-left px-3 py-1.5 rounded-xl neu-btn-sm text-[var(--text-muted)] hover:text-[var(--primary)] flex items-center gap-2 transition-all active:scale-[0.98] cursor-pointer"
+                      className="w-full text-left px-2.5 py-1.5 rounded-lg text-[var(--text-muted)] hover:text-rose-500 hover:bg-rose-500/10 flex items-center gap-2 transition-all cursor-pointer group"
                     >
-                      <AlertTriangle className="w-3.5 h-3.5 text-rose-500 shrink-0" />
-                      <span className="truncate">Nỗi đau vs Trải nghiệm</span>
+                      <AlertTriangle className="w-3.5 h-3.5 text-rose-500 shrink-0 group-hover:scale-110 transition-transform" />
+                      <span className="truncate group-hover:translate-x-0.5 transition-transform font-medium">
+                        Nỗi đau & Trải nghiệm
+                      </span>
                     </button>
 
                     {activePost.core_mechanism && (
                       <button
                         type="button"
                         onClick={() => handleJumpToSection(`post-${activePost.skill_id}-mechanism`)}
-                        className="w-full text-left px-3 py-1.5 rounded-xl neu-btn-sm text-[var(--text-muted)] hover:text-[var(--primary)] flex items-center gap-2 transition-all active:scale-[0.98] cursor-pointer"
+                        className="w-full text-left px-2.5 py-1.5 rounded-lg text-[var(--text-muted)] hover:text-blue-500 hover:bg-blue-500/10 flex items-center gap-2 transition-all cursor-pointer group"
                       >
-                        <Cpu className="w-3.5 h-3.5 text-blue-500 shrink-0" />
-                        <span className="truncate">Kiến trúc & Cơ chế lõi</span>
+                        <Cpu className="w-3.5 h-3.5 text-blue-500 shrink-0 group-hover:scale-110 transition-transform" />
+                        <span className="truncate group-hover:translate-x-0.5 transition-transform font-medium">
+                          Kiến trúc & Cơ chế
+                        </span>
                       </button>
                     )}
 
@@ -1168,10 +1359,12 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
                       <button
                         type="button"
                         onClick={() => handleJumpToSection(`post-${activePost.skill_id}-features`)}
-                        className="w-full text-left px-3 py-1.5 rounded-xl neu-btn-sm text-[var(--text-muted)] hover:text-[var(--primary)] flex items-center gap-2 transition-all active:scale-[0.98] cursor-pointer"
+                        className="w-full text-left px-2.5 py-1.5 rounded-lg text-[var(--text-muted)] hover:text-amber-500 hover:bg-amber-500/10 flex items-center gap-2 transition-all cursor-pointer group"
                       >
-                        <Zap className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                        <span className="truncate">Tính năng nổi bật</span>
+                        <Zap className="w-3.5 h-3.5 text-amber-500 shrink-0 group-hover:scale-110 transition-transform" />
+                        <span className="truncate group-hover:translate-x-0.5 transition-transform font-medium">
+                          Tính năng nổi bật
+                        </span>
                       </button>
                     )}
 
@@ -1179,10 +1372,10 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
                       <button
                         type="button"
                         onClick={() => handleJumpToSection(`post-${activePost.skill_id}-code`)}
-                        className="w-full text-left px-3 py-1.5 rounded-xl neu-btn-sm text-[var(--text-muted)] hover:text-[var(--primary)] flex items-center gap-2 transition-all active:scale-[0.98] cursor-pointer"
+                        className="w-full text-left px-2.5 py-1.5 rounded-lg text-[var(--text-muted)] hover:text-emerald-500 hover:bg-emerald-500/10 flex items-center gap-2 transition-all cursor-pointer group"
                       >
-                        <Terminal className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                        <span className="truncate">
+                        <Terminal className="w-3.5 h-3.5 text-emerald-500 shrink-0 group-hover:scale-110 transition-transform" />
+                        <span className="truncate group-hover:translate-x-0.5 transition-transform font-medium">
                           Code mẫu ({activePost.code_example.filename || activePost.code_example.language})
                         </span>
                       </button>
@@ -1192,39 +1385,48 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
                       <button
                         type="button"
                         onClick={() => handleJumpToSection(`post-${activePost.skill_id}-proscons`)}
-                        className="w-full text-left px-3 py-1.5 rounded-xl neu-btn-sm text-[var(--text-muted)] hover:text-[var(--primary)] flex items-center gap-2 transition-all active:scale-[0.98] cursor-pointer"
+                        className="w-full text-left px-2.5 py-1.5 rounded-lg text-[var(--text-muted)] hover:text-teal-500 hover:bg-teal-500/10 flex items-center gap-2 transition-all cursor-pointer group"
                       >
-                        <Check className="w-3.5 h-3.5 text-teal-500 shrink-0" />
-                        <span className="truncate">Ưu điểm & Lưu ý</span>
+                        <Check className="w-3.5 h-3.5 text-teal-500 shrink-0 group-hover:scale-110 transition-transform" />
+                        <span className="truncate group-hover:translate-x-0.5 transition-transform font-medium">
+                          Ưu điểm & Lưu ý
+                        </span>
                       </button>
                     )}
 
                     <button
                       type="button"
                       onClick={() => handleJumpToSection(`post-${activePost.skill_id}-audience`)}
-                      className="w-full text-left px-3 py-1.5 rounded-xl neu-btn-sm text-[var(--text-muted)] hover:text-[var(--primary)] flex items-center gap-2 transition-all active:scale-[0.98] cursor-pointer"
+                      className="w-full text-left px-2.5 py-1.5 rounded-lg text-[var(--text-muted)] hover:text-indigo-500 hover:bg-indigo-500/10 flex items-center gap-2 transition-all cursor-pointer group"
                     >
-                      <Target className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
-                      <span className="truncate">Đối tượng khuyên dùng</span>
+                      <Target className="w-3.5 h-3.5 text-indigo-500 shrink-0 group-hover:scale-110 transition-transform" />
+                      <span className="truncate group-hover:translate-x-0.5 transition-transform font-medium">
+                        Đối tượng phù hợp
+                      </span>
                     </button>
                   </div>
                 </div>
               )}
 
-              {/* 3. Thao tác nhanh (Quick Actions Deck) */}
+              {/* 3. Thao tác nhanh (Quick Actions Deck - 2x2 Grid + CTA) */}
               {activeSummary && (
                 <div className="rounded-3xl neu-flat p-4 sm:p-5 space-y-3">
                   <div className="flex items-center gap-2 pb-2 border-b border-[var(--shadow-dark)]/20">
                     <div className="w-7 h-7 rounded-xl neu-inset text-emerald-500 flex items-center justify-center font-bold text-xs shrink-0 shadow-inner">
                       <Zap className="w-3.5 h-3.5" />
                     </div>
-                    <h4 className="text-xs font-bold text-[var(--text-main)] uppercase tracking-wider font-mono">
-                      Thao Tác Nhanh
-                    </h4>
+                    <div>
+                      <h4 className="text-xs font-bold text-[var(--text-main)] uppercase tracking-wider font-mono">
+                        Thao Tác Nhanh
+                      </h4>
+                      <span className="text-[10px] text-[var(--text-muted)] font-mono">
+                        Công cụ & Tương tác
+                      </span>
+                    </div>
                   </div>
 
-                  <div className="space-y-2">
-                    {/* Listen Audio Segment */}
+                  <div className="grid grid-cols-2 gap-2">
+                    {/* 1. Nghe Audio */}
                     <button
                       type="button"
                       onClick={() =>
@@ -1233,91 +1435,122 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
                             `${activeSummary.title}. ${activeSummary.what_it_does}. Nỗi đau giải quyết: ${activeSummary.pain_point_solved}`
                         )
                       }
-                      className="w-full px-3 py-2 rounded-xl neu-btn text-xs font-semibold text-[var(--text-main)] hover:text-[var(--primary)] flex items-center justify-between transition-all active:scale-[0.98] cursor-pointer"
+                      className="p-2.5 rounded-2xl neu-flat-sm hover:neu-inset-sm flex flex-col items-start gap-1.5 transition-all text-left group cursor-pointer"
                       title="Nghe giọng AI đọc tóm tắt công cụ này"
                     >
-                      <span className="flex items-center gap-2">
-                        <Headphones className="w-3.5 h-3.5 text-emerald-500" />
-                        <span>Nghe audio bài này</span>
-                      </span>
-                      <span className="text-[10px] font-mono text-[var(--text-muted)]">TTS</span>
+                      <div className="w-7 h-7 rounded-xl bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 flex items-center justify-center group-hover:scale-105 transition-transform shadow-xs">
+                        <Headphones className="w-3.5 h-3.5" />
+                      </div>
+                      <div>
+                        <span className="text-xs font-bold text-[var(--text-main)] block leading-tight">
+                          Nghe Audio
+                        </span>
+                        <span className="text-[9px] font-mono text-[var(--text-muted)]">
+                          TTS Voice
+                        </span>
+                      </div>
                     </button>
 
-                    {/* Ask Agent Chat (RAG) */}
+                    {/* 2. Hỏi Agent Chat */}
                     <button
                       type="button"
                       onClick={() => {
                         if (onOpenAgentChat) {
-                          onOpenAgentChat(`Phân tích kỹ năng ${activeSummary.title} (${activeSummary.name}) và hướng dẫn tôi áp dụng vào dự án thực tế.`);
+                          onOpenAgentChat(
+                            `Phân tích kỹ năng ${activeSummary.title} (${activeSummary.name}) và hướng dẫn tôi áp dụng vào dự án thực tế.`
+                          );
                         } else {
                           showToast(`Hãy mở tab Agent Chat và hỏi về ${activeSummary.title}`, 'info');
                         }
                       }}
-                      className="w-full px-3 py-2 rounded-xl neu-btn text-xs font-semibold text-[var(--text-main)] hover:text-[var(--primary)] flex items-center justify-between transition-all active:scale-[0.98] cursor-pointer"
-                      title="Mở Agent Chat và hỏi cố vấn RAG về kỹ năng này"
+                      className="p-2.5 rounded-2xl neu-flat-sm hover:neu-inset-sm flex flex-col items-start gap-1.5 transition-all text-left group cursor-pointer"
+                      title="Hỏi cố vấn RAG AI về kỹ năng này"
                     >
-                      <span className="flex items-center gap-2">
-                        <Sparkles className="w-3.5 h-3.5 text-[var(--primary)]" />
-                        <span>Hỏi Agent Chat (RAG)</span>
-                      </span>
-                      <span className="text-[10px] font-mono text-[var(--primary)] font-bold">RAG</span>
+                      <div className="w-7 h-7 rounded-xl bg-[var(--primary)]/15 text-[var(--primary)] flex items-center justify-center group-hover:scale-105 transition-transform shadow-xs">
+                        <Sparkles className="w-3.5 h-3.5" />
+                      </div>
+                      <div>
+                        <span className="text-xs font-bold text-[var(--text-main)] block leading-tight">
+                          Hỏi AI Chat
+                        </span>
+                        <span className="text-[9px] font-mono text-[var(--primary)] font-semibold">
+                          RAG Assistant
+                        </span>
+                      </div>
                     </button>
 
-                    {/* Bookmark Active Skill */}
+                    {/* 3. Bookmark */}
                     {onToggleBookmark && (
                       <button
                         type="button"
                         onClick={() => onToggleBookmark(activeSummary.skill_id)}
-                        className={`w-full px-3 py-2 rounded-xl text-xs font-semibold flex items-center justify-between transition-all active:scale-[0.98] cursor-pointer ${
+                        className={`p-2.5 rounded-2xl flex flex-col items-start gap-1.5 transition-all text-left group cursor-pointer ${
                           bookmarkedSkillIds.has(activeSummary.skill_id)
                             ? 'neu-inset text-[var(--primary)] shadow-inner'
-                            : 'neu-btn text-[var(--text-muted)] hover:text-[var(--primary)]'
+                            : 'neu-flat-sm hover:neu-inset-sm text-[var(--text-muted)]'
                         }`}
+                        title={
+                          bookmarkedSkillIds.has(activeSummary.skill_id)
+                            ? 'Bỏ lưu bookmark'
+                            : 'Lưu bài viết này'
+                        }
                       >
-                        <span className="flex items-center gap-2">
+                        <div
+                          className={`w-7 h-7 rounded-xl flex items-center justify-center group-hover:scale-105 transition-transform shadow-xs ${
+                            bookmarkedSkillIds.has(activeSummary.skill_id)
+                              ? 'bg-[var(--primary)] text-white shadow-sm'
+                              : 'bg-indigo-500/15 text-indigo-500'
+                          }`}
+                        >
                           <Bookmark
                             className={`w-3.5 h-3.5 ${
                               bookmarkedSkillIds.has(activeSummary.skill_id) ? 'fill-current' : ''
                             }`}
                           />
-                          <span>
-                            {bookmarkedSkillIds.has(activeSummary.skill_id)
-                              ? 'Đã lưu bookmark'
-                              : 'Lưu bookmark'}
+                        </div>
+                        <div>
+                          <span className="text-xs font-bold text-[var(--text-main)] block leading-tight">
+                            {bookmarkedSkillIds.has(activeSummary.skill_id) ? 'Đã Lưu' : 'Bookmark'}
                           </span>
-                        </span>
-                        <span className="text-[10px] font-mono">
-                          {bookmarkedSkillIds.has(activeSummary.skill_id) ? 'ĐÃ LƯU' : 'SAVE'}
-                        </span>
+                          <span className="text-[9px] font-mono text-[var(--text-muted)]">
+                            {bookmarkedSkillIds.has(activeSummary.skill_id) ? 'ĐÃ LƯU' : 'Lưu lại'}
+                          </span>
+                        </div>
                       </button>
                     )}
 
-                    {/* Share / Copy Share Link */}
+                    {/* 4. Share Post */}
                     <button
                       type="button"
                       onClick={handleShareActivePost}
-                      className="w-full px-3 py-2 rounded-xl neu-btn text-xs font-semibold text-[var(--text-muted)] hover:text-[var(--text-main)] flex items-center justify-between transition-all active:scale-[0.98] cursor-pointer"
+                      className="p-2.5 rounded-2xl neu-flat-sm hover:neu-inset-sm flex flex-col items-start gap-1.5 transition-all text-left group cursor-pointer"
                       title="Sao chép liên kết chia sẻ bài viết"
                     >
-                      <span className="flex items-center gap-2">
-                        <Share2 className="w-3.5 h-3.5 text-amber-500" />
-                        <span>Sao chép link chia sẻ</span>
-                      </span>
-                      <span className="text-[10px] font-mono">LINK</span>
+                      <div className="w-7 h-7 rounded-xl bg-amber-500/15 text-amber-500 flex items-center justify-center group-hover:scale-105 transition-transform shadow-xs">
+                        <Share2 className="w-3.5 h-3.5" />
+                      </div>
+                      <div>
+                        <span className="text-xs font-bold text-[var(--text-main)] block leading-tight">
+                          Chia Sẻ
+                        </span>
+                        <span className="text-[9px] font-mono text-[var(--text-muted)]">
+                          Copy Link
+                        </span>
+                      </div>
                     </button>
-
-                    {/* Open Skill Detail / Config Modal */}
-                    {onSelectSkillById && (
-                      <button
-                        type="button"
-                        onClick={() => onSelectSkillById(activeSummary.skill_id)}
-                        className="w-full px-3.5 py-2 rounded-xl neu-primary text-xs font-bold text-white flex items-center justify-center gap-1.5 transition-all active:scale-95 cursor-pointer shadow-md mt-1"
-                      >
-                        <span>Cấu hình & Tích hợp</span>
-                        <ArrowRight className="w-3.5 h-3.5" />
-                      </button>
-                    )}
                   </div>
+
+                  {/* 5. Cấu hình & Tích hợp (Primary CTA) */}
+                  {onSelectSkillById && (
+                    <button
+                      type="button"
+                      onClick={() => onSelectSkillById(activeSummary.skill_id)}
+                      className="w-full px-4 py-2.5 rounded-2xl neu-primary text-xs font-bold text-white flex items-center justify-center gap-2 transition-all active:scale-95 cursor-pointer shadow-md mt-1 group"
+                    >
+                      <span>Cấu hình & Tích hợp Skill</span>
+                      <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+                    </button>
+                  )}
                 </div>
               )}
             </aside>

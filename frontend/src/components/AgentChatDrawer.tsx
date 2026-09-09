@@ -6,18 +6,18 @@ import {
   Maximize2,
   Plus,
   ArrowRight,
-  MessageSquare,
   ChevronDown,
-  Trash2
+  Trash2,
+  Lock,
+  LogIn
 } from 'lucide-react';
 import { api } from '../api/client';
 import { Skill, AgentChatMessage, AgentChatSuggestion, AgentChatSession } from '../types';
+import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import { useToast } from '../context/ToastContext';
 import { AgentChatMessageItem } from './AgentChatMessageItem';
 import {
-  loadChatSessions,
-  saveChatSessions,
   loadActiveSessionId,
   saveActiveSessionId,
   createNewSession,
@@ -30,6 +30,7 @@ interface AgentChatDrawerProps {
   onExpandToFullPage: () => void;
   onSelectSkill: (skill: Skill) => void;
   onToggleBookmark: (skillId: number) => void;
+  onOpenLogin?: () => void;
 }
 
 export const AgentChatDrawer: React.FC<AgentChatDrawerProps> = ({
@@ -37,18 +38,15 @@ export const AgentChatDrawer: React.FC<AgentChatDrawerProps> = ({
   onClose,
   onExpandToFullPage,
   onSelectSkill,
-  onToggleBookmark
+  onToggleBookmark,
+  onOpenLogin
 }) => {
+  const { user } = useAuth();
   const { t, language } = useLanguage();
   const { showToast } = useToast();
 
-  const [sessions, setSessions] = useState<AgentChatSession[]>(() => loadChatSessions());
-  const [activeSessionId, setActiveSessionId] = useState<string>(() => {
-    const savedActiveId = loadActiveSessionId();
-    const found = sessions.find((s) => s.id === savedActiveId);
-    return found ? found.id : sessions[0]?.id || '';
-  });
-
+  const [sessions, setSessions] = useState<AgentChatSession[]>([createNewSession()]);
+  const [activeSessionId, setActiveSessionId] = useState<string>('');
   const [inputQuery, setInputQuery] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
   const [suggestions, setSuggestions] = useState<AgentChatSuggestion[]>([]);
@@ -59,20 +57,65 @@ export const AgentChatDrawer: React.FC<AgentChatDrawerProps> = ({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Reload sessions when drawer opens to stay synced with page
-  useEffect(() => {
-    if (isOpen) {
-      setTimeout(() => inputRef.current?.focus(), 150);
-      const reloaded = loadChatSessions();
-      setSessions(reloaded);
-      const activeId = loadActiveSessionId();
-      if (activeId && reloaded.some((s) => s.id === activeId)) {
-        setActiveSessionId(activeId);
-      } else if (reloaded.length > 0) {
-        setActiveSessionId(reloaded[0].id);
+  // Sync sessions with DB when drawer opens
+  const fetchSessionsFromDb = useCallback(async () => {
+    if (!user) return;
+    try {
+      const summaries = await api.getAgentChatSessions();
+      if (summaries && summaries.length > 0) {
+        const loaded: AgentChatSession[] = summaries.map((s) => ({
+          id: s.id,
+          title: s.title,
+          createdAt: new Date(s.created_at).getTime(),
+          updatedAt: new Date(s.updated_at).getTime(),
+          messages: []
+        }));
+        setSessions(loaded);
+
+        const savedActiveId = loadActiveSessionId();
+        const targetId = loaded.some((s) => s.id === savedActiveId) ? savedActiveId! : loaded[0].id;
+        setActiveSessionId(targetId);
+
+        try {
+          const detail = await api.getAgentChatSessionDetail(targetId);
+          setSessions((prev) =>
+            prev.map((s) =>
+              s.id === targetId
+                ? {
+                    ...s,
+                    messages: (detail.messages || []).map((m) => ({
+                      id: `msg-${m.id}`,
+                      role: m.role as 'user' | 'assistant',
+                      content: m.content,
+                      timestamp: new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                      recommended_skills: m.recommended_skills,
+                      suggested_followups: m.suggested_followups || [],
+                      model_used: m.model_used,
+                      is_ai_powered: m.is_ai_powered
+                    }))
+                  }
+                : s
+            )
+          );
+        } catch (e) {
+          console.error('Failed to load active session detail in drawer', e);
+        }
+      } else {
+        const fresh = createNewSession(t('agent_chat_untitled'));
+        setSessions([fresh]);
+        setActiveSessionId(fresh.id);
       }
+    } catch (e) {
+      console.error('Failed to fetch sessions from DB in drawer', e);
     }
-  }, [isOpen]);
+  }, [user, t]);
+
+  useEffect(() => {
+    if (isOpen && user) {
+      setTimeout(() => inputRef.current?.focus(), 150);
+      fetchSessionsFromDb();
+    }
+  }, [isOpen, user, fetchSessionsFromDb]);
 
   // Handle ESC key to dismiss drawer
   useEffect(() => {
@@ -88,23 +131,12 @@ export const AgentChatDrawer: React.FC<AgentChatDrawerProps> = ({
     }
   }, [isOpen, onClose]);
 
-  // Persist sessions
-  useEffect(() => {
-    saveChatSessions(sessions);
-  }, [sessions]);
-
+  // Persist active session ID
   useEffect(() => {
     if (activeSessionId) {
       saveActiveSessionId(activeSessionId);
     }
   }, [activeSessionId]);
-
-  // Sync activeSessionId with available sessions
-  useEffect(() => {
-    if (sessions.length > 0 && !sessions.some((s) => s.id === activeSessionId)) {
-      setActiveSessionId(sessions[0].id);
-    }
-  }, [sessions, activeSessionId]);
 
   useEffect(() => {
     let isMounted = true;
@@ -117,9 +149,10 @@ export const AgentChatDrawer: React.FC<AgentChatDrawerProps> = ({
   }, [language]);
 
   const activeSession = sessions.find((s) => s.id === activeSessionId) || sessions[0] || createNewSession();
-  const messages = activeSession.messages;
+  const messages = activeSession.messages || [];
+  const savedSessions = sessions.filter((s) => s.messages && s.messages.length > 0);
 
-  // Auto scroll on new messages or loading
+  // Auto scroll
   useEffect(() => {
     if (messagesContainerRef.current) {
       messagesContainerRef.current.scrollTo({
@@ -182,9 +215,18 @@ export const AgentChatDrawer: React.FC<AgentChatDrawerProps> = ({
     );
   };
 
-  const handleDeleteSession = (sessionId: string, e?: React.MouseEvent) => {
+  const handleDeleteSession = async (sessionId: string, e?: React.MouseEvent) => {
     e?.stopPropagation();
-    if (sessions.length <= 1) {
+    try {
+      await api.deleteAgentChatSession(sessionId);
+    } catch (err) {
+      console.warn('Delete session error in drawer:', err);
+    }
+
+    const remaining = sessions.filter((s) => s.id !== sessionId);
+    const remainingSaved = remaining.filter((s) => s.messages && s.messages.length > 0);
+
+    if (remainingSaved.length === 0) {
       const fresh = createNewSession(t('agent_chat_untitled'));
       setSessions([fresh]);
       setActiveSessionId(fresh.id);
@@ -193,16 +235,12 @@ export const AgentChatDrawer: React.FC<AgentChatDrawerProps> = ({
       return;
     }
 
-    const filtered = sessions.filter((s) => s.id !== sessionId);
-    setSessions(filtered);
+    setSessions(remaining);
     if (activeSessionId === sessionId) {
-      setActiveSessionId(filtered[0].id);
-      setAnimatingMessageId(null);
+      handleSelectSession(remainingSaved[0].id);
     }
-    showToast(language === 'vi' ? 'Đã xóa cuộc trò chuyện' : 'Chat deleted', 'info');
+    showToast(language === 'vi' ? 'Đã xóa đoạn chat' : 'Chat deleted', 'info');
   };
-
-  if (!isOpen) return null;
 
   const handleCreateNewSession = () => {
     if (activeSession.messages.length === 0) {
@@ -210,12 +248,47 @@ export const AgentChatDrawer: React.FC<AgentChatDrawerProps> = ({
       inputRef.current?.focus();
       return;
     }
+    const nonEmpties = sessions.filter((s) => s.messages && s.messages.length > 0);
     const fresh = createNewSession(t('agent_chat_untitled'));
-    const updated = [fresh, ...sessions];
-    setSessions(updated);
+    setSessions([fresh, ...nonEmpties]);
     setActiveSessionId(fresh.id);
     setAnimatingMessageId(null);
     setShowSessionDropdown(false);
+    setTimeout(() => inputRef.current?.focus(), 100);
+  };
+
+  const handleSelectSession = async (id: string) => {
+    setActiveSessionId(id);
+    setShowSessionDropdown(false);
+    setAnimatingMessageId(null);
+
+    const target = sessions.find((s) => s.id === id);
+    if (target && target.messages.length === 0) {
+      try {
+        const detail = await api.getAgentChatSessionDetail(id);
+        setSessions((prev) =>
+          prev.map((s) =>
+            s.id === id
+              ? {
+                  ...s,
+                  messages: (detail.messages || []).map((m) => ({
+                    id: `msg-${m.id}`,
+                    role: m.role as 'user' | 'assistant',
+                    content: m.content,
+                    timestamp: new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                    recommended_skills: m.recommended_skills,
+                    suggested_followups: m.suggested_followups || [],
+                    model_used: m.model_used,
+                    is_ai_powered: m.is_ai_powered
+                  }))
+                }
+              : s
+          )
+        );
+      } catch (err) {
+        console.error('Failed to load session messages in drawer', err);
+      }
+    }
     setTimeout(() => inputRef.current?.focus(), 100);
   };
 
@@ -259,7 +332,14 @@ export const AgentChatDrawer: React.FC<AgentChatDrawerProps> = ({
         content: m.content
       }));
 
-      const res = await api.sendAgentChatMessage(text, historyPayload, language);
+      const res = await api.sendAgentChatMessage(
+        text,
+        historyPayload,
+        language,
+        activeSession.id.startsWith('session-') ? activeSession.id : undefined
+      );
+
+      const serverSessionId = res.session_id || activeSession.id;
 
       const assistantMsg: AgentChatMessage = {
         id: `assistant-${Date.now()}`,
@@ -275,9 +355,10 @@ export const AgentChatDrawer: React.FC<AgentChatDrawerProps> = ({
       setAnimatingMessageId(assistantMsg.id);
 
       const finalSessions = nextSessions.map((s) => {
-        if (s.id === activeSession.id) {
+        if (s.id === activeSession.id || s.id === serverSessionId) {
           return {
             ...s,
+            id: serverSessionId,
             updatedAt: Date.now(),
             messages: [...updatedMessages, assistantMsg]
           };
@@ -286,230 +367,273 @@ export const AgentChatDrawer: React.FC<AgentChatDrawerProps> = ({
       });
 
       setSessions(finalSessions);
+      setActiveSessionId(serverSessionId);
     } catch (err: any) {
-      showToast(err.message || 'Lỗi khi gửi yêu cầu', 'error');
-      const errorMsg: AgentChatMessage = {
-        id: `error-${Date.now()}`,
-        role: 'assistant',
-        content: language === 'vi'
-          ? 'Rất tiếc, đã có sự cố kết nối tới hệ thống RAG. Vui lòng thử lại sau giây lát.'
-          : 'Apologies, a network error occurred while connecting to the RAG engine. Please try again in a moment.',
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-      };
-      const withErrorSessions = nextSessions.map((s) => {
-        if (s.id === activeSession.id) {
-          return {
-            ...s,
-            updatedAt: Date.now(),
-            messages: [...updatedMessages, errorMsg]
-          };
-        }
-        return s;
-      });
-      setSessions(withErrorSessions);
+      showToast(err.message || 'Lỗi khi gửi tin nhắn', 'error');
     } finally {
       setLoading(false);
       setTimeout(() => inputRef.current?.focus(), 100);
     }
   };
 
+  if (!isOpen) return null;
+
   return (
     <>
-      {/* Backdrop overlay for outside click & iOS scrollchain prevention */}
-      <div 
-        className="fixed inset-0 bg-black/40 backdrop-blur-xs z-40 animate-fade-in transition-opacity"
+      {/* Backdrop */}
+      <div
+        className="fixed inset-0 z-40 bg-zinc-950/40 dark:bg-zinc-950/60 backdrop-blur-xs transition-opacity duration-300"
         onClick={onClose}
         aria-hidden="true"
       />
-      <div className="fixed inset-y-0 right-0 w-full sm:w-[480px] bg-[var(--bg)] shadow-[-10px_0_30px_var(--shadow-dark)] z-50 flex flex-col animate-slide-left text-[var(--text-main)]">
-      {/* Header */}
-      <div className="p-4 shadow-[0_4px_10px_var(--shadow-dark)] flex items-center justify-between bg-[var(--bg)] relative z-10">
-        <div className="flex items-center gap-3 min-w-0">
-          <div className="w-9 h-9 rounded-2xl neu-inset text-[var(--primary)] flex items-center justify-center font-bold shrink-0">
-            <Bot className="w-4 h-4" />
-          </div>
 
-          <div className="min-w-0 relative">
-            <button
-              onClick={() => setShowSessionDropdown(!showSessionDropdown)}
-              className="flex items-center gap-1.5 text-left text-xs sm:text-sm font-semibold text-[var(--text-main)] hover:text-[var(--primary)] transition-colors truncate max-w-[210px] sm:max-w-[240px]"
-            >
-              <span className="truncate">{activeSession.title || t('agent_chat_title')}</span>
-              <ChevronDown className="w-3.5 h-3.5 shrink-0 text-[var(--text-muted)]" />
-            </button>
-            <p className="text-[11px] font-mono text-[var(--text-muted)] truncate">
-              {sessions.length} {t('agent_chat_sessions_title').toLowerCase()}
-            </p>
+      {/* Slide-out Drawer Panel */}
+      <div
+        className="fixed inset-y-0 right-0 z-50 w-full sm:w-[500px] md:w-[540px] flex flex-col bg-[var(--bg)] shadow-2xl transition-transform duration-300 ease-out border-l border-slate-200/50 dark:border-zinc-800/50 text-[var(--text-main)]"
+        role="dialog"
+        aria-label="Agent Chat Drawer"
+      >
+        {/* Drawer Header */}
+        <div className="px-4 py-3 border-b border-slate-200/40 dark:border-zinc-800/40 flex items-center justify-between gap-2 shrink-0 bg-[var(--bg)]">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-8 h-8 rounded-2xl neu-inset text-[var(--primary)] flex items-center justify-center font-bold shrink-0">
+              <Bot className="w-4 h-4" />
+            </div>
 
-            {/* Session Dropdown Menu */}
-            {showSessionDropdown && (
-              <>
-                <div
-                  className="fixed inset-0 z-40"
-                  onClick={() => setShowSessionDropdown(false)}
-                />
-                <div className="absolute top-full left-0 mt-2 w-72 max-h-72 overflow-y-auto rounded-2xl neu-modal z-50 p-2.5 space-y-1.5 scrollbar-thin animate-scale-in">
-                  <button
-                    onClick={handleCreateNewSession}
-                    className="w-full flex items-center justify-center gap-2 py-2 px-3 text-xs font-semibold rounded-xl neu-primary text-white transition-opacity"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    <span>{t('agent_chat_new_chat')}</span>
-                  </button>
-                  <div className="my-1.5" />
-                  {sessions.map((s) => (
+            {/* Session Selector Dropdown */}
+            {user ? (
+              <div className="relative min-w-0">
+                <button
+                  onClick={() => setShowSessionDropdown(!showSessionDropdown)}
+                  className="flex items-center gap-1.5 py-1 px-2 -ml-2 rounded-xl neu-btn text-xs font-bold text-[var(--text-main)] truncate max-w-[200px] sm:max-w-[240px] cursor-pointer"
+                  title={activeSession.title}
+                >
+                  <span className="truncate">
+                    {activeSession.messages && activeSession.messages.length === 0
+                      ? t('agent_chat_new_chat')
+                      : (activeSession.title || t('agent_chat_title'))}
+                  </span>
+                  <ChevronDown className={`w-3.5 h-3.5 shrink-0 transition-transform ${showSessionDropdown ? 'rotate-180' : ''}`} />
+                </button>
+
+                {showSessionDropdown && (
+                  <>
                     <div
-                      key={s.id}
-                      onClick={() => {
-                        setActiveSessionId(s.id);
-                        setShowSessionDropdown(false);
-                      }}
-                      className={`w-full p-2.5 rounded-xl text-xs flex items-center justify-between gap-2 transition-all cursor-pointer group ${
-                        s.id === activeSession.id
-                          ? 'neu-inset text-[var(--primary)] font-semibold'
-                          : 'neu-btn text-[var(--text-muted)] hover:text-[var(--text-main)]'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2 min-w-0 flex-1">
-                        <MessageSquare className="w-3.5 h-3.5 shrink-0 text-[var(--primary)]" />
-                        <span className="truncate">{s.title}</span>
-                      </div>
+                      className="fixed inset-0 z-30"
+                      onClick={() => setShowSessionDropdown(false)}
+                    />
+                    <div className="absolute left-0 top-full mt-2 w-72 rounded-2xl neu-flat bg-[var(--bg)] shadow-2xl p-2 z-40 border border-slate-200/50 dark:border-zinc-800/50 space-y-1 animate-scale-in">
                       <button
-                        onClick={(e) => handleDeleteSession(s.id, e)}
-                        className="opacity-0 group-hover:opacity-100 p-1 rounded-lg hover:bg-rose-500/10 text-rose-500 transition-all shrink-0"
-                        title={t('agent_chat_delete_session')}
+                        onClick={handleCreateNewSession}
+                        className="w-full flex items-center gap-2 p-2 rounded-xl neu-btn text-xs font-bold text-[var(--primary)] cursor-pointer"
                       >
-                        <Trash2 className="w-3 h-3" />
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>{t('agent_chat_new_chat')}</span>
                       </button>
+
+                      <div className="neu-divider my-1" />
+
+                      <div className="max-h-56 overflow-y-auto space-y-1 scrollbar-none">
+                        {savedSessions.length === 0 ? (
+                          <p className="p-2 text-[11px] text-center text-[var(--text-muted)] font-mono">
+                            {t('agent_chat_no_sessions')}
+                          </p>
+                        ) : (
+                          savedSessions.map((s) => (
+                            <div
+                              key={s.id}
+                              onClick={() => handleSelectSession(s.id)}
+                              className={`group flex items-center justify-between p-2 rounded-xl text-xs cursor-pointer transition-all ${
+                                s.id === activeSession.id
+                                  ? 'neu-inset text-[var(--primary)] font-bold'
+                                  : 'neu-btn text-[var(--text-muted)] hover:text-[var(--text-main)]'
+                              }`}
+                            >
+                              <span className="truncate pr-2">{s.title}</span>
+                              <button
+                                onClick={(e) => handleDeleteSession(s.id, e)}
+                                className="opacity-0 group-hover:opacity-100 p-1 text-rose-500 hover:text-rose-600 transition-opacity shrink-0"
+                                title={t('agent_chat_delete_session')}
+                              >
+                                <Trash2 className="w-3 h-3" />
+                              </button>
+                            </div>
+                          ))
+                        )}
+                      </div>
                     </div>
-                  ))}
-                </div>
-              </>
+                  </>
+                )}
+              </div>
+            ) : (
+              <h2 className="text-xs font-bold text-[var(--text-main)] truncate">
+                {t('agent_chat_title')}
+              </h2>
             )}
           </div>
-        </div>
 
-        <div className="flex items-center gap-1.5 shrink-0">
-          {messages.length > 0 && (
+          <div className="flex items-center gap-1 shrink-0">
+            {user && (
+              <button
+                onClick={handleCreateNewSession}
+                className="p-2 rounded-xl neu-btn text-[var(--text-muted)] hover:text-[var(--primary)] transition-all cursor-pointer"
+                title={t('agent_chat_new_chat')}
+              >
+                <Plus className="w-4 h-4" />
+              </button>
+            )}
+
             <button
-              onClick={() => handleDeleteSession(activeSession.id)}
-              className="p-2 rounded-xl neu-btn text-[var(--text-muted)] hover:text-rose-500 transition-all"
-              title={t('agent_chat_clear')}
+              onClick={onExpandToFullPage}
+              className="p-2 rounded-xl neu-btn text-[var(--text-muted)] hover:text-[var(--primary)] transition-all cursor-pointer"
+              title={t('agent_chat_open_full')}
             >
-              <Trash2 className="w-4 h-4" />
+              <Maximize2 className="w-4 h-4" />
             </button>
-          )}
-          <button
-            onClick={handleCreateNewSession}
-            className="p-2 rounded-xl neu-btn text-[var(--text-muted)] hover:text-[var(--text-main)] transition-all"
-            title={t('agent_chat_new_chat')}
-          >
-            <Plus className="w-4 h-4" />
-          </button>
-          <button
-            onClick={onExpandToFullPage}
-            className="p-2 rounded-xl neu-btn text-[var(--text-muted)] hover:text-[var(--text-main)] transition-all"
-            title={t('agent_chat_open_full')}
-          >
-            <Maximize2 className="w-4 h-4" />
-          </button>
-          <button
-            onClick={onClose}
-            className="p-2 rounded-xl neu-btn text-[var(--text-muted)] hover:text-[var(--text-main)] transition-all"
-            title={t('agent_chat_close')}
-          >
-            <X className="w-4 h-4" />
-          </button>
+
+            <button
+              onClick={onClose}
+              className="p-2 rounded-xl neu-btn text-[var(--text-muted)] hover:text-rose-500 transition-all cursor-pointer"
+              title={t('agent_chat_close')}
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
         </div>
-      </div>
 
-      {/* Messages Area */}
-      <div ref={messagesContainerRef} className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-thin">
-        {messages.length === 0 ? (
-          <div className="py-8 text-center space-y-4 animate-fade-in">
-            <div className="w-14 h-14 rounded-2xl neu-inset text-[var(--primary)] mx-auto flex items-center justify-center">
-              <Bot className="w-7 h-7" />
-            </div>
-            <div>
-              <h4 className="text-sm font-semibold text-[var(--text-main)]">
-                {t('agent_chat_welcome_title')}
-              </h4>
-              <p className="text-xs text-[var(--text-muted)] max-w-xs mx-auto mt-1 leading-relaxed">
-                {t('agent_chat_sub')}
-              </p>
-            </div>
+        {/* Drawer Body */}
+        {!user ? (
+          /* Login Gate inside Drawer */
+          <div className="flex-1 flex items-center justify-center p-6 text-center">
+            <div className="max-w-xs w-full p-6 rounded-3xl neu-flat space-y-4">
+              <div className="w-14 h-14 mx-auto rounded-3xl neu-inset flex items-center justify-center text-[var(--primary)] shadow-inner">
+                <Lock className="w-7 h-7" />
+              </div>
 
-            {/* Quick suggestions */}
-            <div className="space-y-2 pt-2 text-left">
-              <span className="text-[11px] font-mono uppercase tracking-wider text-[var(--text-muted)] block">
-                {t('agent_chat_suggested_prompts')}:
-              </span>
-              {suggestions.map((s, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => handleSendMessage(s.query)}
-                  className="w-full p-3 rounded-2xl neu-btn text-left transition-all text-xs font-medium text-[var(--text-main)] flex items-center justify-between group active:scale-[0.99]"
-                >
-                  <span className="truncate pr-2">{s.title}</span>
-                  <ArrowRight className="w-3.5 h-3.5 text-[var(--primary)] group-hover:translate-x-0.5 transition-all shrink-0" />
-                </button>
-              ))}
+              <div className="space-y-1.5">
+                <h3 className="text-base font-bold text-[var(--text-main)]">
+                  {t('agent_chat_login_required_title')}
+                </h3>
+                <p className="text-xs text-[var(--text-muted)] leading-relaxed">
+                  {t('agent_chat_login_required_desc')}
+                </p>
+              </div>
+
+              <button
+                onClick={() => {
+                  onClose();
+                  onOpenLogin?.();
+                }}
+                className="w-full py-2.5 px-4 rounded-2xl neu-primary text-white font-bold text-xs shadow-md hover:opacity-95 transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-95"
+              >
+                <LogIn className="w-4 h-4" />
+                <span>{t('agent_chat_login_btn')}</span>
+              </button>
             </div>
           </div>
         ) : (
-          messages.map((msg) => (
-            <AgentChatMessageItem
-              key={msg.id}
-              message={msg}
-              shouldAnimate={msg.id === animatingMessageId}
-              isDrawer={true}
-              onSelectSkill={onSelectSkill}
-              onToggleBookmark={handleToggleBookmarkInSession}
-              onSendMessage={handleSendMessage}
-              onTypingTick={handleTypingTick}
-              t={t}
-            />
-          ))
+          <>
+            {/* Messages Scroll View */}
+            <div
+              ref={messagesContainerRef}
+              className="flex-1 overflow-y-auto px-4 py-4 space-y-4 scrollbar-none"
+            >
+              {messages.length === 0 ? (
+                <div className="py-8 text-center space-y-4">
+                  <div className="w-12 h-12 mx-auto rounded-2xl neu-inset flex items-center justify-center text-[var(--primary)]">
+                    <Bot className="w-6 h-6" />
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-xs sm:text-sm font-bold text-[var(--text-main)]">
+                      {t('agent_chat_welcome_title')}
+                    </p>
+                    <p className="text-[11px] text-[var(--text-muted)] max-w-xs mx-auto leading-relaxed">
+                      {t('agent_chat_sub')}
+                    </p>
+                  </div>
+
+                  {suggestions.length > 0 && (
+                    <div className="pt-2 space-y-2 text-left">
+                      {suggestions.map((item, idx) => (
+                        <button
+                          key={idx}
+                          onClick={() => handleSendMessage(item.query)}
+                          className="w-full p-2.5 rounded-2xl neu-btn text-left text-xs text-[var(--text-muted)] hover:text-[var(--text-main)] transition-all flex items-center justify-between gap-2 group cursor-pointer"
+                        >
+                          <span className="truncate">{item.title}</span>
+                          <ArrowRight className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <>
+                  {messages.map((msg, idx) => (
+                    <AgentChatMessageItem
+                      key={msg.id}
+                      message={msg}
+                      isLatest={idx === messages.length - 1}
+                      shouldAnimate={msg.id === animatingMessageId}
+                      isDrawer={true}
+                      onTypingTick={handleTypingTick}
+                      onSelectSkill={onSelectSkill}
+                      onToggleBookmark={handleToggleBookmarkInSession}
+                      onSendMessage={(query: string) => handleSendMessage(query)}
+                      t={t}
+                    />
+                  ))}
+
+                  {loading && (
+                    <div className="flex items-start gap-2.5 text-left animate-fade-in">
+                      <div className="w-7 h-7 rounded-xl neu-inset text-[var(--primary)] flex items-center justify-center shrink-0">
+                        <Bot className="w-3.5 h-3.5 animate-pulse" />
+                      </div>
+                      <div className="p-3 rounded-2xl neu-flat text-xs space-y-1.5">
+                        <div className="flex items-center gap-1.5 font-mono text-[11px] text-[var(--primary)] font-semibold">
+                          <div className="w-1.5 h-1.5 rounded-full bg-[var(--primary)] animate-ping" />
+                          <span>{t('agent_chat_scanning')}</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  <div ref={messagesEndRef} />
+                </>
+              )}
+            </div>
+
+            {/* Input Form */}
+            <div className="p-3 border-t border-slate-200/40 dark:border-zinc-800/40 bg-[var(--bg)] shrink-0">
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  handleSendMessage(inputQuery);
+                }}
+                className="flex items-center gap-2 p-1.5 rounded-2xl neu-inset bg-transparent"
+              >
+                <input
+                  ref={inputRef}
+                  type="text"
+                  value={inputQuery}
+                  onChange={(e) => setInputQuery(e.target.value)}
+                  placeholder={t('agent_chat_drawer_placeholder')}
+                  className="flex-1 py-2 px-3 bg-transparent text-xs text-[var(--text-main)] placeholder-[var(--text-muted)] focus:outline-none"
+                />
+
+                <button
+                  type="submit"
+                  disabled={loading || !inputQuery.trim()}
+                  className="p-2.5 rounded-xl neu-primary text-white shadow-md disabled:opacity-40 disabled:cursor-not-allowed transition-all hover:scale-105 active:scale-95 shrink-0 cursor-pointer"
+                  title={t('agent_chat_send')}
+                >
+                  <Send className="w-3.5 h-3.5" />
+                </button>
+              </form>
+            </div>
+          </>
         )}
-
-        {loading && (
-          <div className="flex gap-2.5 items-center text-xs text-[var(--text-muted)] animate-fade-in">
-            <Bot className="w-4 h-4 animate-spin text-[var(--primary)]" />
-            <span>{t('agent_chat_scanning')}</span>
-          </div>
-        )}
-
-        <div ref={messagesEndRef} />
       </div>
-
-      {/* Input */}
-      <div className="p-3.5 shadow-[0_-4px_10px_var(--shadow-dark)] bg-[var(--bg)]">
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            handleSendMessage(inputQuery);
-          }}
-          className="flex items-center gap-2"
-        >
-          <input
-            ref={inputRef}
-            type="text"
-            value={inputQuery}
-            onChange={(e) => setInputQuery(e.target.value)}
-            placeholder={t('agent_chat_drawer_placeholder')}
-            disabled={loading}
-            className="flex-1 px-4 py-2.5 rounded-2xl neu-inset bg-transparent text-xs text-[var(--text-main)] placeholder:text-[var(--text-muted)] focus:outline-none transition-all"
-          />
-          <button
-            type="submit"
-            disabled={loading || !inputQuery.trim()}
-            className="p-2.5 px-3.5 rounded-2xl neu-primary text-white font-medium transition-all disabled:opacity-40 shrink-0 active:scale-95"
-          >
-            <Send className="w-4 h-4" />
-          </button>
-        </form>
-      </div>
-    </div>
     </>
   );
 };

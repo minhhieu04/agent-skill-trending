@@ -7,6 +7,7 @@ from models.user_bookmark import UserBookmark
 from models.collection_run import CollectionRun
 from models.audit_log import AuditLog
 from models.daily_digest import DailyDigest
+from models.agent_chat import ChatSession, ChatMessage
 
 __all__ = [
     "Skill", 
@@ -17,5 +18,7 @@ __all__ = [
     "UserBookmark", 
     "CollectionRun", 
     "AuditLog",
-    "DailyDigest"
+    "DailyDigest",
+    "ChatSession",
+    "ChatMessage"
 ]

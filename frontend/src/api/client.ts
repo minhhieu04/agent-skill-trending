@@ -22,7 +22,12 @@ import {
   SceneImageResponse,
   AIRecommendationResponse,
   AgentChatResponse,
-  AgentChatSuggestion
+  AgentChatSuggestion,
+  AgentChatSessionSummary,
+  AgentChatSessionDetail,
+  ReadmeData,
+  TranslateReadmeResult,
+  TranslationProviderOption
 } from '../types';
 
 const rawBase = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace(/\/+$/, '') : '';
@@ -151,6 +156,65 @@ export const api = {
       headers: getAuthHeaders(),
     });
     if (!res.ok) throw new Error('Failed to fetch skill detail');
+    return res.json();
+  },
+
+  getTranslationProviders: async (): Promise<TranslationProviderOption[]> => {
+    const res = await fetch(`${API_BASE}/skills/translation-providers`, {
+      headers: getAuthHeaders(),
+    });
+    if (!res.ok) throw new Error('Failed to fetch translation providers');
+    return res.json();
+  },
+
+  translateSkillSummary: async (skillId: number): Promise<{ skill_id: number; ai_summary: string }> => {
+    const res = await fetch(`${API_BASE}/skills/${skillId}/summary/translate`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+    });
+    if (!res.ok) throw new Error('Failed to translate skill summary');
+    return res.json();
+  },
+
+  getSkillReadme: async (skillId: number): Promise<ReadmeData> => {
+    const res = await fetch(`${API_BASE}/skills/${skillId}/readme`, {
+      headers: getAuthHeaders(),
+    });
+    if (!res.ok) throw new Error('Failed to fetch repository README');
+    return res.json();
+  },
+
+  refreshSkillReadme: async (skillId: number): Promise<ReadmeData> => {
+    const res = await fetch(`${API_BASE}/skills/${skillId}/readme/refresh`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+    });
+    if (!res.ok) throw new Error('Failed to refresh repository README from GitHub');
+    return res.json();
+  },
+
+  translateSkillReadme: async (
+    skillId: number, 
+    targetLanguage: string = 'vi', 
+    forceRefresh: boolean = false,
+    preferredProvider: string = 'auto'
+  ): Promise<TranslateReadmeResult> => {
+    const res = await fetch(`${API_BASE}/skills/${skillId}/readme/translate`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...getAuthHeaders(),
+      },
+      body: JSON.stringify({ 
+        target_language: targetLanguage, 
+        force_refresh: forceRefresh,
+        preferred_provider: preferredProvider
+      }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: 'Failed to translate README' }));
+      throw new Error(err.detail || 'Failed to translate README');
+    }
     return res.json();
   },
 
@@ -402,15 +466,78 @@ export const api = {
   },
 
   // RAG Agent Chat
+  getAgentChatSessions: async (): Promise<AgentChatSessionSummary[]> => {
+    const res = await fetch(`${API_BASE}/agent-chat/sessions`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: 'Không thể tải danh sách phiên chat' }));
+      throw new Error(err.detail || 'Không thể tải danh sách phiên chat');
+    }
+    return res.json();
+  },
+
+  getAgentChatSessionDetail: async (sessionId: string): Promise<AgentChatSessionDetail> => {
+    const res = await fetch(`${API_BASE}/agent-chat/sessions/${encodeURIComponent(sessionId)}`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: 'Không thể tải chi tiết phiên chat' }));
+      throw new Error(err.detail || 'Không thể tải chi tiết phiên chat');
+    }
+    return res.json();
+  },
+
+  createAgentChatSession: async (title?: string): Promise<AgentChatSessionDetail> => {
+    const res = await fetch(`${API_BASE}/agent-chat/sessions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+      body: JSON.stringify({ title: title || 'Cuộc trò chuyện mới' }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: 'Không thể tạo phiên chat mới' }));
+      throw new Error(err.detail || 'Không thể tạo phiên chat mới');
+    }
+    return res.json();
+  },
+
+  updateAgentChatSession: async (sessionId: string, title: string): Promise<AgentChatSessionSummary> => {
+    const res = await fetch(`${API_BASE}/agent-chat/sessions/${encodeURIComponent(sessionId)}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+      body: JSON.stringify({ title }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: 'Không thể cập nhật tên phiên chat' }));
+      throw new Error(err.detail || 'Không thể cập nhật tên phiên chat');
+    }
+    return res.json();
+  },
+
+  deleteAgentChatSession: async (sessionId: string): Promise<{ success: boolean; message: string }> => {
+    const res = await fetch(`${API_BASE}/agent-chat/sessions/${encodeURIComponent(sessionId)}`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: 'Không thể xóa phiên chat' }));
+      throw new Error(err.detail || 'Không thể xóa phiên chat');
+    }
+    return res.json();
+  },
+
   sendAgentChatMessage: async (
     query: string,
     history: Array<{ role: string; content: string }> = [],
-    language: string = 'vi'
+    language: string = 'vi',
+    sessionId?: string
   ): Promise<AgentChatResponse> => {
     const res = await fetch(`${API_BASE}/agent-chat/message`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-      body: JSON.stringify({ query, history, language }),
+      body: JSON.stringify({ query, history, language, session_id: sessionId || null }),
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({ detail: 'Lỗi khi gửi tin nhắn tới Agent Chat' }));
@@ -448,13 +575,31 @@ export const api = {
     return res.json();
   },
 
-  regenerateDailyDigest: async (date: string, language: string = 'vi'): Promise<import('../types').DailyDigest> => {
+  regenerateDailyDigest: async (
+    date: string,
+    language: string = 'vi',
+    model: string = 'gemini-3.8-flash'
+  ): Promise<import('../types').DailyDigest> => {
     const res = await fetch(`${API_BASE}/daily-digest/${encodeURIComponent(date)}/generate`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-      body: JSON.stringify({ language }),
+      body: JSON.stringify({ language, model }),
     });
     if (!res.ok) throw new Error(`Không thể sinh lại bản tin ngày ${date}`);
+    return res.json();
+  },
+
+  translateDailyDigest: async (
+    date: string,
+    targetLanguage: string = 'en',
+    model: string = 'gemini-3.8-flash'
+  ): Promise<import('../types').DailyDigest> => {
+    const res = await fetch(`${API_BASE}/daily-digest/${encodeURIComponent(date)}/translate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+      body: JSON.stringify({ target_language: targetLanguage, model }),
+    });
+    if (!res.ok) throw new Error(`Không thể dịch bản tin ngày ${date}`);
     return res.json();
   },
 

@@ -15,121 +15,104 @@ from config import settings
 
 logger = logging.getLogger("TTSService")
 
-# Curated Hot AI Voices: Gemini 2.0 Live Native Audio + Google WaveNet + Edge-TTS (Diểm Phúc, Minh Hiếu)
+# Curated Hot AI Voices: Google AI Studio Gemini 3.1 Flash TTS + Diểm Phúc & Minh Hiếu + Christopher
 CURATED_VOICES = [
-    # --- Vietnamese Voices ---
+    # --- Google AI Studio - Gemini 3.1 Live Native Audio (Top Community Choice) ---
+    {
+        "id": "gemini-Aoede",
+        "name": "Aoede (Nữ - Siêu Tự Nhiên, Chuẩn Song Ngữ)",
+        "provider": "gemini_audio",
+        "language": "multi",
+        "gender": "female",
+        "style": "Gemini 3.1 Multimodal Expressive Voice",
+        "description": "Giọng nữ Google AI Studio được cộng đồng đánh giá cao nhất: nhả chữ tự nhiên như người thật, phát âm thuật ngữ tiếng Anh chuẩn xác 100%.",
+        "preview_text": "Xin chào anh Hiếu! Tôi là Aoede từ Google AI Studio, sẵn sàng cùng anh điểm tin công nghệ hôm nay.",
+        "recommended_preset": "hype",
+        "badge": "COMMUNITY CHOICE",
+        "icon_type": "star"
+    },
+    {
+        "id": "gemini-Puck",
+        "name": "Puck (Nam - Năng Động, Chuẩn Tech Reviewer)",
+        "provider": "gemini_audio",
+        "language": "multi",
+        "gender": "male",
+        "style": "Gemini 3.1 Multimodal Expressive Voice",
+        "description": "Giọng nam trẻ trung, dứt khoát, năng động, chuẩn phong cách reviewer công nghệ bóc tách code & framework.",
+        "preview_text": "Chào anh em developers! Puck đây, cùng khám phá những agent skills đột phá nhất hôm nay.",
+        "recommended_preset": "hype",
+        "badge": "TRENDING REVIEW",
+        "icon_type": "flame"
+    },
+    {
+        "id": "gemini-Charon",
+        "name": "Charon (Nam - Trầm Ấm, Chuyên Gia Kiến Trúc)",
+        "provider": "gemini_audio",
+        "language": "multi",
+        "gender": "male",
+        "style": "Gemini 3.1 Multimodal Expressive Voice",
+        "description": "Giọng nam trầm ấm, bản lĩnh, mang phong thái chuyên gia công nghệ phân tích kiến trúc hệ thống và AI Agents.",
+        "preview_text": "Chào mừng anh Hiếu quay trở lại. Hôm nay chúng ta sẽ cùng mổ xẻ những kiến trúc AI agent hàng đầu.",
+        "recommended_preset": "professional",
+        "badge": "SYSTEM ARCHITECT",
+        "icon_type": "award"
+    },
+    {
+        "id": "gemini-Kore",
+        "name": "Kore (Nữ - Trong Trẻo, Host Hướng Dẫn)",
+        "provider": "gemini_audio",
+        "language": "multi",
+        "gender": "female",
+        "style": "Gemini 3.1 Multimodal Expressive Voice",
+        "description": "Giọng nữ thanh thoát, trong trẻo, mang lại cảm giác thân thiện khi nghe podcast hoặc video tutorial.",
+        "preview_text": "Chào các bạn! Tôi là Kore từ Google AI Studio, đồng hành cùng bạn trong bản tin công nghệ hôm nay.",
+        "recommended_preset": "professional",
+        "badge": "TUTORIAL HOST",
+        "icon_type": "sparkles"
+    },
+    {
+        "id": "gemini-Fenrir",
+        "name": "Fenrir (Nam - Bản Lĩnh, Keynote Leader)",
+        "provider": "gemini_audio",
+        "language": "multi",
+        "gender": "male",
+        "style": "Gemini 3.1 Multimodal Expressive Voice",
+        "description": "Giọng nam đĩnh đạc, uy lực, rất thích hợp cho bài thuyết trình Keynote và công bố tính năng lớn.",
+        "preview_text": "Cùng khám phá kỷ nguyên tự động hóa mới cùng hệ sinh thái AI Agents và Google AI Studio.",
+        "recommended_preset": "hype",
+        "badge": "KEYNOTE LEADER",
+        "icon_type": "radio"
+    },
+
+    # --- Tiêu Chuẩn Giọng Đọc Việt Nam Được Giữ Lại (Diểm Phúc & Minh Hiếu) ---
     {
         "id": "vi-VN-HoaiMyNeural",
-        "name": "Diểm Phúc (Nữ - Truyền Cảm)",
+        "name": "Diểm Phúc (Nữ - Truyền Cảm, TikTok Hot)",
         "provider": "edge_tts",
         "language": "vi-VN",
         "gender": "female",
         "style": "Viral Reviewer, TikTok Hot",
-        "description": "Giọng đọc truyền cảm, giàu năng lượng, rất quen thuộc trên các kênh review công nghệ triệu view.",
+        "description": "Giọng đọc truyền cảm, giàu năng lượng quen thuộc của Edge-TTS trên các kênh review công nghệ ngắn.",
         "preview_text": "Chào các bạn! Tôi là Diểm Phúc - cùng khám phá công nghệ AI cực kỳ bùng nổ trong năm 2026.",
         "recommended_preset": "hype",
-        "badge": "HOT"
+        "badge": "TIKTOK VIRAL",
+        "icon_type": "zap"
     },
     {
         "id": "vi-VN-NamMinhNeural",
-        "name": "Minh Hiếu (Nam - Trầm Ấm)",
+        "name": "Minh Hiếu (Nam - Trầm Ấm, Radar Tech)",
         "provider": "edge_tts",
         "language": "vi-VN",
         "gender": "male",
         "style": "Tech Radar, Thời Sự",
         "description": "Giọng nam trầm ấm, chuyên nghiệp, chuẩn phong cách bản tin công nghệ và podcast chuyên sâu.",
-        "preview_text": "Điểm tin công nghệ AI hôm nay: Tôi là Minh Hiếu - Google Antigravity vừa ra mắt tiêu chuẩn subagent mới.",
+        "preview_text": "Điểm tin công nghệ AI hôm nay: Tôi là Minh Hiếu - cùng cập nhật các xu hướng phát triển mới nhất.",
         "recommended_preset": "professional",
-        "badge": "STUDIO"
-    },
-    {
-        "id": "vi-VN-Wavenet-A",
-        "name": "Google WaveNet (Nữ - Chuẩn Studio)",
-        "provider": "google_tts",
-        "language": "vi-VN",
-        "gender": "female",
-        "style": "Google Cloud DeepMind WaveNet",
-        "description": "Giọng đọc công nghệ WaveNet độc quyền của Google với ngữ điệu tự nhiên, chuẩn âm chuẩn thanh điệu.",
-        "preview_text": "Xin chào! Đây là giọng đọc nhân tạo Google WaveNet chất lượng cao phục vụ video công nghệ.",
-        "recommended_preset": "professional",
-        "badge": "GOOGLE AI"
-    },
-    {
-        "id": "vi-VN-Wavenet-B",
-        "name": "Google WaveNet (Nam - Phát Thanh)",
-        "provider": "google_tts",
-        "language": "vi-VN",
-        "gender": "male",
-        "style": "Google Studio Broadcast",
-        "description": "Giọng nam phát thanh viên Google DeepMind rõ ràng, mạch lạc, rất thích hợp cho video hướng dẫn lập trình.",
-        "preview_text": "Google Cloud Text to Speech mang đến trải nghiệm âm thanh sống động cho ứng dụng của bạn.",
-        "recommended_preset": "professional",
-        "badge": "GOOGLE AI"
+        "badge": "TECH RADAR",
+        "icon_type": "mic"
     },
 
-    # --- Gemini 2.0 Live Native Audio Voices (Direct Multimodal Streaming) ---
-    {
-        "id": "gemini-Aoede",
-        "name": "Gemini 2.0 Live - Aoede (Nữ - Biểu Cảm)",
-        "provider": "gemini_audio",
-        "language": "multi",
-        "gender": "female",
-        "style": "Gemini 2.0 Multimodal Native Audio",
-        "description": "Mô hình âm thanh Gemini 2.0 Flash Native Audio trực tiếp, biểu cảm linh hoạt, độ trễ siêu thấp.",
-        "preview_text": "Hello! I am Aoede, streaming live from Gemini 2.0 native audio with expressive storytelling tone.",
-        "recommended_preset": "hype",
-        "badge": "GEMINI 2.0"
-    },
-    {
-        "id": "gemini-Puck",
-        "name": "Gemini 2.0 Live - Puck (Nam - Năng Động)",
-        "provider": "gemini_audio",
-        "language": "multi",
-        "gender": "male",
-        "style": "Gemini 2.0 Multimodal Native Audio",
-        "description": "Giọng nam trẻ trung, đầy nhiệt huyết, tối ưu cho video Shorts, TikTok và tech demos.",
-        "preview_text": "Hey what is up developers! Puck here, powered by Gemini 2.0 live native audio stream.",
-        "recommended_preset": "hype",
-        "badge": "GEMINI 2.0"
-    },
-    {
-        "id": "gemini-Charon",
-        "name": "Gemini 2.0 Live - Charon (Nam - Trầm Lắng)",
-        "provider": "gemini_audio",
-        "language": "multi",
-        "gender": "male",
-        "style": "Gemini 2.0 Multimodal Native Audio",
-        "description": "Giọng nam trầm tĩnh, sâu lắng, hoàn hảo cho podcast công nghệ và phân tích kiến trúc.",
-        "preview_text": "Welcome. This is Charon speaking via Gemini 2.0 native audio intelligence.",
-        "recommended_preset": "professional",
-        "badge": "GEMINI 2.0"
-    },
-    {
-        "id": "gemini-Kore",
-        "name": "Gemini 2.0 Live - Kore (Nữ - Trong Trẻo)",
-        "provider": "gemini_audio",
-        "language": "multi",
-        "gender": "female",
-        "style": "Gemini 2.0 Multimodal Native Audio",
-        "description": "Giọng nữ trong trẻo, tự nhiên, thích hợp cho video giải thích sản phẩm và tutorial.",
-        "preview_text": "Hi there! I am Kore, your AI co-host for today's developer deep dive.",
-        "recommended_preset": "professional",
-        "badge": "GEMINI 2.0"
-    },
-    {
-        "id": "gemini-Fenrir",
-        "name": "Gemini 2.0 Live - Fenrir (Nam - Bản Lĩnh)",
-        "provider": "gemini_audio",
-        "language": "multi",
-        "gender": "male",
-        "style": "Gemini 2.0 Multimodal Native Audio",
-        "description": "Giọng nam đĩnh đạc, uy lực, rất thích hợp cho bài thuyết trình Keynote và ra mắt tính năng lớn.",
-        "preview_text": "Let us explore the future of agentic engineering with Gemini 2.0 native capabilities.",
-        "recommended_preset": "hype",
-        "badge": "GEMINI 2.0"
-    },
-
-    # --- English & International Voices ---
+    # --- Tiếng Anh Quốc Tế (Silicon Valley & DeepMind) ---
     {
         "id": "en-US-Journey-F",
         "name": "Google Journey (Female - Expressive)",
@@ -140,11 +123,12 @@ CURATED_VOICES = [
         "description": "Google's most advanced expressive voice model with human-like breathing and natural pauses.",
         "preview_text": "Hey developers, let's explore how Google Antigravity is reshaping modern software architecture.",
         "recommended_preset": "hype",
-        "badge": "GOOGLE AI"
+        "badge": "DEEPMIND",
+        "icon_type": "compass"
     },
     {
         "id": "en-US-ChristopherNeural",
-        "name": "Christopher (Male - Keynote)",
+        "name": "Christopher (Male - Silicon Valley Keynote)",
         "provider": "edge_tts",
         "language": "en-US",
         "gender": "male",
@@ -152,11 +136,12 @@ CURATED_VOICES = [
         "description": "Clear, authoritative American tech voice suitable for developer showcases and system design walkthroughs.",
         "preview_text": "Welcome back developers! In today's episode, we are diving deep into autonomous agent workflows.",
         "recommended_preset": "professional",
-        "badge": "PRO"
+        "badge": "SILICON VALLEY",
+        "icon_type": "globe"
     },
     {
         "id": "en-US-JennyNeural",
-        "name": "Jenny (Female - Energetic)",
+        "name": "Jenny (Female - Dynamic Tech Host)",
         "provider": "edge_tts",
         "language": "en-US",
         "gender": "female",
@@ -164,32 +149,9 @@ CURATED_VOICES = [
         "description": "Energetic, crisp and friendly voice ideal for quick tutorials, SaaS demos and product highlights.",
         "preview_text": "Here is how this agent skill can support a real developer workflow with source-backed guidance.",
         "recommended_preset": "hype",
-        "badge": "HOT"
+        "badge": "DYNAMIC HOST",
+        "icon_type": "volume-2"
     },
-    {
-        "id": "en-GB-SoniaNeural",
-        "name": "Sonia (Female UK - Elegant)",
-        "provider": "edge_tts",
-        "language": "en-GB",
-        "gender": "female",
-        "style": "Documentary & Story",
-        "description": "Refined British accent for high-end tech documentaries and architecture deep dives.",
-        "preview_text": "Let us analyze the profound impact of Model Context Protocol on modern software engineering.",
-        "recommended_preset": "deep_dive",
-        "badge": "UK"
-    },
-    {
-        "id": "ja-JP-NanamiNeural",
-        "name": "Nanami (Female JP - Anime)",
-        "provider": "edge_tts",
-        "language": "ja-JP",
-        "gender": "female",
-        "style": "Anime & Tech Review",
-        "description": "Expressive Japanese voice popular for developer anime recaps and Asia tech trends.",
-        "preview_text": "みなさん、こんにちは！最新のAIエージェントのトレンドを見ていきましょう。",
-        "recommended_preset": "hype",
-        "badge": "JP"
-    }
 ]
 
 
@@ -483,11 +445,23 @@ class TTSService:
         return result
 
     @staticmethod
+    def _pcm_to_wav(pcm_bytes: bytes, sample_rate: int = 24000) -> bytes:
+        """Converts raw 16-bit mono PCM bytes to standard playable RIFF/WAV format."""
+        buf = io.BytesIO()
+        with wave.open(buf, "wb") as wav_file:
+            wav_file.setnchannels(1)
+            wav_file.setsampwidth(2)
+            wav_file.setframerate(sample_rate)
+            wav_file.writeframes(pcm_bytes)
+        return buf.getvalue()
+
+    @staticmethod
     async def _synthesize_gemini_audio(
         text: str, voice: str, rate: str, pitch: str
     ) -> Optional[Dict[str, Any]]:
         """
-        Synthesizes speech using Gemini 2.0 Flash Native Audio Output.
+        Synthesizes speech using Google AI Studio's Gemini 2.5 Flash Preview TTS & Native Audio Output.
+        Produces ultra-realistic, expressive bilingual audio (Vietnamese + English tech terminology).
         """
         if not settings.GEMINI_API_KEY:
             return None
@@ -502,7 +476,14 @@ class TTSService:
             from google.genai import types as genai_types
 
             client = genai.Client(api_key=settings.GEMINI_API_KEY)
-            prompt = f"Please read the following text aloud with natural intonation, clear pronunciation, and expressive emotion. Do not include any explanations or intro text, only speak the exact words:\n\n{text}"
+            prompt = (
+                "You are a charismatic, articulate tech podcast host. "
+                "Read the following Vietnamese script aloud with natural human warmth, expressive rhythm, and engaging delivery. "
+                "For English technical words, framework names, and acronyms (e.g. Next.js, GitHub, Cursor, Claude Code, Python, Agent, TypeScript, HTML, REST, API), "
+                "pronounce them with authentic, native English clarity while speaking Vietnamese seamlessly. "
+                "Do not output any introductory notes or markdown, speak only the exact words:\n\n"
+                f"{text}"
+            )
 
             config = genai_types.GenerateContentConfig(
                 response_modalities=["AUDIO"],
@@ -515,40 +496,58 @@ class TTSService:
                 )
             )
 
-            # Use asyncio.to_thread to avoid blocking the event loop
-            response = await asyncio.to_thread(
-                client.models.generate_content,
-                model="gemini-2.0-flash",
-                contents=prompt,
-                config=config
-            )
+            # Candidate audio models from Google AI Studio
+            audio_models = [
+                "gemini-3.1-flash-tts-preview",
+                "gemini-2.5-flash-preview-tts",
+                "gemini-2.5-pro-preview-tts",
+                "gemini-2.5-flash-native-audio-latest"
+            ]
 
-            if response.candidates and response.candidates[0].content.parts:
+            response = None
+            used_model = "gemini-3.1-flash-tts-preview"
+            for model_id in audio_models:
+                try:
+                    response = await asyncio.to_thread(
+                        client.models.generate_content,
+                        model=model_id,
+                        contents=prompt,
+                        config=config
+                    )
+                    if response and response.candidates and response.candidates[0].content.parts:
+                        used_model = model_id
+                        break
+                except Exception as model_err:
+                    logger.warning(f"Audio model {model_id} failed: {model_err}, trying fallback...")
+                    continue
+
+            if response and response.candidates and response.candidates[0].content.parts:
                 for part in response.candidates[0].content.parts:
                     if hasattr(part, "inline_data") and part.inline_data:
-                        audio_data = part.inline_data.data
-                        if isinstance(audio_data, bytes):
-                            audio_b64 = base64.b64encode(audio_data).decode("utf-8")
-                        else:
-                            logger.warning("Gemini audio data is not bytes, skipping")
+                        raw_pcm = part.inline_data.data
+                        if not isinstance(raw_pcm, bytes):
                             continue
 
-                        words = text.split()
-                        estimated_duration = max(2.0, len(words) * 0.38)
-                        subtitle_entries = TTSService._generate_synthetic_timings(text, estimated_duration)
+                        # Wrap raw PCM into standard playable WAV 24kHz format
+                        wav_bytes = TTSService._pcm_to_wav(raw_pcm, sample_rate=24000)
+                        audio_b64 = base64.b64encode(wav_bytes).decode("utf-8")
+
+                        # Exact duration from sample rate (24000 samples/sec, 16-bit = 2 bytes/sample)
+                        duration = round(len(raw_pcm) / (24000 * 2), 2)
+                        subtitle_entries = TTSService._generate_synthetic_timings(text, duration)
 
                         return {
                             "audio_base64": audio_b64,
-                            "duration_seconds": round(estimated_duration, 2),
+                            "duration_seconds": duration,
                             "subtitle_entries": subtitle_entries,
                             "voice": voice,
                             "status": "success",
-                            "message": f"Gemini 2.0 Native Audio ({voice_name})",
+                            "message": f"Google AI Studio ({used_model} - {voice_name})",
                             "timing_quality": "estimated",
                         }
 
         except Exception as e:
-            logger.warning(f"Gemini 2.0 Native Audio synthesis failed: {e}")
+            logger.warning(f"Google AI Studio Gemini Audio synthesis failed: {e}")
             return None
 
         return None

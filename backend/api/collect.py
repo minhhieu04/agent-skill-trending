@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import re
 from datetime import datetime
 from typing import List, Dict, Any, Optional
 from fastapi import APIRouter, Depends, BackgroundTasks
@@ -22,6 +23,7 @@ from collectors import (
 )
 from collectors.github_collector import QuotaExceededError
 from analyzer import Scorer, Categorizer, RelevanceMatcher
+from services.readme_service import ReadmeService
 
 logger = logging.getLogger("CollectPipeline")
 
@@ -132,15 +134,29 @@ async def run_full_collection_pipeline(triggered_by: str = "scheduler", user_id:
                         continue
 
                     try:
+                        raw_desc = item.get("description", "")
+                        cjk_regex = re.compile(r"[\u4e00-\u9fff]")
+
                         cat_res = Categorizer.rule_based_categorize(
                             name=item.get("name", ""),
-                            desc=item.get("description", ""),
+                            desc=raw_desc,
                             tags=item.get("tags", [])
                         )
 
                         category = cat_res["category"]
                         difficulty = cat_res["difficulty"]
                         ai_summary = cat_res["ai_summary"]
+
+                        # Auto-translate CJK / foreign descriptions to natural Vietnamese
+                        if raw_desc and cjk_regex.search(raw_desc):
+                            try:
+                                vi_summary = await ReadmeService.translate_summary_to_vietnamese(
+                                    raw_desc, name=item.get("name")
+                                )
+                                if vi_summary and not cjk_regex.search(vi_summary):
+                                    ai_summary = vi_summary
+                            except Exception as trans_err:
+                                logger.warning(f"Could not auto-translate CJK during collection: {trans_err}")
 
                         quality_score = Scorer.calculate_quality_score(item)
                         trending_score = Scorer.calculate_trending_score(item, quality_score)
@@ -170,6 +186,10 @@ async def run_full_collection_pipeline(triggered_by: str = "scheduler", user_id:
 
                             existing.tags = list(set((existing.tags or []) + (item.get("tags") or [])))
                             existing.runtimes = list(set((existing.runtimes or []) + (item.get("runtimes") or [])))
+
+                            # If existing skill still has CJK summary, update with translated summary
+                            if cjk_regex.search(existing.ai_summary or "") and not cjk_regex.search(ai_summary):
+                                existing.ai_summary = ai_summary
 
                             existing.quality_score = max(existing.quality_score, quality_score)
                             existing.trending_score = max(existing.trending_score, trending_score)

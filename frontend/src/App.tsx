@@ -312,6 +312,7 @@ const AppContent: React.FC = () => {
                   onGoToPlayground={() => {
                     handleTabChange('playground');
                   }}
+                  onOpenLogin={() => setIsLoginModalOpen(true)}
                 />
               )}
 
@@ -451,6 +452,7 @@ const AppContent: React.FC = () => {
           setSelectedSkill(skill);
         }}
         onToggleBookmark={(id) => bookmarkMutation.mutate(id)}
+        onOpenLogin={() => setIsLoginModalOpen(true)}
       />
     </div>
   );
