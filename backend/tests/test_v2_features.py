@@ -50,8 +50,16 @@ def test_history_and_audit_logs():
         runs = runs_res.json()
         assert isinstance(runs, list)
 
-        # Get audit logs
-        audit_res = client.get("/api/v1/history/audit-log")
+        # Get audit logs (requires admin auth)
+        from middleware.auth import create_access_token
+        anon_audit = client.get("/api/v1/history/audit-log")
+        assert anon_audit.status_code == 401
+
+        admin_token = create_access_token({"sub": "hieu", "id": 1})
+        audit_res = client.get(
+            "/api/v1/history/audit-log",
+            headers={"Authorization": f"Bearer {admin_token}"}
+        )
         assert audit_res.status_code == 200
         audits = audit_res.json()
         assert isinstance(audits, list)

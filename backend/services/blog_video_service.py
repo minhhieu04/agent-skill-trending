@@ -266,7 +266,8 @@ def _log_gemini_audit(action: str, detail: Dict[str, Any]):
                 username="system_gemini",
                 action=action,
                 target_type="gemini_ai",
-                detail=detail
+                detail=detail,
+                ip_address="system:gemini"
             )
             db.add(audit)
             db.commit()

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, Request
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
 from typing import List, Optional, Dict, Any
@@ -14,7 +14,9 @@ from models.skill import Skill
 from models.user import User
 from models.user_bookmark import UserBookmark
 from models.audit_log import AuditLog
-from middleware.auth import get_optional_current_user
+from middleware.auth import get_optional_current_user, get_current_user
+from middleware.ip_helper import get_client_ip
+
 from services.skill_service import SkillService
 from services.exporter_service import ExporterService
 from services.security_scanner import SecurityScanner
@@ -215,8 +217,7 @@ def get_skills_stats(
     if current_user:
         bookmarked_count = db.query(UserBookmark).filter(UserBookmark.user_id == current_user.id).count()
     else:
-        user = db.query(User).filter(User.username == "hieu").first()
-        bookmarked_count = db.query(UserBookmark).filter(UserBookmark.user_id == user.id).count() if user else 0
+        bookmarked_count = 0
 
     categories_count = {}
     runtimes_count = {}
@@ -297,32 +298,30 @@ def get_bookmarked_skills(
     current_user: Optional[User] = Depends(get_optional_current_user),
     db: Session = Depends(get_db)
 ):
-    user = current_user or db.query(User).filter(User.username == "hieu").first()
-    if user:
-        bms = db.query(UserBookmark).filter(UserBookmark.user_id == user.id).all()
-        skill_ids = [b.skill_id for b in bms]
-        skills = db.query(Skill).filter(Skill.id.in_(skill_ids)).all()
-        for s in skills:
-            s.is_bookmarked = True
-        return skills
-    return []
+    if not current_user:
+        return []
+    bms = db.query(UserBookmark).filter(UserBookmark.user_id == current_user.id).all()
+    skill_ids = [b.skill_id for b in bms]
+    skills = db.query(Skill).filter(Skill.id.in_(skill_ids)).all()
+    for s in skills:
+        s.is_bookmarked = True
+    return skills
 
 @router.post("/skills/{skill_id}/bookmark", response_model=SkillResponse)
 def toggle_bookmark(
     skill_id: int,
-    current_user: Optional[User] = Depends(get_optional_current_user),
+    request: Request,
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     skill = db.query(Skill).filter(Skill.id == skill_id).first()
     if not skill:
         raise HTTPException(status_code=404, detail="Skill not found")
 
-    user = current_user or db.query(User).filter(User.username == "hieu").first()
-    if not user:
-        raise HTTPException(status_code=401, detail="Authentication required")
+    client_ip = get_client_ip(request)
 
     existing_bm = db.query(UserBookmark).filter(
-        UserBookmark.user_id == user.id,
+        UserBookmark.user_id == current_user.id,
         UserBookmark.skill_id == skill_id
     ).first()
 
@@ -331,23 +330,25 @@ def toggle_bookmark(
         skill.is_bookmarked = False
         action_name = "unbookmark"
     else:
-        new_bm = UserBookmark(user_id=user.id, skill_id=skill_id)
+        new_bm = UserBookmark(user_id=current_user.id, skill_id=skill_id)
         db.add(new_bm)
         skill.is_bookmarked = True
         action_name = "bookmark"
 
     audit = AuditLog(
-        user_id=user.id,
-        username=user.username,
+        user_id=current_user.id,
+        username=current_user.username,
         action=action_name,
         target_type="skill",
         target_id=skill.id,
-        detail={"skill_name": skill.name}
+        detail={"skill_name": skill.name},
+        ip_address=client_ip
     )
     db.add(audit)
     db.commit()
     db.refresh(skill)
     return skill
+
 
 # List available translation providers and live status
 @router.get("/skills/translation-providers")

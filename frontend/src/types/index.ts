@@ -205,6 +205,45 @@ export interface AuditLogItem {
 
 export type AuditLog = AuditLogItem;
 
+export interface AuditLogPageResponse {
+  items: AuditLogItem[];
+  total: number;
+  page: number;
+  page_size: number;
+  total_pages: number;
+  has_next: boolean;
+  has_prev: boolean;
+}
+
+export interface DailyActivityStat {
+  date: string;
+  total: number;
+  success: number;
+  error: number;
+}
+
+export interface ActionDistributionStat {
+  action: string;
+  label: string;
+  count: number;
+  percentage: number;
+}
+
+export interface AuditStatsSummary {
+  total_events: number;
+  quota_exceeded_count: number;
+  collection_completed_count: number;
+  failed_count: number;
+  success_count: number;
+  error_rate_percent: number;
+  active_users_count: number;
+  most_recent_quota_error?: string | null;
+  most_recent_quota_source?: string | null;
+  daily_timeline: DailyActivityStat[];
+  action_distribution: ActionDistributionStat[];
+}
+
+
 // Studio & AI Video Interfaces
 export interface VoiceOption {
   id: string;

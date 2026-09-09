@@ -324,15 +324,39 @@ async def chat_with_agent(
     # 1. Resolve or create chat session in DB
     session = None
     if payload.session_id:
-        session = (
-            db.query(ChatSession)
-            .filter(ChatSession.id == payload.session_id, ChatSession.user_id == current_user.id)
-            .first()
-        )
+        existing = db.query(ChatSession).filter(ChatSession.id == payload.session_id).first()
+        if existing:
+            if existing.user_id == current_user.id:
+                session = existing
+            else:
+                # Session belongs to another user: avoid primary key clash / IntegrityError
+                # Generate a secure fresh session ID for current user
+                sess_id = f"session-{int(time.time() * 1000)}-{secrets.token_hex(3)}"
+                session = ChatSession(
+                    id=sess_id,
+                    user_id=current_user.id,
+                    title=_generate_session_title(payload.query),
+                    created_at=datetime.utcnow(),
+                    updated_at=datetime.utcnow()
+                )
+                db.add(session)
+                db.flush()
+        else:
+            # Session ID doesn't exist yet, safe to register for current user
+            sess_id = payload.session_id
+            session = ChatSession(
+                id=sess_id,
+                user_id=current_user.id,
+                title=_generate_session_title(payload.query),
+                created_at=datetime.utcnow(),
+                updated_at=datetime.utcnow()
+            )
+            db.add(session)
+            db.flush()
 
     if not session:
-        # Generate new session ID or use provided one
-        sess_id = payload.session_id or f"session-{int(time.time() * 1000)}-{secrets.token_hex(3)}"
+        # Generate new session ID
+        sess_id = f"session-{int(time.time() * 1000)}-{secrets.token_hex(3)}"
         session = ChatSession(
             id=sess_id,
             user_id=current_user.id,

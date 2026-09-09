@@ -148,7 +148,8 @@ class Categorizer:
                             detail={
                                 "source": "gemini_ai",
                                 "reason": f"Gemini Categorizer rate limited for {name}: {err_str[:200]}"
-                            }
+                            },
+                            ip_address="system:gemini"
                         )
                         db.add(audit)
                         db.commit()

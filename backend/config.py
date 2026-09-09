@@ -1,8 +1,10 @@
 import os
-import secrets
 import logging
+import secrets
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import Optional
+
 
 logger = logging.getLogger(__name__)
 
@@ -15,9 +17,17 @@ class Settings(BaseSettings):
     DATABASE_URL: str = os.getenv("DATABASE_URL", "sqlite:///./agent_skills.db")
 
     # Auth & Security — MUST be overridden via env in production
-    JWT_SECRET_KEY: str = os.getenv("SECRET_KEY") or "agent_trending_jwt_secret_key_2026_production_fallback"
+    SECRET_KEY: Optional[str] = None
+    JWT_SECRET_KEY: str = ""
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7  # 7 days
+
+    @model_validator(mode="after")
+    def populate_jwt_secret(self):
+        secret = self.SECRET_KEY or os.getenv("SECRET_KEY") or self.JWT_SECRET_KEY or secrets.token_hex(32)
+        self.SECRET_KEY = secret
+        self.JWT_SECRET_KEY = secret
+        return self
 
     # CORS — comma-separated origins via env, defaults to permissive for all local & cloud environments
     CORS_ORIGINS: str = os.getenv("CORS_ORIGINS", "*")
@@ -51,7 +61,7 @@ class Settings(BaseSettings):
 settings = Settings()
 
 # Warn if JWT secret key is auto-generated (not set via env)
-if not os.getenv("SECRET_KEY"):
+if not os.getenv("SECRET_KEY") and not settings.SECRET_KEY:
     logger.warning(
         "⚠️  SECRET_KEY not set in environment — JWT tokens will be invalidated on every server restart. "
         "Set SECRET_KEY in your .env file for production."

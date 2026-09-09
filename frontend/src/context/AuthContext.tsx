@@ -28,7 +28,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const me = await api.getMe();
       setUser(me);
-      fetchUsers();
+      if (me.is_admin) {
+        fetchUsers();
+      }
     } catch {
       localStorage.removeItem('agent_trending_token');
       setUser(null);
@@ -50,18 +52,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     fetchCurrentUser();
+
+    const handleUnauthorized = () => {
+      setUser(null);
+      setAllUsers([]);
+    };
+
+    window.addEventListener('auth:unauthorized', handleUnauthorized);
+    return () => {
+      window.removeEventListener('auth:unauthorized', handleUnauthorized);
+    };
   }, []);
 
   const login = async (username: string, password: string) => {
     const res = await api.login(username, password);
     setUser(res.user);
-    fetchUsers();
+    if (res.user.is_admin) {
+      fetchUsers();
+    }
   };
 
   const register = async (username: string, password: string, displayName?: string) => {
     const res = await api.register(username, password, displayName);
     setUser(res.user);
-    fetchUsers();
+    if (res.user.is_admin) {
+      fetchUsers();
+    }
   };
 
   const logout = () => {
@@ -79,7 +95,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         register,
         logout,
         allUsers,
-        refreshUsers: fetchUsers,
+        refreshUsers: () => {
+          if (user?.is_admin) {
+            fetchUsers();
+          }
+        },
       }}
     >
       {children}
