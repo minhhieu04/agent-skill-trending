@@ -120,11 +120,23 @@ export const BundlesPage: React.FC<BundlesPageProps> = ({ onSelectSkillById }) =
                 </p>
 
                 {/* Target Stack Tag */}
-                <div className="p-3 rounded-2xl neu-inset text-xs font-mono text-[var(--text-main)] mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 sm:gap-2">
-                  <span className="text-[var(--text-muted)] font-semibold shrink-0">{t('target_stack')}:</span>
-                  <div className="flex items-center gap-2 font-bold text-[var(--primary)] min-w-0">
-                    <TechLogo name={bundle.target_stack} className="w-4 h-4 shrink-0" />
-                    <span className="truncate">{bundle.target_stack}</span>
+                <div className="p-3 rounded-2xl neu-inset text-xs font-mono mb-4 space-y-2">
+                  <div className="flex items-center justify-between text-[11px] font-semibold text-[var(--text-muted)]">
+                    <span>{t('target_stack')}:</span>
+                    <span className="text-[10px] font-mono text-[var(--primary)] font-bold">
+                      {(bundle.target_stack || '').split(' / ').length} Runtimes
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {(bundle.target_stack || '').split(' / ').map((stack) => (
+                      <span
+                        key={stack}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-[var(--bg)]/90 text-[var(--primary)] font-bold text-[11px] shadow-xs border border-black/5 dark:border-white/5"
+                      >
+                        <TechLogo name={stack.trim()} className="w-3.5 h-3.5 shrink-0" />
+                        <span className="whitespace-nowrap">{stack.trim()}</span>
+                      </span>
+                    ))}
                   </div>
                 </div>
 
