@@ -20,6 +20,7 @@ export interface Skill {
   comparison_notes?: string;
   target_audience?: string;
   readme_preview?: string;
+  readme_translations?: Record<string, { content: string; model_used?: string; provider?: string; translated_at?: string }>;
   demo_url?: string;
   category: string;
   tags: string[];
@@ -44,6 +45,32 @@ export interface Skill {
   source_type: string;
   created_at: string;
   updated_at: string;
+}
+
+export interface ReadmeData {
+  skill_id: number;
+  readme: string;
+  is_fallback: boolean;
+  translations: Record<string, { content: string; model_used?: string; provider?: string; translated_at?: string }>;
+  source: string;
+}
+
+export interface TranslateReadmeResult {
+  skill_id: number;
+  target_language: string;
+  translated_text: string;
+  provider: string;
+  model_used: string;
+  cached: boolean;
+}
+
+export interface TranslationProviderOption {
+  id: string;
+  name: string;
+  description: string;
+  available: boolean;
+  badge?: string;
+  category: string;
 }
 
 export interface ExportConfig {

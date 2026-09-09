@@ -1030,6 +1030,7 @@ class DailyDigestService:
         db: Session,
         date_str: str,
         language: str = "vi",
+        model: Optional[str] = "gemini-3.8-flash",
         force_regenerate: bool = False
     ) -> DailyDigest:
         """
@@ -1101,7 +1102,7 @@ class DailyDigestService:
         )
 
         # AI Enhancement with Gemini if available
-        used_model = "smart-domain-analyzer-v2"
+        used_model = model or "gemini-3.8-flash"
         if HAS_GENAI and settings.GEMINI_API_KEY:
             try:
                 client = genai.Client(api_key=settings.GEMINI_API_KEY)
@@ -1116,25 +1117,49 @@ class DailyDigestService:
                     }
                     for s in skill_summaries[:4]
                 ]
-                prompt = (
-                    f"Bạn là Host Podcast công nghệ của trang AI Agent Skill Trending (cổng thông tin xu hướng AI Agents và lập trình tự động). "
-                    f"Dưới đây là danh sách các công cụ AI và kỹ năng lập trình mới nhất ngày {title_date}:\n"
-                    f"{json.dumps(top_skills_payload, ensure_ascii=False, indent=2)}\n\n"
-                    f"Hãy hoàn thiện nội dung bản tin theo định dạng JSON với các trường sau:\n"
-                    f"1. title: Tiêu đề bản tin cực kỳ cuốn hút, phản ánh điểm đột phá hôm nay.\n"
-                    f"2. podcast_script: Kịch bản phát thanh/podcast bằng tiếng Việt (250-350 từ) sinh động, lôi cuốn, nhấn mạnh tác dụng thực tế của từng công cụ. "
-                    f"QUY TẮC BẮT BUỘC:\n"
-                    f"- Giọng đọc tự nhiên, giữ nguyên các tên framework, thư viện và thuật ngữ tiếng Anh chuẩn xác.\n"
-                    f"- TUYỆT ĐỐI KHÔNG thêm bất kỳ câu kêu gọi ngoại vi nào như 'truy cập Substack', 'đăng ký kênh', 'subscribe', 'YouTube', 'Patreon', v.v.\n"
-                    f"- Đoạn kết chỉ cần chào tạm biệt ngắn gọn và mời người nghe khám phá trực tiếp các agent skills này trên hệ thống.\n"
-                    f"3. highlights: Mảng 3-4 câu điểm nhấn ngắn gọn.\n"
-                    f"4. social_reviews: Danh sách bài review chuyên sâu cho các công cụ trên, mỗi phần tử gồm: "
-                    f"skill_id, hook (câu giật tít đánh trúng nỗi đau dev), deep_dive (phân tích sâu 2-3 câu về cơ chế hoạt động), "
-                    f"pros (mảng 2 ưu điểm), cons (mảng 1 nhược điểm/lưu ý).\n"
-                    f"Chỉ trả về JSON thuần túy."
-                )
+                is_en = (language or "").lower().startswith("en")
+                if is_en:
+                    prompt = (
+                        f"You are the Host of the AI Agent Skill Trending Podcast. "
+                        f"Here is the list of top trending AI tools and developer skills for {title_date}:\n"
+                        f"{json.dumps(top_skills_payload, ensure_ascii=False, indent=2)}\n\n"
+                        f"Please provide the episode content in strictly valid JSON with:\n"
+                        f"1. title: Highly compelling tech headline capturing today's breakthrough.\n"
+                        f"2. podcast_script: Engaging radio/podcast script in natural English (250-350 words) highlighting practical dev benefits. "
+                        f"Keep all framework, library, and tool names accurate. "
+                        f"DO NOT include any external promotional calls like 'subscribe to YouTube/Substack/Patreon'. "
+                        f"Conclude warmly by inviting listeners to explore these skills directly on our platform.\n"
+                        f"3. highlights: Array of 3-4 concise takeaway points.\n"
+                        f"4. social_reviews: Array of in-depth reviews with skill_id, hook (bold punchy hook addressing developer pain point), deep_dive (2-3 sentences on core mechanism), pros (array of 2 strengths), cons (array of 1 consideration).\n"
+                        f"Return strictly valid JSON only."
+                    )
+                else:
+                    prompt = (
+                        f"Bạn là Host Podcast công nghệ của trang AI Agent Skill Trending (cổng thông tin xu hướng AI Agents và lập trình tự động). "
+                        f"Dưới đây là danh sách các công cụ AI và kỹ năng lập trình mới nhất ngày {title_date}:\n"
+                        f"{json.dumps(top_skills_payload, ensure_ascii=False, indent=2)}\n\n"
+                        f"Hãy hoàn thiện nội dung bản tin theo định dạng JSON với các trường sau:\n"
+                        f"1. title: Tiêu đề bản tin cực kỳ cuốn hút, phản ánh điểm đột phá hôm nay.\n"
+                        f"2. podcast_script: Kịch bản phát thanh/podcast bằng tiếng Việt (250-350 từ) sinh động, lôi cuốn, nhấn mạnh tác dụng thực tế của từng công cụ. "
+                        f"QUY TẮC BẮT BUỘC:\n"
+                        f"- Giọng đọc tự nhiên, giữ nguyên các tên framework, thư viện và thuật ngữ tiếng Anh chuẩn xác.\n"
+                        f"- TUYỆT ĐỐI KHÔNG thêm bất kỳ câu kêu gọi ngoại vi nào như 'truy cập Substack', 'đăng ký kênh', 'subscribe', 'YouTube', 'Patreon', v.v.\n"
+                        f"- Đoạn kết chỉ cần chào tạm biệt ngắn gọn và mời người nghe khám phá trực tiếp các agent skills này trên hệ thống.\n"
+                        f"3. highlights: Mảng 3-4 câu điểm nhấn ngắn gọn.\n"
+                        f"4. social_reviews: Danh sách bài review chuyên sâu cho các công cụ trên, mỗi phần tử gồm: "
+                        f"skill_id, hook (câu giật tít đánh trúng nỗi đau dev), deep_dive (phân tích sâu 2-3 câu về cơ chế hoạt động), "
+                        f"pros (mảng 2 ưu điểm), cons (mảng 1 nhược điểm/lưu ý).\n"
+                        f"Chỉ trả về JSON thuần túy."
+                    )
                 response = None
-                for candidate_model in ["gemini-3-flash-preview", "gemini-3.5-flash", "gemini-3.6-flash", "gemini-3.1-pro-preview", "gemini-3.1-flash-lite", "gemini-flash-latest"]:
+                candidate_models = []
+                if model:
+                    candidate_models.append(model)
+                for candidate in ["gemini-3.8-flash", "gemini-3-flash-preview", "gemini-3.5-flash", "gemini-3.6-flash", "gemini-3.1-pro-preview", "gemini-3.1-flash-lite", "gemini-flash-latest"]:
+                    if candidate not in candidate_models:
+                        candidate_models.append(candidate)
+
+                for candidate_model in candidate_models:
                     try:
                         response = client.models.generate_content(
                             model=candidate_model,
@@ -1228,6 +1253,140 @@ class DailyDigestService:
             db.commit()
             db.refresh(digest)
             return digest
+
+    @classmethod
+    async def translate_digest(
+        cls,
+        db: Session,
+        date_str: str,
+        target_lang: str = "en",
+        model: Optional[str] = "gemini-3.8-flash"
+    ) -> Dict[str, Any]:
+        """
+        Translates an existing daily digest to target_lang ('en' or 'vi') using Gemini 3.8 Flash.
+        Returns the translated digest payload without overwriting the primary database record.
+        """
+        digest = db.query(DailyDigest).filter(DailyDigest.digest_date == date_str).first()
+        if not digest:
+            digest = await cls.generate_digest(db, date_str=date_str, language=target_lang, model=model)
+            return {
+                "id": digest.id,
+                "digest_date": digest.digest_date,
+                "title": digest.title,
+                "summary_markdown": digest.summary_markdown,
+                "podcast_script": digest.podcast_script,
+                "highlights": digest.highlights or [],
+                "skill_summaries": digest.skill_summaries or [],
+                "total_skills_count": digest.total_skills_count,
+                "source_model": digest.source_model,
+                "target_lang": target_lang
+            }
+
+        # Prepare compact payload for translation
+        to_translate = {
+            "title": digest.title,
+            "podcast_script": digest.podcast_script,
+            "highlights": digest.highlights or [],
+            "skill_summaries": [
+                {
+                    "skill_id": s.get("skill_id"),
+                    "title": s.get("title"),
+                    "name": s.get("name"),
+                    "what_it_does": s.get("what_it_does"),
+                    "pain_point_solved": s.get("pain_point_solved"),
+                    "real_world_use": s.get("real_world_use"),
+                    "quick_take": s.get("quick_take"),
+                    "social_post": s.get("social_post")
+                }
+                for s in (digest.skill_summaries or [])
+            ]
+        }
+
+        translated_result = to_translate
+        used_model = model or "gemini-3.8-flash"
+
+        if HAS_GENAI and settings.GEMINI_API_KEY:
+            try:
+                client = genai.Client(api_key=settings.GEMINI_API_KEY)
+                target_name = "English" if target_lang == "en" else "Tiếng Việt"
+                prompt = (
+                    f"You are an expert bilingual tech localization specialist for developer tools. "
+                    f"Translate the following JSON content into natural, idiomatic, high-level professional {target_name}.\n"
+                    f"STRICT RULES:\n"
+                    f"- Preserve all exact framework names, GitHub repos, technical acronyms, shell commands, and code blocks.\n"
+                    f"- Translate text inside 'title', 'podcast_script', 'highlights', 'what_it_does', 'pain_point_solved', 'real_world_use', 'quick_take', and within 'social_post' ('hook', 'editorial_hook', 'why_it_matters', 'core_mechanism', 'target_audience', 'pros_and_cons').\n"
+                    f"- Keep the JSON schema, keys, and IDs completely identical.\n"
+                    f"- Output strictly valid JSON only.\n\n"
+                    f"{json.dumps(to_translate, ensure_ascii=False)}"
+                )
+
+                candidate_models = []
+                if model:
+                    candidate_models.append(model)
+                for cand in ["gemini-3.8-flash", "gemini-3-flash-preview", "gemini-3.5-flash", "gemini-3.6-flash", "gemini-flash-latest"]:
+                    if cand not in candidate_models:
+                        candidate_models.append(cand)
+
+                for candidate in candidate_models:
+                    try:
+                        res = client.models.generate_content(
+                            model=candidate,
+                            contents=prompt,
+                            config=types.GenerateContentConfig(
+                                temperature=0.3,
+                                response_mime_type="application/json"
+                            )
+                        )
+                        if res and res.text:
+                            parsed = json.loads(res.text)
+                            if "title" in parsed and "podcast_script" in parsed:
+                                translated_result = parsed
+                                used_model = candidate
+                                break
+                    except Exception as ex:
+                        logger.warning(f"Translation with {candidate} failed: {ex}")
+            except Exception as e:
+                logger.error(f"Translation service failed: {e}")
+
+        # Merge translated fields back onto existing structure
+        translated_summaries = []
+        original_summaries = digest.skill_summaries or []
+        translated_by_id = {s.get("skill_id"): s for s in translated_result.get("skill_summaries", []) if isinstance(s, dict)}
+
+        for orig in original_summaries:
+            sid = orig.get("skill_id")
+            trans = translated_by_id.get(sid, {})
+            merged = dict(orig)
+            if trans.get("title"):
+                merged["title"] = trans["title"]
+            if trans.get("what_it_does"):
+                merged["what_it_does"] = trans["what_it_does"]
+            if trans.get("pain_point_solved"):
+                merged["pain_point_solved"] = trans["pain_point_solved"]
+            if trans.get("real_world_use"):
+                merged["real_world_use"] = trans["real_world_use"]
+            if trans.get("quick_take"):
+                merged["quick_take"] = trans["quick_take"]
+            if trans.get("social_post") and isinstance(trans["social_post"], dict):
+                merged["social_post"] = trans["social_post"]
+            translated_summaries.append(merged)
+
+        return {
+            "id": digest.id,
+            "digest_date": digest.digest_date,
+            "title": translated_result.get("title") or digest.title,
+            "summary_markdown": digest.summary_markdown,
+            "podcast_script": translated_result.get("podcast_script") or digest.podcast_script,
+            "highlights": translated_result.get("highlights") or digest.highlights or [],
+            "skill_summaries": translated_summaries if translated_summaries else original_summaries,
+            "total_skills_count": digest.total_skills_count,
+            "has_audio": bool(digest.podcast_audio_base64 and len(digest.podcast_audio_base64) > 1000),
+            "podcast_duration_sec": digest.podcast_duration_sec or 0.0,
+            "podcast_voice": digest.podcast_voice,
+            "source_model": used_model,
+            "target_lang": target_lang,
+            "updated_at": digest.updated_at.isoformat() if digest.updated_at else None
+        }
 
     @classmethod
     async def synthesize_podcast_audio(

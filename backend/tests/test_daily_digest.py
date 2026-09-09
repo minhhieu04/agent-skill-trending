@@ -289,3 +289,19 @@ async def test_stream_podcast_audio():
             assert len(res.content) > 0
 
 
+def test_translate_daily_digest_endpoint():
+    with TestClient(app) as client:
+        res = client.post(
+            "/api/v1/daily-digest/today/translate",
+            json={"target_language": "en", "model": "gemini-3.8-flash"}
+        )
+        assert res.status_code == 200
+        data = res.json()
+        assert "title" in data
+        assert "podcast_script" in data
+        assert data.get("target_lang") == "en"
+        assert "skill_summaries" in data
+        assert isinstance(data["skill_summaries"], list)
+
+
+

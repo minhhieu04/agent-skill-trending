@@ -4,6 +4,10 @@ from sqlalchemy import desc
 from typing import List, Optional, Dict, Any
 from pydantic import BaseModel, ConfigDict
 from datetime import datetime
+import re
+import logging
+
+logger = logging.getLogger("SkillsAPI")
 
 from database import get_db
 from models.skill import Skill
@@ -15,6 +19,7 @@ from services.skill_service import SkillService
 from services.exporter_service import ExporterService
 from services.security_scanner import SecurityScanner
 from services.learning_track_service import LearningTrackService
+from services.readme_service import ReadmeService, SUPPORTED_LANGUAGES
 
 router = APIRouter(tags=["Skills"])
 
@@ -30,6 +35,7 @@ class SkillResponse(BaseModel):
     comparison_notes: Optional[str] = None
     target_audience: Optional[str] = None
     readme_preview: Optional[str] = None
+    readme_translations: Optional[Dict[str, Any]] = {}
     demo_url: Optional[str] = None
     category: str
     tags: List[str]
@@ -59,6 +65,26 @@ class SkillResponse(BaseModel):
 
 class CompareRequest(BaseModel):
     skill_ids: List[int]
+
+class TranslateReadmeRequest(BaseModel):
+    target_language: str = "vi"
+    preferred_provider: Optional[str] = "auto"
+    force_refresh: bool = False
+
+class ReadmeResponse(BaseModel):
+    skill_id: int
+    readme: str
+    is_fallback: bool
+    translations: Dict[str, Any] = {}
+    source: str
+
+class TranslateReadmeResponse(BaseModel):
+    skill_id: int
+    target_language: str
+    translated_text: str
+    provider: str
+    model_used: str
+    cached: bool
 
 class CategoryInfoResponse(BaseModel):
     key: str
@@ -322,6 +348,11 @@ def toggle_bookmark(
     db.refresh(skill)
     return skill
 
+# List available translation providers and live status
+@router.get("/skills/translation-providers")
+async def get_translation_providers():
+    return await ReadmeService.get_available_providers()
+
 # 1-Click Multi-IDE Export Endpoints
 @router.get("/skills/{skill_id}/export/{target_ide}")
 def export_skill_config(
@@ -358,7 +389,7 @@ def get_skill_security_report(
     return SecurityScanner.scan_skill(skill)
 
 @router.get("/skills/{skill_id}", response_model=SkillResponse)
-def get_skill_detail(
+async def get_skill_detail(
     skill_id: int,
     current_user: Optional[User] = Depends(get_optional_current_user),
     db: Session = Depends(get_db)
@@ -367,9 +398,211 @@ def get_skill_detail(
     if not skill:
         raise HTTPException(status_code=404, detail="Skill not found")
     SkillService.ensure_enriched(skill)
+
+    # Auto-fetch real README from GitHub if missing or placeholder
+    is_placeholder = (
+        not skill.readme_preview
+        or len(skill.readme_preview.strip()) < 100
+        or (skill.readme_preview.startswith("# " + (skill.title or skill.name)) and "Xem thêm chi tiết" in skill.readme_preview)
+    )
+    if is_placeholder and skill.repository_url:
+        try:
+            fetched_readme = await ReadmeService.fetch_github_readme(skill.repository_url)
+            if fetched_readme:
+                skill.readme_preview = fetched_readme
+                skill.updated_at = datetime.utcnow()
+                db.commit()
+                db.refresh(skill)
+        except Exception as e:
+            pass
+
+    # Auto-translate CJK/foreign summary to natural Vietnamese
+    cjk_regex = re.compile(r"[\u4e00-\u9fff]")
+    text_to_check = skill.ai_summary or skill.description or ""
+    if text_to_check and cjk_regex.search(text_to_check):
+        try:
+            vi_summary = await ReadmeService.translate_summary_to_vietnamese(text_to_check, name=skill.name)
+            if vi_summary and not cjk_regex.search(vi_summary):
+                skill.ai_summary = vi_summary
+                skill.updated_at = datetime.utcnow()
+                db.commit()
+                db.refresh(skill)
+        except Exception as trans_err:
+            logger.warning(f"Could not auto-translate CJK summary for skill {skill_id}: {trans_err}")
+
     if current_user:
         SkillService.populate_user_bookmarks([skill], current_user.id, db)
     return skill
+
+# Quick on-demand summary translation endpoint
+@router.post("/skills/{skill_id}/summary/translate")
+async def translate_skill_summary(
+    skill_id: int,
+    db: Session = Depends(get_db)
+):
+    skill = db.query(Skill).filter(Skill.id == skill_id).first()
+    if not skill:
+        raise HTTPException(status_code=404, detail="Skill not found")
+    
+    text_to_check = skill.description or skill.ai_summary or ""
+    vi_summary = await ReadmeService.translate_summary_to_vietnamese(text_to_check, name=skill.name)
+    if vi_summary:
+        skill.ai_summary = vi_summary
+        skill.updated_at = datetime.utcnow()
+        db.commit()
+        db.refresh(skill)
+    return {"skill_id": skill.id, "ai_summary": skill.ai_summary}
+
+# Official GitHub README retrieval
+@router.get("/skills/{skill_id}/readme", response_model=ReadmeResponse)
+async def get_skill_readme(
+    skill_id: int,
+    db: Session = Depends(get_db)
+):
+    skill = db.query(Skill).filter(Skill.id == skill_id).first()
+    if not skill:
+        raise HTTPException(status_code=404, detail="Skill not found")
+    
+    source = "db"
+    is_placeholder = (
+        not skill.readme_preview
+        or len(skill.readme_preview.strip()) < 100
+        or (skill.readme_preview.startswith("# " + (skill.title or skill.name)) and "Xem thêm chi tiết" in skill.readme_preview)
+    )
+    if is_placeholder and skill.repository_url:
+        fetched_readme = await ReadmeService.fetch_github_readme(skill.repository_url)
+        if fetched_readme:
+            skill.readme_preview = fetched_readme
+            skill.updated_at = datetime.utcnow()
+            db.commit()
+            db.refresh(skill)
+            source = "github"
+
+    readme_content = (
+        skill.readme_preview
+        or f"# {skill.title or skill.name}\n\n{skill.description or 'No description available.'}\n\nXem thêm chi tiết tại: {skill.repository_url}"
+    )
+    is_fallback = not bool(skill.readme_preview)
+
+    return {
+        "skill_id": skill.id,
+        "readme": readme_content,
+        "is_fallback": is_fallback,
+        "translations": skill.readme_translations or {},
+        "source": source
+    }
+
+# Force refresh README from GitHub
+@router.post("/skills/{skill_id}/readme/refresh", response_model=ReadmeResponse)
+async def refresh_skill_readme(
+    skill_id: int,
+    db: Session = Depends(get_db)
+):
+    skill = db.query(Skill).filter(Skill.id == skill_id).first()
+    if not skill:
+        raise HTTPException(status_code=404, detail="Skill not found")
+    
+    if not skill.repository_url:
+        raise HTTPException(status_code=400, detail="Skill has no repository URL")
+    
+    fetched = await ReadmeService.fetch_github_readme(skill.repository_url)
+    if not fetched:
+        raise HTTPException(status_code=404, detail="Could not fetch README from GitHub repository")
+    
+    skill.readme_preview = fetched
+    skill.updated_at = datetime.utcnow()
+    # Reset cached translations because base README changed
+    skill.readme_translations = {}
+    db.commit()
+    db.refresh(skill)
+
+    return {
+        "skill_id": skill.id,
+        "readme": skill.readme_preview,
+        "is_fallback": False,
+        "translations": {},
+        "source": "github_refresh"
+    }
+
+# AI Multi-Tier README Translation
+@router.post("/skills/{skill_id}/readme/translate", response_model=TranslateReadmeResponse)
+async def translate_skill_readme(
+    skill_id: int,
+    payload: TranslateReadmeRequest,
+    db: Session = Depends(get_db)
+):
+    skill = db.query(Skill).filter(Skill.id == skill_id).first()
+    if not skill:
+        raise HTTPException(status_code=404, detail="Skill not found")
+    
+    target_lang = (payload.target_language or "vi").lower()
+    pref_provider = (payload.preferred_provider or "auto").lower()
+    translations = skill.readme_translations or {}
+
+    # Check cache if not forcing refresh
+    if not payload.force_refresh and target_lang in translations:
+        cached_entry = translations[target_lang]
+        cached_model = str(cached_entry.get("model_used", "")).lower()
+        cached_provider = str(cached_entry.get("provider", "")).lower()
+
+        provider_matches = (
+            pref_provider == "auto"
+            or (pref_provider == "local_llm" and cached_provider == "local_llm")
+            or (pref_provider == "translation_engine" and cached_provider == "translation_engine")
+            or (pref_provider.startswith("gemini") and (cached_provider == "gemini" or pref_provider in cached_model))
+        )
+
+        if provider_matches and cached_entry.get("content"):
+            return {
+                "skill_id": skill.id,
+                "target_language": target_lang,
+                "translated_text": cached_entry.get("content", ""),
+                "provider": cached_entry.get("provider", "cache"),
+                "model_used": cached_entry.get("model_used", "cache"),
+                "cached": True
+            }
+
+    # Ensure authentic README content
+    content_to_translate = skill.readme_preview
+    if not content_to_translate or len(content_to_translate.strip()) < 100:
+        if skill.repository_url:
+            fetched = await ReadmeService.fetch_github_readme(skill.repository_url)
+            if fetched:
+                skill.readme_preview = fetched
+                content_to_translate = fetched
+
+    if not content_to_translate:
+        content_to_translate = f"# {skill.title or skill.name}\n\n{skill.description or ''}"
+
+    res = await ReadmeService.translate_markdown_content(
+        content=content_to_translate,
+        target_lang=target_lang,
+        preferred_provider=pref_provider,
+    )
+
+    if not res.get("success") and not res.get("translated_text"):
+        raise HTTPException(status_code=500, detail=res.get("error", "Translation failed"))
+
+    # Persist in DB
+    new_translations = dict(skill.readme_translations or {})
+    new_translations[target_lang] = {
+        "content": res.get("translated_text"),
+        "provider": res.get("provider"),
+        "model_used": res.get("model_used"),
+        "translated_at": datetime.utcnow().isoformat()
+    }
+    skill.readme_translations = new_translations
+    db.commit()
+    db.refresh(skill)
+
+    return {
+        "skill_id": skill.id,
+        "target_language": target_lang,
+        "translated_text": res.get("translated_text"),
+        "provider": res.get("provider"),
+        "model_used": res.get("model_used"),
+        "cached": False
+    }
 
 # AI Learning Track & Goal Recommendation Endpoint
 @router.post("/skills/ai-recommend-track", response_model=AIRecommendationResponse)

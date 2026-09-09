@@ -24,7 +24,10 @@ import {
   AgentChatResponse,
   AgentChatSuggestion,
   AgentChatSessionSummary,
-  AgentChatSessionDetail
+  AgentChatSessionDetail,
+  ReadmeData,
+  TranslateReadmeResult,
+  TranslationProviderOption
 } from '../types';
 
 const rawBase = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace(/\/+$/, '') : '';
@@ -153,6 +156,65 @@ export const api = {
       headers: getAuthHeaders(),
     });
     if (!res.ok) throw new Error('Failed to fetch skill detail');
+    return res.json();
+  },
+
+  getTranslationProviders: async (): Promise<TranslationProviderOption[]> => {
+    const res = await fetch(`${API_BASE}/skills/translation-providers`, {
+      headers: getAuthHeaders(),
+    });
+    if (!res.ok) throw new Error('Failed to fetch translation providers');
+    return res.json();
+  },
+
+  translateSkillSummary: async (skillId: number): Promise<{ skill_id: number; ai_summary: string }> => {
+    const res = await fetch(`${API_BASE}/skills/${skillId}/summary/translate`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+    });
+    if (!res.ok) throw new Error('Failed to translate skill summary');
+    return res.json();
+  },
+
+  getSkillReadme: async (skillId: number): Promise<ReadmeData> => {
+    const res = await fetch(`${API_BASE}/skills/${skillId}/readme`, {
+      headers: getAuthHeaders(),
+    });
+    if (!res.ok) throw new Error('Failed to fetch repository README');
+    return res.json();
+  },
+
+  refreshSkillReadme: async (skillId: number): Promise<ReadmeData> => {
+    const res = await fetch(`${API_BASE}/skills/${skillId}/readme/refresh`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+    });
+    if (!res.ok) throw new Error('Failed to refresh repository README from GitHub');
+    return res.json();
+  },
+
+  translateSkillReadme: async (
+    skillId: number, 
+    targetLanguage: string = 'vi', 
+    forceRefresh: boolean = false,
+    preferredProvider: string = 'auto'
+  ): Promise<TranslateReadmeResult> => {
+    const res = await fetch(`${API_BASE}/skills/${skillId}/readme/translate`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...getAuthHeaders(),
+      },
+      body: JSON.stringify({ 
+        target_language: targetLanguage, 
+        force_refresh: forceRefresh,
+        preferred_provider: preferredProvider
+      }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: 'Failed to translate README' }));
+      throw new Error(err.detail || 'Failed to translate README');
+    }
     return res.json();
   },
 
@@ -513,13 +575,31 @@ export const api = {
     return res.json();
   },
 
-  regenerateDailyDigest: async (date: string, language: string = 'vi'): Promise<import('../types').DailyDigest> => {
+  regenerateDailyDigest: async (
+    date: string,
+    language: string = 'vi',
+    model: string = 'gemini-3.8-flash'
+  ): Promise<import('../types').DailyDigest> => {
     const res = await fetch(`${API_BASE}/daily-digest/${encodeURIComponent(date)}/generate`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-      body: JSON.stringify({ language }),
+      body: JSON.stringify({ language, model }),
     });
     if (!res.ok) throw new Error(`Không thể sinh lại bản tin ngày ${date}`);
+    return res.json();
+  },
+
+  translateDailyDigest: async (
+    date: string,
+    targetLanguage: string = 'en',
+    model: string = 'gemini-3.8-flash'
+  ): Promise<import('../types').DailyDigest> => {
+    const res = await fetch(`${API_BASE}/daily-digest/${encodeURIComponent(date)}/translate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+      body: JSON.stringify({ target_language: targetLanguage, model }),
+    });
+    if (!res.ok) throw new Error(`Không thể dịch bản tin ngày ${date}`);
     return res.json();
   },
 

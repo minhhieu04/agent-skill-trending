@@ -57,8 +57,17 @@ const DEFAULT_PODCAST_VOICES: VoiceOption[] = [
   { id: 'en-US-JennyNeural', name: 'Jenny (Female - Dynamic Tech Host)', provider: 'edge_tts', language: 'en-US', gender: 'female', style: 'Tutorial & Explainer', preview_text: '', badge: 'DYNAMIC HOST' },
 ];
 
+const AVAILABLE_GEMINI_MODELS = [
+  { id: 'gemini-3.8-flash', name: 'Gemini 3.8 Flash (Mới nhất)' },
+  { id: 'gemini-3-flash-preview', name: 'Gemini 3 Flash' },
+  { id: 'gemini-3.5-flash', name: 'Gemini 3.5 Flash' },
+  { id: 'gemini-3.6-flash', name: 'Gemini 3.6 Flash' },
+  { id: 'gemini-3.1-pro-preview', name: 'Gemini 3.1 Pro' },
+];
+
 const formatModelName = (model?: string) => {
-  if (!model) return 'Gemini 3 Flash';
+  if (!model) return 'Gemini 3.8 Flash';
+  if (model.includes('3.8-flash')) return 'Gemini 3.8 Flash';
   if (model.includes('3.1-pro')) return 'Gemini 3.1 Pro';
   if (model.includes('3.6-flash')) return 'Gemini 3.6 Flash';
   if (model.includes('3.5-flash-lite')) return 'Gemini 3.5 Flash Lite';
@@ -94,6 +103,12 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
   const [playbackRate, setPlaybackRate] = useState<number>(1.0);
   const [selectedVoice, setSelectedVoice] = useState<string>('gemini-Aoede');
   const [isAudioLoading, setIsAudioLoading] = useState<boolean>(false);
+
+  // Digest Model & Translation State (Gemini 3.8 Flash First)
+  const [selectedModel, setSelectedModel] = useState<string>('gemini-3.8-flash');
+  const [translatedDigest, setTranslatedDigest] = useState<DailyDigest | null>(null);
+  const [activeDisplayLang, setActiveDisplayLang] = useState<'vi' | 'en'>('vi');
+  const [isTranslating, setIsTranslating] = useState<boolean>(false);
 
   // Active View Tab inside Hero: 'script' | 'highlights'
   const [heroTab, setHeroTab] = useState<'script' | 'highlights'>('script');
@@ -256,6 +271,15 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
     enabled: Boolean(selectedDate),
   });
 
+  // Active digest: translated version if user toggled to English, else server digest
+  const activeDigest = (activeDisplayLang === 'en' && translatedDigest) ? translatedDigest : digest;
+
+  // Reset translated digest when date changes
+  useEffect(() => {
+    setTranslatedDigest(null);
+    setActiveDisplayLang('vi');
+  }, [selectedDate]);
+
   // Track bookmarked skills reactively
   const { data: bookmarkedSkills = [] } = useQuery<any[]>({
     queryKey: ['bookmarkedSkills'],
@@ -396,12 +420,42 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
     }
   };
 
-  // 4. Regenerate Digest Mutation
+  // 4. Translate Summary Handler (Gemini 3.8 Flash)
+  const handleToggleTranslate = async () => {
+    if (activeDisplayLang === 'en') {
+      setActiveDisplayLang('vi');
+      showToast('Đã chuyển về bản tóm tắt Tiếng Việt', 'info');
+      return;
+    }
+
+    if (translatedDigest) {
+      setActiveDisplayLang('en');
+      showToast('Đã hiển thị bản tóm tắt Tiếng Anh', 'success');
+      return;
+    }
+
+    try {
+      setIsTranslating(true);
+      showToast(`Đang dịch toàn bộ bản tóm tắt sang Tiếng Anh bằng ${formatModelName(selectedModel)}...`, 'info');
+      const trans = await api.translateDailyDigest(selectedDate, 'en', selectedModel);
+      setTranslatedDigest(trans);
+      setActiveDisplayLang('en');
+      showToast('Dịch bản tóm tắt thành công!', 'success');
+    } catch (err: any) {
+      showToast(err?.message || 'Dịch bản tóm tắt thất bại', 'error');
+    } finally {
+      setIsTranslating(false);
+    }
+  };
+
+  // 5. Regenerate Digest Mutation with chosen model
   const regenerateMutation = useMutation({
-    mutationFn: () => api.regenerateDailyDigest(selectedDate, language),
+    mutationFn: () => api.regenerateDailyDigest(selectedDate, language, selectedModel),
     onSuccess: (updatedDigest) => {
       queryClient.setQueryData(['dailyDigest', selectedDate], updatedDigest);
       queryClient.invalidateQueries({ queryKey: ['dailyDigestDates'] });
+      setTranslatedDigest(null);
+      setActiveDisplayLang('vi');
       // Reset audio so it re-synthesizes on play
       if (audioRef.current) {
         audioRef.current.pause();
@@ -409,7 +463,7 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
       }
       setIsPlaying(false);
       setCurrentTime(0);
-      showToast('Đã dùng AI phân tích và tạo lại bản tin podcast!', 'success');
+      showToast(`Đã dùng AI (${formatModelName(updatedDigest.source_model)}) phân tích và tạo lại bản tin podcast!`, 'success');
     },
     onError: (err: any) => {
       showToast(err.message || 'Lỗi khi tái tạo bản tin', 'error');
@@ -498,7 +552,7 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
   };
 
   // Filter skills in digest
-  const rawSkills: SkillDigestSummary[] = digest?.skill_summaries || [];
+  const rawSkills: SkillDigestSummary[] = activeDigest?.skill_summaries || [];
   const categoriesInDigest = Array.from(new Set(rawSkills.map((s) => s.category))).filter(Boolean);
 
   const filteredSkills = rawSkills.filter((s) => {
@@ -608,7 +662,7 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
   };
 
   // Safely extract highlights list regardless of backend runtime data shape (array, string, JSON string)
-  const rawHighlights: any = digest?.highlights;
+  const rawHighlights: any = activeDigest?.highlights;
   const safeHighlights: string[] = Array.isArray(rawHighlights)
     ? rawHighlights
     : typeof rawHighlights === 'string'
@@ -785,7 +839,7 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
             {loadingDigest ? (
               <div className="h-7 w-3/4 neu-inset rounded-xl animate-pulse" />
             ) : (
-              digest?.title || `Bản Tin AI Radar Ngày ${selectedDate}`
+              activeDigest?.title || `Bản Tin AI Radar Ngày ${selectedDate}`
             )}
           </h2>
 
@@ -837,7 +891,40 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
               />
             </div>
 
-            <div className="flex items-center gap-2 shrink-0 justify-end">
+            <div className="flex items-center gap-2 shrink-0 justify-end flex-wrap">
+              {/* Translate Summary (VI / EN) Toggle Button */}
+              <button
+                onClick={handleToggleTranslate}
+                disabled={isTranslating || loadingDigest}
+                title={
+                  activeDisplayLang === 'en'
+                    ? 'Chuyển về bản gốc Tiếng Việt'
+                    : 'Dịch toàn bộ bản tóm tắt và các bài viết sang Tiếng Anh bằng Gemini 3.8 Flash'
+                }
+                className={`px-3 py-2 rounded-xl neu-btn disabled:opacity-50 flex items-center gap-1.5 text-xs font-semibold cursor-pointer transition-all ${
+                  activeDisplayLang === 'en'
+                    ? 'neu-inset text-[var(--primary)] font-bold shadow-inner'
+                    : 'text-[var(--text-muted)] hover:text-[var(--primary)]'
+                }`}
+              >
+                <Globe
+                  className={`w-3.5 h-3.5 ${
+                    isTranslating
+                      ? 'animate-spin text-[var(--primary)]'
+                      : activeDisplayLang === 'en'
+                      ? 'text-[var(--primary)]'
+                      : 'text-sky-500'
+                  }`}
+                />
+                <span className="text-[11px] whitespace-nowrap">
+                  {isTranslating
+                    ? 'Đang dịch...'
+                    : activeDisplayLang === 'en'
+                    ? 'Xem Tiếng Việt'
+                    : 'Dịch tóm tắt (EN)'}
+                </span>
+              </button>
+
               {/* Force Audio Re-synthesize Button */}
               <button
                 onClick={() => {
@@ -961,7 +1048,19 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
 
             <div className="flex items-center gap-1.5 px-3 py-1 rounded-full neu-inset-sm text-xs font-mono text-[var(--primary)] font-semibold ml-auto shadow-inner">
               <Sparkles className="w-3.5 h-3.5 text-[var(--primary)] shrink-0" />
-              <span>Model: {formatModelName(digest?.source_model)}</span>
+              <span className="text-[10px] text-[var(--text-muted)] hidden sm:inline">Model:</span>
+              <select
+                value={selectedModel}
+                onChange={(e) => setSelectedModel(e.target.value)}
+                title="Chọn mô hình Gemini ưu tiên khi phân tích hoặc dịch"
+                className="bg-transparent text-[var(--primary)] font-mono text-xs font-bold outline-none cursor-pointer pr-1"
+              >
+                {AVAILABLE_GEMINI_MODELS.map((m) => (
+                  <option key={m.id} value={m.id} className="bg-[var(--bg-main)] text-[var(--text-main)] font-sans">
+                    {m.name}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
 
@@ -974,9 +1073,9 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
                     <div className="h-3.5 bg-[var(--shadow-dark)]/20 rounded-lg w-5/6" />
                     <div className="h-3.5 bg-[var(--shadow-dark)]/20 rounded-lg w-4/6" />
                   </div>
-                ) : digest?.podcast_script ? (
+                ) : activeDigest?.podcast_script ? (
                   <div className="whitespace-pre-line font-sans">
-                    {digest.podcast_script}
+                    {activeDigest.podcast_script}
                   </div>
                 ) : (
                   <p className="text-[var(--text-muted)] italic">Chưa có kịch bản cho ngày này. Bấm Tái tạo bài để tạo.</p>

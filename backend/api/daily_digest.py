@@ -23,6 +23,12 @@ class AudioSynthesizeRequest(BaseModel):
 
 class RegenerateRequest(BaseModel):
     language: Optional[str] = "vi"
+    model: Optional[str] = "gemini-3.8-flash"
+
+
+class TranslateDigestRequest(BaseModel):
+    target_language: Optional[str] = "en"
+    model: Optional[str] = "gemini-3.8-flash"
 
 
 @router.get("/voices")
@@ -114,6 +120,7 @@ async def regenerate_daily_digest(
             db=db,
             date_str=date_str,
             language=payload.language or "vi",
+            model=payload.model or "gemini-3.8-flash",
             force_regenerate=True
         )
         return {
@@ -133,6 +140,28 @@ async def regenerate_daily_digest(
         }
     except Exception as e:
         logger.error(f"Error regenerating daily digest for {date_str}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/{date_str}/translate")
+async def translate_daily_digest(
+    date_str: str,
+    payload: TranslateDigestRequest = TranslateDigestRequest(),
+    db: Session = Depends(get_db)
+):
+    """
+    Translates the daily digest and skill summaries to target language (e.g. 'en' or 'vi') using Gemini 3.8 Flash.
+    """
+    try:
+        translated = await DailyDigestService.translate_digest(
+            db=db,
+            date_str=date_str,
+            target_lang=payload.target_language or "en",
+            model=payload.model or "gemini-3.8-flash"
+        )
+        return translated
+    except Exception as e:
+        logger.error(f"Error translating daily digest for {date_str}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
