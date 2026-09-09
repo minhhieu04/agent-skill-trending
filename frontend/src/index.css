@@ -42,6 +42,14 @@
   }
 }
 
+/* Prevent transition paint storms during theme transitions */
+.no-theme-transition,
+.no-theme-transition *,
+.no-theme-transition *::before,
+.no-theme-transition *::after {
+  transition: none !important;
+}
+
 /* Subtle Shimmer for Skeletons */
 .shimmer-card {
   position: relative;
@@ -113,71 +121,75 @@
 .neu-flat {
   background-color: var(--bg);
   box-shadow: 7px 7px 15px var(--shadow-dark), -7px -7px 15px var(--shadow-light);
-  border: none !important;
+  border: none;
 }
 
 .neu-flat-sm {
   background-color: var(--bg);
   box-shadow: 4px 4px 9px var(--shadow-dark), -4px -4px 9px var(--shadow-light);
-  border: none !important;
+  border: none;
 }
 
 .neu-flat-xs {
   background-color: var(--bg);
   box-shadow: 2px 2px 5px var(--shadow-dark), -2px -2px 5px var(--shadow-light);
-  border: none !important;
+  border: none;
 }
 
 /* Sunken / Inset Surfaces */
 .neu-inset {
   background-color: var(--bg);
   box-shadow: inset 4px 4px 8px var(--shadow-dark), inset -4px -4px 8px var(--shadow-light);
-  border: none !important;
+  border: none;
 }
 
 .neu-inset-sm {
   background-color: var(--bg);
   box-shadow: inset 2.5px 2.5px 5px var(--shadow-dark), inset -2.5px -2.5px 5px var(--shadow-light);
-  border: none !important;
+  border: none;
 }
 
-/* Tactile Buttons */
+/* Tactile Buttons with Inertial Spring Physics */
 .neu-btn {
   background-color: var(--bg);
-  box-shadow: 5px 5px 10px var(--shadow-dark), -5px -5px 10px var(--shadow-light);
-  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 5px 5px 12px var(--shadow-dark), -5px -5px 12px var(--shadow-light);
+  transition: transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.22s cubic-bezier(0.34, 1.56, 0.64, 1), color 0.15s ease;
   cursor: pointer;
-  border: none !important;
+  border: none;
+  user-select: none;
 }
 
 .neu-btn:hover {
-  transform: translateY(-1px);
-  box-shadow: 6px 6px 12px var(--shadow-dark), -6px -6px 12px var(--shadow-light);
+  transform: translateY(-2px) scale(1.005);
+  box-shadow: 7px 7px 16px var(--shadow-dark), -7px -7px 16px var(--shadow-light);
   color: var(--primary);
 }
 
 .neu-btn:active, .neu-btn.active {
-  transform: scale(0.97);
+  transition: transform 0.08s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.08s cubic-bezier(0.2, 0.8, 0.2, 1);
+  transform: translateY(1.5px) scale(0.98);
   box-shadow: inset 3px 3px 6px var(--shadow-dark), inset -3px -3px 6px var(--shadow-light);
   color: var(--primary);
 }
 
 .neu-btn-sm {
   background-color: var(--bg);
-  box-shadow: 3px 3px 7px var(--shadow-dark), -3px -3px 7px var(--shadow-light);
-  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 3px 3px 8px var(--shadow-dark), -3px -3px 8px var(--shadow-light);
+  transition: transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.22s cubic-bezier(0.34, 1.56, 0.64, 1), color 0.15s ease;
   cursor: pointer;
-  border: none !important;
+  border: none;
+  user-select: none;
 }
 
 .neu-btn-sm:hover {
-  transform: translateY(-1px);
-  box-shadow: 4px 4px 8px var(--shadow-dark), -4px -4px 8px var(--shadow-light);
+  transform: translateY(-1.5px) scale(1.005);
+  box-shadow: 5px 5px 12px var(--shadow-dark), -5px -5px 12px var(--shadow-light);
   color: var(--primary);
 }
 
 .neu-btn-sm:active, .neu-btn-sm.active {
-  transform: scale(0.97);
+  transition: transform 0.08s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.08s cubic-bezier(0.2, 0.8, 0.2, 1);
+  transform: translateY(1px) scale(0.98);
   box-shadow: inset 2.5px 2.5px 5px var(--shadow-dark), inset -2.5px -2.5px 5px var(--shadow-light);
   color: var(--primary);
 }
@@ -185,22 +197,24 @@
 /* Accent Gradient Primary CTA */
 .neu-primary {
   background: var(--primary-gradient) !important;
-  box-shadow: 3px 5px 14px rgba(37, 99, 235, 0.28), -3px -3px 8px var(--shadow-light);
+  box-shadow: 4px 6px 16px rgba(37, 99, 235, 0.32), -3px -3px 8px var(--shadow-light);
   color: #ffffff !important;
-  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.22s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.15s ease;
   border: 1px solid rgba(255, 255, 255, 0.2) !important;
   cursor: pointer;
+  user-select: none;
 }
 
 .neu-primary:hover {
-  opacity: 0.96;
-  transform: translateY(-1.5px);
-  box-shadow: 4px 7px 18px rgba(37, 99, 235, 0.38), -4px -4px 10px var(--shadow-light);
+  opacity: 0.98;
+  transform: translateY(-2px) scale(1.008);
+  box-shadow: 6px 10px 22px rgba(37, 99, 235, 0.45), -4px -4px 10px var(--shadow-light);
 }
 
 .neu-primary:active, .neu-primary.active {
-  transform: scale(0.97);
-  box-shadow: inset 2.5px 2.5px 5px rgba(29, 78, 216, 0.6), inset -1px -1px 3px rgba(255, 255, 255, 0.2) !important;
+  transition: transform 0.08s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.08s cubic-bezier(0.2, 0.8, 0.2, 1);
+  transform: translateY(1.5px) scale(0.98);
+  box-shadow: inset 3px 3px 6px rgba(29, 78, 216, 0.65), inset -1px -1px 3px rgba(255, 255, 255, 0.2) !important;
 }
 
 /* Tactile Soft UI Range Slider System */
@@ -426,17 +440,24 @@ input[type="range"]::-moz-range-thumb:active {
   padding: 0.375rem 0.875rem;
   font-size: 0.75rem;
   font-weight: 500;
-  transition: all 0.15s ease;
+  transition: transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.22s cubic-bezier(0.34, 1.56, 0.64, 1), color 0.15s ease;
   background-color: var(--bg);
   box-shadow: 3px 3px 7px var(--shadow-dark), -3px -3px 7px var(--shadow-light);
   color: var(--text-main);
   border: none !important;
   cursor: pointer;
+  user-select: none;
 }
 
 .glass-pill:hover {
-  box-shadow: 2px 2px 4px var(--shadow-dark), -2px -2px 4px var(--shadow-light);
+  transform: translateY(-1.5px) scale(1.005);
+  box-shadow: 5px 5px 11px var(--shadow-dark), -5px -5px 11px var(--shadow-light);
   color: var(--primary);
+}
+
+.glass-pill:active {
+  transition: transform 0.08s cubic-bezier(0.2, 0.8, 0.2, 1);
+  transform: translateY(1px) scale(0.98);
 }
 
 .glass-pill-active {
@@ -465,22 +486,25 @@ input[type="range"]::-moz-range-thumb:active {
   font-weight: 600;
   cursor: pointer;
   background: var(--primary-gradient) !important;
-  box-shadow: 3px 5px 14px rgba(37, 99, 235, 0.28), -3px -3px 8px var(--shadow-light);
+  box-shadow: 4px 6px 16px rgba(37, 99, 235, 0.32), -3px -3px 8px var(--shadow-light);
   color: #ffffff !important;
   border: 1px solid rgba(255, 255, 255, 0.2) !important;
-  transition: all 0.15s ease;
+  transition: transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.22s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.15s ease;
+  user-select: none;
 }
 
 .btn-primary:hover,
 .btn-cta-radiant:hover {
-  opacity: 0.95;
-  transform: translateY(-1px);
+  opacity: 0.98;
+  transform: translateY(-2px) scale(1.008);
+  box-shadow: 6px 10px 22px rgba(37, 99, 235, 0.45), -4px -4px 10px var(--shadow-light);
 }
 
 .btn-primary:active,
 .btn-cta-radiant:active {
-  box-shadow: inset 3px 3px 6px rgba(0, 80, 160, 0.6) !important;
-  transform: translateY(0);
+  transition: transform 0.08s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.08s cubic-bezier(0.2, 0.8, 0.2, 1);
+  transform: translateY(1.5px) scale(0.98);
+  box-shadow: inset 3px 3px 6px rgba(0, 80, 160, 0.65) !important;
 }
 
 .btn-secondary {
@@ -493,18 +517,22 @@ input[type="range"]::-moz-range-thumb:active {
   font-weight: 500;
   cursor: pointer;
   background-color: var(--bg);
-  box-shadow: 4px 4px 8px var(--shadow-dark), -4px -4px 8px var(--shadow-light);
+  box-shadow: 4px 4px 9px var(--shadow-dark), -4px -4px 9px var(--shadow-light);
   color: var(--text-main);
   border: none !important;
-  transition: all 0.15s ease;
+  transition: transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.22s cubic-bezier(0.34, 1.56, 0.64, 1), color 0.15s ease;
+  user-select: none;
 }
 
 .btn-secondary:hover {
-  box-shadow: 2px 2px 5px var(--shadow-dark), -2px -2px 5px var(--shadow-light);
+  transform: translateY(-1.5px) scale(1.005);
+  box-shadow: 6px 6px 14px var(--shadow-dark), -6px -6px 14px var(--shadow-light);
   color: var(--primary);
 }
 
 .btn-secondary:active {
+  transition: transform 0.08s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.08s cubic-bezier(0.2, 0.8, 0.2, 1);
+  transform: translateY(1px) scale(0.98);
   box-shadow: inset 3px 3px 6px var(--shadow-dark), inset -3px -3px 6px var(--shadow-light);
 }
 
@@ -517,14 +545,21 @@ input[type="range"]::-moz-range-thumb:active {
   font-size: 0.75rem;
   font-weight: 500;
   color: var(--text-muted);
-  transition: all 0.15s ease;
+  transition: transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.22s cubic-bezier(0.34, 1.56, 0.64, 1), color 0.15s ease;
   cursor: pointer;
+  user-select: none;
 }
 
 .btn-ghost:hover {
   background-color: var(--bg);
-  box-shadow: 3px 3px 6px var(--shadow-dark), -3px -3px 6px var(--shadow-light);
+  transform: translateY(-1px);
+  box-shadow: 3px 3px 7px var(--shadow-dark), -3px -3px 7px var(--shadow-light);
   color: var(--text-main);
+}
+
+.btn-ghost:active {
+  transition: transform 0.08s cubic-bezier(0.2, 0.8, 0.2, 1);
+  transform: translateY(1px) scale(0.98);
 }
 
 .badge-minimal {
@@ -551,12 +586,18 @@ input[type="range"]::-moz-range-thumb:active {
 
 /* Interactive Neumorphic Tab Controls */
 .neu-tab {
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.22s cubic-bezier(0.34, 1.56, 0.64, 1), color 0.15s ease;
   cursor: pointer;
+  user-select: none;
+}
+
+.neu-tab:hover {
+  transform: translateY(-1.5px) scale(1.005);
 }
 
 .neu-tab:active {
-  transform: scale(0.97);
+  transition: transform 0.08s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.08s cubic-bezier(0.2, 0.8, 0.2, 1);
+  transform: translateY(1.2px) scale(0.98);
 }
 
 .neu-tab-active {
@@ -568,17 +609,19 @@ input[type="range"]::-moz-range-thumb:active {
 
 /* Interactive Card Surfaces */
 .neu-card-interactive {
-  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
+  cursor: pointer;
 }
 
 .neu-card-interactive:hover {
-  transform: translateY(-2px);
+  transform: translateY(-2.5px) scale(1.005);
   box-shadow: 10px 10px 22px var(--shadow-dark), -10px -10px 22px var(--shadow-light);
 }
 
 .neu-card-interactive:active {
-  transform: scale(0.985);
-  box-shadow: inset 2px 2px 5px var(--shadow-dark), inset -2px -2px 5px var(--shadow-light);
+  transition: transform 0.08s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.08s cubic-bezier(0.2, 0.8, 0.2, 1);
+  transform: translateY(1.5px) scale(0.985);
+  box-shadow: inset 3px 3px 6px var(--shadow-dark), inset -3px -3px 6px var(--shadow-light);
 }
 
 /* Page Transitions & Modal Animations */
@@ -617,7 +660,10 @@ input[type="range"]::-moz-range-thumb:active {
 @keyframes modalPop {
   0% {
     opacity: 0;
-    transform: scale(0.95) translateY(10px);
+    transform: scale(0.92) translateY(14px);
+  }
+  75% {
+    transform: scale(1.012) translateY(-2px);
   }
   100% {
     opacity: 1;
@@ -626,7 +672,7 @@ input[type="range"]::-moz-range-thumb:active {
 }
 
 .animate-modal-pop {
-  animation: modalPop 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: modalPop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
 }
 
 /* Theme Switch Transition Morphing Keyframes */

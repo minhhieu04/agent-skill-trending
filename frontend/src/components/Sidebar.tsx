@@ -102,8 +102,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
               setActiveTab('trending');
               if (onCloseMobile) onCloseMobile();
             }}
-            className={`flex items-center cursor-pointer group ${
-              collapsed && !mobileOpen ? 'w-10 h-10 justify-center' : 'gap-3 w-full'
+            className={`flex items-center cursor-pointer group min-w-0 ${
+              collapsed && !mobileOpen ? 'w-10 h-10 justify-center' : 'gap-3 flex-1'
             }`}
           >
             <div className="w-9 h-9 rounded-2xl neu-inset flex items-center justify-center shrink-0 font-black text-blue-600 transition-transform group-hover:scale-105">
@@ -111,12 +111,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </div>
 
             {(!collapsed || mobileOpen) && (
-              <div className="overflow-hidden whitespace-nowrap flex-1">
+              <div className="overflow-hidden whitespace-nowrap min-w-0 flex-1">
                 <div className="flex items-center gap-2">
-                  <span className="font-extrabold text-sm tracking-tight text-slate-800 dark:text-slate-100">
+                  <span className="font-extrabold text-sm tracking-tight text-slate-800 dark:text-slate-100 truncate">
                     Agent<span className="text-blue-600">Skills</span>
                   </span>
-                  <span className="px-2 py-0.5 text-[10px] font-mono rounded-lg neu-inset-sm text-blue-600 dark:text-blue-400 font-bold">
+                  <span className="px-2 py-0.5 text-[10px] font-mono rounded-lg neu-inset-sm text-blue-600 dark:text-blue-400 font-bold shrink-0">
                     2026
                   </span>
                 </div>
@@ -127,10 +127,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
           {/* Close button for Mobile Drawer */}
           {onCloseMobile && (
             <button
-              onClick={onCloseMobile}
-              className="md:hidden p-1.5 rounded-xl neu-btn text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
+              onClick={(e) => {
+                e.stopPropagation();
+                onCloseMobile();
+              }}
+              className="md:hidden flex items-center justify-center w-8 h-8 rounded-xl neu-btn text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 shrink-0 ml-2 cursor-pointer active:scale-95 transition-all"
+              title={t('sidebar_collapse')}
+              aria-label={t('sidebar_collapse')}
             >
-              <X className="w-4 h-4" />
+              <X className="w-4 h-4 shrink-0" />
             </button>
           )}
         </div>
@@ -203,7 +208,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <div className="px-3">
           <div className="neu-divider" />
         </div>
-        <div className={`p-3 space-y-2 flex flex-col shrink-0 ${
+        <div className={`p-3 pb-6 md:pb-3 space-y-2 flex flex-col shrink-0 ${
           collapsed && !mobileOpen ? 'items-center px-1.5' : ''
         }`}>
           {user ? (
@@ -275,6 +280,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
           {/* Collapse / Expand Toggle Button */}
           <button
             onClick={() => {
+              if (mobileOpen || (typeof window !== 'undefined' && window.innerWidth < 768)) {
+                if (onCloseMobile) {
+                  onCloseMobile();
+                  return;
+                }
+              }
               setCollapsed(!collapsed);
               setHoveredItem(null);
             }}
@@ -288,10 +299,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
               }
             }}
             onMouseLeave={() => setHoveredItem(null)}
-            className={`flex items-center h-9 rounded-xl neu-btn text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 transition-colors text-xs font-semibold ${
-              collapsed && !mobileOpen ? 'w-9 justify-center p-0' : 'w-full px-3 gap-2'
+            className={`flex items-center h-10 rounded-xl neu-btn text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 transition-all text-xs font-semibold cursor-pointer active:scale-95 ${
+              collapsed && !mobileOpen ? 'w-10 justify-center p-0' : 'w-full px-3 gap-2'
             }`}
-            aria-label={collapsed ? t('sidebar_expand') : t('sidebar_collapse')}
+            aria-label={collapsed && !mobileOpen ? t('sidebar_expand') : t('sidebar_collapse')}
           >
             {collapsed && !mobileOpen ? (
               <ChevronRight className="w-4 h-4 shrink-0" />
