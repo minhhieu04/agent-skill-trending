@@ -329,12 +329,12 @@ export const SkillDetailModal: React.FC<SkillDetailModalProps> = ({
         <div className="p-4 sm:p-5 bg-[var(--bg)] flex flex-row items-start justify-between gap-3 sm:gap-4 shrink-0">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-1.5 sm:gap-2 mb-1.5 flex-wrap">
-              <span className="text-[11px] font-mono font-bold text-[var(--primary)] neu-inset-sm px-2.5 py-0.5 rounded-xl">
+              <span className="text-[11px] font-mono font-bold text-[var(--primary)] neu-inset-sm px-2.5 py-0.5 rounded-xl whitespace-nowrap shrink-0 inline-flex items-center">
                 {skill.category}
               </span>
               <SecurityBadge rating={skill.security_rating || 'safe'} score={skill.security_score || 95} size="sm" />
               {skill.primary_language && (
-                <span className="text-[11px] font-mono font-bold text-[var(--text-muted)] neu-inset-sm px-2.5 py-0.5 rounded-xl">
+                <span className="text-[11px] font-mono font-bold text-[var(--text-muted)] neu-inset-sm px-2.5 py-0.5 rounded-xl whitespace-nowrap shrink-0 inline-flex items-center">
                   {skill.primary_language}
                 </span>
               )}
@@ -424,7 +424,7 @@ export const SkillDetailModal: React.FC<SkillDetailModalProps> = ({
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`flex-1 min-w-[110px] sm:min-w-0 py-2 px-2.5 sm:px-3 rounded-xl transition-all duration-150 flex items-center justify-center gap-1.5 text-xs font-semibold cursor-pointer ${
+                  className={`flex-1 min-w-[110px] sm:min-w-0 py-2 px-2.5 sm:px-3 rounded-xl transition-all duration-200 ease-out active:scale-[0.97] flex items-center justify-center gap-1.5 text-xs font-semibold cursor-pointer ${
                     isActive
                       ? 'neu-primary text-white font-bold shadow-sm'
                       : 'text-[var(--text-muted)] hover:text-[var(--primary)] font-medium hover:bg-[var(--shadow-dark)]/10'
@@ -433,8 +433,8 @@ export const SkillDetailModal: React.FC<SkillDetailModalProps> = ({
                   <Icon className="w-3.5 h-3.5 shrink-0" />
                   <span className="truncate">{tab.label}</span>
                   {tab.badge && (
-                    <span className={`text-[10px] px-1.5 py-0.2 rounded-md font-mono shrink-0 ${
-                      isActive ? 'bg-white/25 text-white' : 'neu-inset-sm text-[var(--primary)]'
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded-md font-mono shrink-0 whitespace-nowrap inline-flex items-center ${
+                      isActive ? 'bg-white/25 text-white font-bold' : 'neu-inset-sm text-[var(--primary)]'
                     }`}>
                       {tab.badge}
                     </span>

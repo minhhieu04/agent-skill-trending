@@ -216,12 +216,14 @@ export const ImageToMatrixConverter: React.FC = () => {
             <Sparkles className="w-5 h-5" />
           </div>
           <div>
-            <h3 className="text-sm sm:text-base font-bold text-[var(--text-main)] flex items-center gap-2">
-              Chuyển Đổi Ảnh Thành Mã Nhị Phân 01 & Matrix Art
-              <span className="text-[10px] font-mono px-2.5 py-0.5 rounded-full neu-inset-sm text-[var(--primary)] font-semibold">
+            <div className="flex flex-wrap items-center gap-2">
+              <h3 className="text-sm sm:text-base font-bold text-[var(--text-main)]">
+                Chuyển Đổi Ảnh Thành Mã Nhị Phân 01 & Matrix Art
+              </h3>
+              <span className="text-[10px] font-mono px-2.5 py-0.5 rounded-full neu-inset-sm text-[var(--primary)] font-semibold whitespace-nowrap shrink-0 inline-flex items-center">
                 100% Client Privacy
               </span>
-            </h3>
+            </div>
             <p className="text-xs text-[var(--text-muted)] mt-0.5">
               Tải bất kỳ ảnh nào sang chuỗi nhị phân 01, Matrix Hacker hoặc chữ nghệ thuật thời gian thực.
             </p>
@@ -239,7 +241,7 @@ export const ImageToMatrixConverter: React.FC = () => {
           />
           <button
             onClick={() => fileInputRef.current?.click()}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-2xl neu-primary text-white text-xs font-semibold transition-all active:scale-95"
+            className="flex items-center gap-2 px-4 py-2.5 rounded-2xl neu-primary text-white text-xs font-semibold transition-all active:scale-[0.97] hover:-translate-y-0.5 cursor-pointer"
           >
             <Upload className="w-3.5 h-3.5" />
             <span>Chọn ảnh từ máy của bạn</span>
@@ -366,7 +368,7 @@ export const ImageToMatrixConverter: React.FC = () => {
             <div className="flex items-center gap-2">
               <button
                 onClick={handleDownloadHtml}
-                className="px-3 py-1.5 rounded-xl text-xs font-mono neu-btn text-[var(--text-main)] hover:text-[var(--primary)] transition-all flex items-center gap-1.5 font-semibold"
+                className="px-3 py-1.5 rounded-xl text-xs font-mono neu-btn text-[var(--text-main)] hover:text-[var(--primary)] transition-all flex items-center gap-1.5 font-semibold active:scale-[0.97] cursor-pointer"
                 title="Tải trang web Matrix phát sáng"
               >
                 <Download className="w-3 h-3" />
@@ -375,7 +377,7 @@ export const ImageToMatrixConverter: React.FC = () => {
 
               <button
                 onClick={handleDownloadTxt}
-                className="px-3 py-1.5 rounded-xl text-xs font-mono neu-btn text-[var(--text-main)] hover:text-[var(--primary)] transition-all flex items-center gap-1.5 font-semibold"
+                className="px-3 py-1.5 rounded-xl text-xs font-mono neu-btn text-[var(--text-main)] hover:text-[var(--primary)] transition-all flex items-center gap-1.5 font-semibold active:scale-[0.97] cursor-pointer"
               >
                 <Download className="w-3 h-3" />
                 <span>Tải .TXT</span>
@@ -383,7 +385,7 @@ export const ImageToMatrixConverter: React.FC = () => {
 
               <button
                 onClick={handleCopy}
-                className="px-3.5 py-1.5 rounded-xl neu-primary text-white text-xs font-mono font-semibold transition-all flex items-center gap-1.5"
+                className="px-3.5 py-1.5 rounded-xl neu-primary text-white text-xs font-mono font-semibold transition-all flex items-center gap-1.5 active:scale-[0.97] hover:-translate-y-0.5 cursor-pointer"
               >
                 {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
                 <span>{copied ? 'Đã sao chép' : 'Sao chép Matrix 01'}</span>

@@ -24,14 +24,14 @@ export const BookmarksPage: React.FC<BookmarksPageProps> = ({
 
   return (
     <div className="space-y-6">
-      <div className="p-5 sm:p-6 rounded-3xl neu-flat flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl neu-inset text-[var(--primary)] flex items-center justify-center">
+      <div className="p-4 sm:p-6 rounded-3xl neu-flat flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="w-10 h-10 rounded-2xl neu-inset text-[var(--primary)] flex items-center justify-center shrink-0">
             <BookmarkCheck className="w-5 h-5" />
           </div>
-          <div>
-            <h2 className="text-base sm:text-lg font-bold text-[var(--text-main)]">{t('bookmarks_title')}</h2>
-            <p className="text-xs text-[var(--text-muted)] mt-0.5">
+          <div className="min-w-0">
+            <h2 className="text-base sm:text-lg font-bold text-[var(--text-main)] truncate">{t('bookmarks_title')}</h2>
+            <p className="text-xs text-[var(--text-muted)] mt-0.5 line-clamp-2 sm:line-clamp-none">
               {t('bookmarks_sub')}
             </p>
           </div>
@@ -39,9 +39,9 @@ export const BookmarksPage: React.FC<BookmarksPageProps> = ({
 
         <button
           onClick={onBackToFeed}
-          className="flex items-center gap-1.5 px-4 py-2 rounded-2xl text-xs font-semibold neu-btn text-[var(--text-muted)] hover:text-[var(--primary)] transition-all"
+          className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-semibold neu-btn text-[var(--text-muted)] hover:text-[var(--primary)] whitespace-nowrap shrink-0 transition-all self-end sm:self-auto cursor-pointer"
         >
-          <ArrowLeft className="w-3.5 h-3.5" />
+          <ArrowLeft className="w-3.5 h-3.5 shrink-0" />
           <span>{t('tab_trending')}</span>
         </button>
       </div>

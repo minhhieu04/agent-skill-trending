@@ -65,8 +65,8 @@ export default {
         neu: {
           bg: '#e0e5ec',
           'bg-dark': '#1e232a',
-          primary: '#0084ff',
-          cyan: '#00c6ff',
+          primary: '#2563eb',
+          cyan: '#38bdf8',
           dark: '#a3b1c6',
           light: '#ffffff',
         }
@@ -84,8 +84,8 @@ export default {
         'neu-btn': '5px 5px 10px var(--shadow-dark), -5px -5px 10px var(--shadow-light)',
         'neu-btn-hover': '3px 3px 6px var(--shadow-dark), -3px -3px 6px var(--shadow-light)',
         'neu-btn-active': 'inset 3px 3px 6px var(--shadow-dark), inset -3px -3px 6px var(--shadow-light)',
-        'neu-primary': '5px 5px 14px rgba(0, 132, 255, 0.35), -5px -5px 12px var(--shadow-light)',
-        'neu-primary-active': 'inset 3px 3px 6px rgba(0, 80, 160, 0.6)',
+        'neu-primary': '3px 5px 14px rgba(37, 99, 235, 0.28), -3px -3px 8px var(--shadow-light)',
+        'neu-primary-active': 'inset 2.5px 2.5px 5px rgba(29, 78, 216, 0.6)',
         'neu-modal': '14px 14px 32px var(--shadow-dark), -14px -14px 32px var(--shadow-light)',
         'neu-dock': '6px 6px 16px var(--shadow-dark), -2px -2px 10px var(--shadow-light)',
         'glass': '0 1px 3px 0 rgba(0, 0, 0, 0.05)',

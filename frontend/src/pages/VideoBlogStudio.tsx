@@ -698,15 +698,15 @@ export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-5">
           <div className="space-y-1.5 max-w-2xl">
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-semibold uppercase tracking-wider neu-inset-sm text-[var(--primary)] flex items-center gap-1.5">
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-semibold uppercase tracking-wider neu-inset-sm text-[var(--primary)] flex items-center gap-1.5 whitespace-nowrap shrink-0">
                 <Radio className="w-3 h-3 text-[var(--primary)]" />
                 AI Video & Blog Studio v5.0
               </span>
-              <span className="px-2.5 py-0.5 text-[10px] font-mono rounded-full neu-inset-sm text-[var(--text-muted)] flex items-center gap-1">
+              <span className="px-2.5 py-0.5 text-[10px] font-mono rounded-full neu-inset-sm text-[var(--text-muted)] flex items-center gap-1 whitespace-nowrap shrink-0">
                 <Sparkles className="w-2.5 h-2.5 text-[var(--primary)]" />
                 Gemini 2.0 Live & Google AI
               </span>
-              <span className="px-2.5 py-0.5 text-[10px] font-mono rounded-full neu-inset-sm text-[var(--text-muted)]">
+              <span className="px-2.5 py-0.5 text-[10px] font-mono rounded-full neu-inset-sm text-[var(--text-muted)] whitespace-nowrap shrink-0 inline-flex items-center">
                 Audio: Neural Edge-TTS (0đ)
               </span>
             </div>
@@ -1272,14 +1272,14 @@ export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({
                           <div className="text-[10px] font-mono text-[var(--primary)] font-semibold flex items-center gap-1.5">
                             <span>{voice.style}</span>
                             {voice.badge && (
-                              <span className="px-1.5 py-0.2 rounded neu-inset-sm text-[8px] font-bold text-[var(--primary)]">
+                              <span className="px-1.5 py-0.5 rounded neu-inset-sm text-[8px] font-bold text-[var(--primary)] whitespace-nowrap shrink-0 inline-flex items-center">
                                 {voice.badge}
                               </span>
                             )}
                           </div>
                         </div>
                       </div>
-                      <span className="text-xs px-2.5 py-0.5 rounded-full neu-inset-sm text-[var(--text-muted)] font-mono font-bold">
+                      <span className="text-xs px-2.5 py-0.5 rounded-full neu-inset-sm text-[var(--text-muted)] font-mono font-bold whitespace-nowrap shrink-0 inline-flex items-center">
                         {voice.language}
                       </span>
                     </div>

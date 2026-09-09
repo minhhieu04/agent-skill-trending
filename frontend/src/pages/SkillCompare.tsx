@@ -132,7 +132,7 @@ export const SkillCompare: React.FC<SkillCompareProps> = ({
                 {/* Card Header */}
                 <div className="flex items-start justify-between gap-3 pb-3 border-b border-[var(--shadow-dark)]/20">
                   <div>
-                    <span className="text-[10px] font-mono px-2.5 py-0.5 rounded-full neu-inset-sm text-[var(--text-muted)]">
+                    <span className="text-[10px] font-mono px-2.5 py-0.5 rounded-full neu-inset-sm text-[var(--text-muted)] whitespace-nowrap shrink-0 inline-flex items-center">
                       {skill.category}
                     </span>
                     <h3 
@@ -216,7 +216,7 @@ export const SkillCompare: React.FC<SkillCompareProps> = ({
                       {skill.runtimes.map((rt) => (
                         <span
                           key={rt}
-                          className="text-[10px] font-mono px-2.5 py-0.5 rounded-full neu-inset-sm text-[var(--text-muted)]"
+                          className="text-[10px] font-mono px-2.5 py-0.5 rounded-full neu-inset-sm text-[var(--text-muted)] whitespace-nowrap shrink-0 inline-flex items-center"
                         >
                           {rt}
                         </span>

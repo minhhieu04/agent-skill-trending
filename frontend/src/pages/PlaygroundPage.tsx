@@ -74,12 +74,14 @@ export const PlaygroundPage: React.FC = () => {
             <Sparkles className="w-5 h-5" />
           </div>
           <div>
-            <h2 className="text-base sm:text-lg font-bold text-[var(--text-main)] flex items-center gap-2">
-              Phòng Thử Nghiệm & Sáng Tạo AI (Playground)
-              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono neu-inset-sm text-[var(--primary)] font-semibold">
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="text-base sm:text-lg font-bold text-[var(--text-main)]">
+                Phòng Thử Nghiệm & Sáng Tạo AI (Playground)
+              </h2>
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono neu-inset-sm text-[var(--primary)] font-semibold whitespace-nowrap shrink-0 inline-flex items-center">
                 {t('live_simulator')}
               </span>
-            </h2>
+            </div>
             <p className="text-xs text-[var(--text-muted)] mt-0.5 max-w-2xl">
               Thử nghiệm tác động của bộ quy tắc AI Agent hoặc chuyển đổi bất kỳ hình ảnh nào sang ma trận nhị phân 01 thời gian thực.
             </p>
@@ -90,10 +92,10 @@ export const PlaygroundPage: React.FC = () => {
         <div className="flex items-center gap-1.5 p-1.5 neu-inset rounded-2xl shrink-0">
           <button
             onClick={() => setActiveTab('image_matrix')}
-            className={`px-3.5 py-2 rounded-xl text-xs font-semibold transition-all flex items-center gap-2 ${
+            className={`px-3.5 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 neu-tab ${
               activeTab === 'image_matrix'
-                ? 'neu-flat text-[var(--primary)]'
-                : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
+                ? 'neu-tab-active'
+                : 'text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--shadow-dark)]/10'
             }`}
           >
             <Binary className="w-3.5 h-3.5" />
@@ -102,10 +104,10 @@ export const PlaygroundPage: React.FC = () => {
 
           <button
             onClick={() => setActiveTab('prompt_sim')}
-            className={`px-3.5 py-2 rounded-xl text-xs font-semibold transition-all flex items-center gap-2 ${
+            className={`px-3.5 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 neu-tab ${
               activeTab === 'prompt_sim'
-                ? 'neu-flat text-[var(--primary)]'
-                : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
+                ? 'neu-tab-active'
+                : 'text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--shadow-dark)]/10'
             }`}
           >
             <Code className="w-3.5 h-3.5" />
@@ -157,11 +159,11 @@ export const PlaygroundPage: React.FC = () => {
 
           {/* Interactive Input Form */}
           <div className="p-5 sm:p-6 rounded-3xl neu-flat space-y-4">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-wrap items-center justify-between gap-2">
               <label className="text-xs font-bold text-[var(--text-main)]">
                 {t('prompt_input_label')}
               </label>
-              <span className="text-[10px] font-mono uppercase text-[var(--primary)] neu-inset-sm px-2.5 py-0.5 rounded-full font-semibold">
+              <span className="text-[10px] font-mono uppercase text-[var(--primary)] neu-inset-sm px-2.5 py-0.5 rounded-full font-semibold whitespace-nowrap shrink-0 inline-flex items-center">
                 {targetIde.toUpperCase()} ACTIVE
               </span>
             </div>
@@ -257,12 +259,12 @@ export const PlaygroundPage: React.FC = () => {
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
                 {/* BEFORE: Raw Unconstrained Code */}
                 <div className="p-5 sm:p-6 rounded-3xl neu-flat space-y-3">
-                  <div className="flex items-center justify-between text-xs font-mono">
+                  <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-mono">
                     <span className="flex items-center gap-1.5 font-bold text-rose-500">
                       <AlertTriangle className="w-3.5 h-3.5" />
                       {t('before_rules')} (Standard AI)
                     </span>
-                    <span className="text-[10px] text-rose-500 neu-inset-sm px-2.5 py-0.5 rounded-full font-bold">
+                    <span className="text-[10px] text-rose-500 neu-inset-sm px-2.5 py-0.5 rounded-full font-bold whitespace-nowrap shrink-0 inline-flex items-center">
                       {t('unconstrained')}
                     </span>
                   </div>

@@ -200,12 +200,14 @@ export const TrendingFeed: React.FC<TrendingFeedProps> = ({
               <Bot className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-xs font-bold text-[var(--text-main)] flex items-center gap-2">
-                <span>{t('agent_chat_trending_banner_title')}</span>
-                <span className="px-2 py-0.5 rounded-lg text-[10px] font-mono neu-inset-sm text-[var(--primary)] font-bold">
+              <div className="flex flex-wrap items-center gap-2">
+                <h3 className="text-xs sm:text-sm font-bold text-[var(--text-main)]">
+                  {t('agent_chat_trending_banner_title')}
+                </h3>
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono neu-inset-sm text-[var(--primary)] font-bold whitespace-nowrap shrink-0 inline-flex items-center">
                   RAG SCAN
                 </span>
-              </h3>
+              </div>
               <p className="text-[11px] text-[var(--text-muted)] mt-1 max-w-2xl leading-relaxed">
                 {t('agent_chat_trending_banner_desc')}
               </p>
@@ -214,7 +216,7 @@ export const TrendingFeed: React.FC<TrendingFeedProps> = ({
 
           <button
             onClick={() => onOpenAgentChat(searchTerm)}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-2xl neu-primary text-xs font-bold text-white shrink-0 whitespace-nowrap active:scale-95 transition-all"
+            className="flex items-center gap-2 px-5 py-2.5 rounded-2xl neu-primary text-xs font-bold text-white shrink-0 whitespace-nowrap active:scale-[0.97] transition-all hover:-translate-y-0.5 cursor-pointer"
           >
             <Sparkles className="w-3.5 h-3.5" />
             <span>{t('agent_chat_trending_banner_btn')}</span>
@@ -248,7 +250,7 @@ export const TrendingFeed: React.FC<TrendingFeedProps> = ({
               >
                 <Bot className="w-3.5 h-3.5 text-[var(--primary)]" />
                 <span className="hidden sm:inline">{t('agent_chat_ask_filter')}</span>
-                <span className="px-1.5 py-0.2 rounded-lg text-[10px] font-mono neu-inset-sm text-[var(--primary)] font-bold">RAG</span>
+                <span className="px-1.5 py-0.5 rounded-md text-[10px] font-mono neu-inset-sm text-[var(--primary)] font-bold whitespace-nowrap shrink-0 inline-flex items-center">RAG</span>
               </button>
             )}
 
@@ -321,14 +323,14 @@ export const TrendingFeed: React.FC<TrendingFeedProps> = ({
             >
               <button
                 onClick={() => setSelectedCategory('all')}
-                className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-2 cursor-pointer ${
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all duration-150 active:scale-95 flex items-center gap-2 cursor-pointer ${
                   selectedCategory === 'all'
                     ? 'neu-primary text-white shadow-sm'
                     : 'neu-flat-xs text-[var(--text-muted)] hover:text-[var(--text-main)] hover:neu-flat-sm'
                 }`}
               >
                 <span>{t('category_all')}</span>
-                <span className={`px-1.5 py-0.2 rounded-md text-[10px] font-mono ${
+                <span className={`px-1.5 py-0.5 rounded-md text-[10px] font-mono whitespace-nowrap shrink-0 inline-flex items-center ${
                   selectedCategory === 'all' ? 'bg-white/25 text-white font-bold' : 'neu-inset-sm text-[var(--text-muted)]'
                 }`}>
                   {categories.reduce((acc, c) => acc + c.count, 0)}
@@ -338,14 +340,14 @@ export const TrendingFeed: React.FC<TrendingFeedProps> = ({
                 <button
                   key={cat.key}
                   onClick={() => setSelectedCategory(cat.key)}
-                  className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-2 cursor-pointer ${
+                  className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all duration-150 active:scale-95 flex items-center gap-2 cursor-pointer ${
                     selectedCategory === cat.key
                       ? 'neu-primary text-white shadow-sm'
                       : 'neu-flat-xs text-[var(--text-muted)] hover:text-[var(--text-main)] hover:neu-flat-sm'
                   }`}
                 >
                   <span>{cat.title}</span>
-                  <span className={`px-1.5 py-0.2 rounded-md text-[10px] font-mono ${
+                  <span className={`px-1.5 py-0.5 rounded-md text-[10px] font-mono whitespace-nowrap shrink-0 inline-flex items-center ${
                     selectedCategory === cat.key ? 'bg-white/25 text-white font-bold' : 'neu-inset-sm text-[var(--text-muted)]'
                   }`}>
                     {cat.count}

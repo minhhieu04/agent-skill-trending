@@ -24,7 +24,7 @@ export interface NeuSelectProps<T = string | number> {
   searchable?: boolean;
   searchPlaceholder?: string;
   disabled?: boolean;
-  align?: 'left' | 'right';
+  align?: 'left' | 'right' | 'auto';
   title?: string;
   fullWidth?: boolean;
   renderOption?: (option: NeuSelectOption<T>, isSelected: boolean) => React.ReactNode;
@@ -43,15 +43,65 @@ export function NeuSelect<T extends string | number>({
   searchable,
   searchPlaceholder = 'Tìm kiếm nhanh...',
   disabled = false,
-  align = 'left',
+  align = 'auto',
   title,
   fullWidth = false,
   renderOption,
 }: NeuSelectProps<T>) {
   const [isOpen, setIsOpen] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
+  const [isVisible, setIsVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const containerRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const [computedAlign, setComputedAlign] = useState<'left' | 'right'>(align === 'right' ? 'right' : 'left');
+
+  // Handle open and close transitions
+  useEffect(() => {
+    if (isOpen) {
+      setIsMounted(true);
+      const raf = requestAnimationFrame(() => {
+        setIsVisible(true);
+      });
+      return () => cancelAnimationFrame(raf);
+    } else if (isMounted) {
+      setIsVisible(false);
+      const timer = setTimeout(() => {
+        setIsMounted(false);
+      }, 160);
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen]);
+
+  // Compute smart alignment to avoid viewport overflow
+  useEffect(() => {
+    if (!isOpen) return;
+    if (align === 'right') {
+      setComputedAlign('right');
+      return;
+    }
+    if (align === 'left') {
+      if (containerRef.current) {
+        const rect = containerRef.current.getBoundingClientRect();
+        if (rect.left + 220 > window.innerWidth - 16) {
+          setComputedAlign('right');
+          return;
+        }
+      }
+      setComputedAlign('left');
+      return;
+    }
+    // Auto alignment:
+    if (containerRef.current) {
+      const rect = containerRef.current.getBoundingClientRect();
+      const screenWidth = window.innerWidth;
+      if (rect.left + 220 > screenWidth - 16 || rect.left > screenWidth * 0.55) {
+        setComputedAlign('right');
+      } else {
+        setComputedAlign('left');
+      }
+    }
+  }, [isOpen, align]);
 
   // Auto-enable search if there are more than 7 options
   const isSearchable = searchable !== undefined ? searchable : options.length > 7;
@@ -156,7 +206,7 @@ export function NeuSelect<T extends string | number>({
         onClick={() => {
           if (!disabled) setIsOpen(!isOpen);
         }}
-        className={`flex items-center justify-between text-left transition-all cursor-pointer font-medium select-none ${
+        className={`flex items-center justify-between text-left transition-all duration-150 active:scale-[0.98] cursor-pointer font-medium select-none ${
           sizeStyles[size]
         } ${variantStyles[variant]} ${
           fullWidth ? 'w-full' : ''
@@ -175,7 +225,7 @@ export function NeuSelect<T extends string | number>({
             {selectedOption ? selectedOption.label : placeholder}
           </span>
           {selectedOption?.badge && (
-            <span className="shrink-0 px-1.5 py-0.5 text-[10px] font-mono rounded-md neu-inset-sm text-[var(--primary)] font-bold">
+            <span className="shrink-0 px-1.5 py-0.5 text-[10px] font-mono rounded-md neu-inset-sm text-[var(--primary)] font-bold whitespace-nowrap inline-flex items-center">
               {selectedOption.badge}
             </span>
           )}
@@ -189,11 +239,15 @@ export function NeuSelect<T extends string | number>({
       </button>
 
       {/* Dropdown Floating Popover */}
-      {isOpen && (
+      {isMounted && (
         <div
           className={`absolute ${
-            align === 'right' ? 'right-0' : 'left-0'
-          } top-full mt-2 z-50 min-w-[200px] max-w-[90vw] neu-dropdown backdrop-blur-xl bg-[var(--bg)]/95 rounded-2xl p-1.5 shadow-2xl transition-all animate-in fade-in zoom-in-95 duration-150 ${
+            computedAlign === 'right' ? 'right-0 origin-top-right' : 'left-0 origin-top-left'
+          } top-full mt-2 z-50 min-w-[210px] max-w-[calc(100vw-32px)] neu-dropdown backdrop-blur-xl bg-[var(--bg)]/98 rounded-2xl p-1.5 shadow-2xl transition-all duration-150 ease-out ${
+            isVisible
+              ? 'opacity-100 scale-100 translate-y-0 pointer-events-auto'
+              : 'opacity-0 scale-95 -translate-y-1.5 pointer-events-none'
+          } ${
             fullWidth ? 'w-full' : ''
           } ${dropdownClassName}`}
           style={{ maxHeight: '340px' }}
@@ -286,18 +340,18 @@ export function NeuSelect<T extends string | number>({
             setSearchQuery('');
           }
         }}
-        className={`w-full flex items-center justify-between px-2.5 py-2 text-left text-xs rounded-xl transition-all cursor-pointer ${
+        className={`w-full flex items-center justify-between px-3 py-2 text-left text-xs rounded-xl transition-all duration-150 active:scale-[0.98] cursor-pointer ${
           isSelected
-            ? 'bg-[var(--primary)]/10 text-[var(--primary)] font-bold'
-            : 'text-[var(--text-main)] hover:bg-[var(--text-main)]/5 hover:text-[var(--primary)]'
+            ? 'neu-inset-sm text-[var(--primary)] font-bold'
+            : 'text-[var(--text-main)] hover:bg-slate-500/10 dark:hover:bg-slate-400/10 hover:text-[var(--primary)]'
         } ${opt.disabled ? 'opacity-40 cursor-not-allowed' : ''}`}
       >
         <div className="flex items-center gap-2 min-w-0 flex-1 mr-2">
-          {opt.icon && <span className="shrink-0">{opt.icon}</span>}
+          {opt.icon && <span className="shrink-0 text-[var(--primary)]">{opt.icon}</span>}
           <div className="min-w-0 flex-1">
             <div className="truncate font-medium">{opt.label}</div>
             {opt.sublabel && (
-              <div className="text-[10px] text-[var(--text-muted)] truncate font-normal">
+              <div className="text-[10px] text-[var(--text-muted)] truncate font-normal mt-0.5">
                 {opt.sublabel}
               </div>
             )}
@@ -306,12 +360,12 @@ export function NeuSelect<T extends string | number>({
 
         <div className="flex items-center gap-1.5 shrink-0">
           {opt.badge && (
-            <span className="px-1.5 py-0.5 text-[10px] font-mono rounded-md neu-inset-sm text-[var(--primary)] font-bold">
+            <span className="px-1.5 py-0.5 text-[10px] font-mono rounded-md neu-inset-sm text-[var(--primary)] font-bold whitespace-nowrap shrink-0 inline-flex items-center">
               {opt.badge}
             </span>
           )}
           {isSelected && (
-            <Check className="w-3.5 h-3.5 text-[var(--primary)] shrink-0" />
+            <Check className="w-3.5 h-3.5 text-[var(--primary)] shrink-0 stroke-[2.5]" />
           )}
         </div>
       </button>

@@ -549,9 +549,9 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
                   <button
                     key={item.date}
                     onClick={() => setSelectedDate(item.date)}
-                    className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 whitespace-nowrap cursor-pointer shrink-0 ${
+                    className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 whitespace-nowrap shrink-0 neu-tab ${
                       isSelected
-                        ? 'neu-inset text-[var(--primary)]'
+                        ? 'neu-inset text-[var(--primary)] font-bold'
                         : 'neu-btn text-[var(--text-muted)] hover:text-[var(--text-main)]'
                     }`}
                   >
@@ -751,7 +751,7 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
             <div className="flex items-center gap-1.5 sm:gap-2">
               <button
                 onClick={() => setHeroTab('script')}
-                className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer ${
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 neu-tab ${
                   heroTab === 'script'
                     ? 'neu-inset text-[var(--primary)] font-bold'
                     : 'neu-btn text-[var(--text-muted)] hover:text-[var(--text-main)]'
@@ -763,7 +763,7 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
               </button>
               <button
                 onClick={() => setHeroTab('highlights')}
-                className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer ${
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 neu-tab ${
                   heroTab === 'highlights'
                     ? 'neu-inset text-[var(--primary)] font-bold'
                     : 'neu-btn text-[var(--text-muted)] hover:text-[var(--text-main)]'
@@ -779,23 +779,25 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
             </span>
           </div>
 
-          <div className="rounded-2xl neu-inset p-4 max-h-48 overflow-y-auto text-xs text-[var(--text-main)] leading-relaxed space-y-2">
-            {loadingDigest ? (
-              <div className="space-y-2 animate-pulse">
-                <div className="h-3.5 bg-[var(--shadow-dark)]/20 rounded-lg w-full" />
-                <div className="h-3.5 bg-[var(--shadow-dark)]/20 rounded-lg w-5/6" />
-                <div className="h-3.5 bg-[var(--shadow-dark)]/20 rounded-lg w-4/6" />
+          <div className="pt-1">
+            {heroTab === 'script' ? (
+              <div className="rounded-2xl neu-inset p-4 max-h-48 overflow-y-auto text-xs text-[var(--text-main)] leading-relaxed space-y-2">
+                {loadingDigest ? (
+                  <div className="space-y-2 animate-pulse">
+                    <div className="h-3.5 bg-[var(--shadow-dark)]/20 rounded-lg w-full" />
+                    <div className="h-3.5 bg-[var(--shadow-dark)]/20 rounded-lg w-5/6" />
+                    <div className="h-3.5 bg-[var(--shadow-dark)]/20 rounded-lg w-4/6" />
+                  </div>
+                ) : digest?.podcast_script ? (
+                  <div className="whitespace-pre-line font-sans">
+                    {digest.podcast_script}
+                  </div>
+                ) : (
+                  <p className="text-[var(--text-muted)] italic">Chưa có kịch bản cho ngày này. Bấm Tái tạo bài để tạo.</p>
+                )}
               </div>
-            ) : heroTab === 'script' ? (
-              digest?.podcast_script ? (
-                <div className="whitespace-pre-line font-sans">
-                  {digest.podcast_script}
-                </div>
-              ) : (
-                <p className="text-[var(--text-muted)] italic">Chưa có kịch bản cho ngày này. Bấm Tái tạo bài để tạo.</p>
-              )
             ) : (
-              <div className="space-y-2">
+              <div className="rounded-2xl neu-inset p-4 max-h-48 overflow-y-auto text-xs text-[var(--text-main)] leading-relaxed space-y-2">
                 {safeHighlights.length > 0 ? (
                   safeHighlights.map((h, i) => (
                     <div key={i} className="flex items-start gap-2">
@@ -814,31 +816,35 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
 
       {/* PRACTICAL VALUE & SOCIAL FEED SECTION */}
       <div className="space-y-6">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 p-5 rounded-3xl neu-flat">
-          <div>
-            <div className="flex items-center gap-2">
-              <h3 className="text-base sm:text-lg font-bold text-[var(--text-main)] flex items-center gap-2">
-                <span>Bảng Tin & Phân Tích Thực Chiến</span>
-              </h3>
-              <span className="px-2.5 py-0.5 rounded-full neu-inset-sm text-[var(--primary)] font-mono text-xs font-semibold">
-                DEEP-DIVE
-              </span>
+        <div className="p-5 sm:p-6 rounded-3xl neu-flat space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h3 className="text-base sm:text-lg font-bold text-[var(--text-main)]">
+                  Bảng Tin & Phân Tích Thực Chiến
+                </h3>
+                <span className="px-2.5 py-0.5 rounded-full neu-inset-sm text-[var(--primary)] font-mono text-[10px] sm:text-xs font-bold whitespace-nowrap shrink-0">
+                  DEEP-DIVE
+                </span>
+              </div>
+              <p className="text-xs text-[var(--text-muted)] mt-0.5">
+                Bài post review chuyên sâu phong cách mạng xã hội (Substack/X/Dev.to) bóc tách cơ chế, nỗi đau thực tế và code mẫu.
+              </p>
             </div>
-            <p className="text-xs text-[var(--text-muted)] mt-0.5">
-              Bài post review chuyên sâu phong cách mạng xã hội (Substack/X/Dev.to) bóc tách cơ chế, nỗi đau thực tế và code mẫu.
-            </p>
           </div>
 
+          <div className="neu-divider" />
+
           {/* Controls: View Switcher, Search, Category Filter */}
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
             {/* View Mode Toggle */}
-            <div className="flex items-center gap-1.5 p-1 rounded-2xl neu-inset">
+            <div className="flex items-center gap-1.5 p-1 rounded-2xl neu-inset self-start sm:self-auto">
               <button
                 onClick={() => setFeedViewMode('feed')}
-                className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs neu-tab ${
                   feedViewMode === 'feed'
-                    ? 'neu-flat-sm text-[var(--primary)] font-bold'
-                    : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
+                    ? 'neu-tab-active'
+                    : 'text-[var(--text-muted)] hover:text-[var(--text-main)] font-semibold'
                 }`}
                 title="Xem bài post đầy đủ như mạng xã hội"
               >
@@ -848,10 +854,10 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
 
               <button
                 onClick={() => setFeedViewMode('matrix')}
-                className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs neu-tab ${
                   feedViewMode === 'matrix'
-                    ? 'neu-flat-sm text-[var(--primary)] font-bold'
-                    : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
+                    ? 'neu-tab-active'
+                    : 'text-[var(--text-muted)] hover:text-[var(--text-main)] font-semibold'
                 }`}
                 title="Xem thẻ tóm tắt nhanh gọn"
               >
@@ -860,32 +866,36 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
               </button>
             </div>
 
-            {/* Search within the day */}
-            <div className="relative">
-              <Search className="w-3.5 h-3.5 text-[var(--text-muted)] absolute left-3 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                value={searchFilter}
-                onChange={(e) => setSearchFilter(e.target.value)}
-                placeholder="Lọc bài viết, tool, tag..."
-                className="pl-8 pr-3 py-2 text-xs rounded-xl neu-inset text-[var(--text-main)] placeholder-[var(--text-muted)]/50 focus:outline-none w-40 sm:w-52 transition-colors"
-              />
-            </div>
+            {/* Filter Search & Category */}
+            <div className="flex items-center gap-2.5 flex-1 sm:flex-none justify-end">
+              <div className="relative flex-1 sm:w-56">
+                <Search className="w-3.5 h-3.5 text-[var(--text-muted)] absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  value={searchFilter}
+                  onChange={(e) => setSearchFilter(e.target.value)}
+                  placeholder="Lọc bài viết, tool, tag..."
+                  className="w-full pl-8 pr-3 py-2 text-xs rounded-xl neu-inset text-[var(--text-main)] placeholder-[var(--text-muted)]/50 focus:outline-none transition-colors"
+                />
+              </div>
 
-            {/* Category Dropdown */}
-            {categoriesInDigest.length > 1 && (
-              <NeuSelect
-                value={filterCategory}
-                onChange={(val) => setFilterCategory(String(val))}
-                options={[
-                  { value: 'all', label: `Tất cả (${rawSkills.length})` },
-                  ...categoriesInDigest.map((cat) => ({ value: cat, label: cat }))
-                ]}
-                size="sm"
-                variant="inset"
-                searchable={false}
-              />
-            )}
+              {categoriesInDigest.length > 1 && (
+                <div className="shrink-0">
+                  <NeuSelect
+                    value={filterCategory}
+                    onChange={(val) => setFilterCategory(String(val))}
+                    options={[
+                      { value: 'all', label: `Tất cả (${rawSkills.length})` },
+                      ...categoriesInDigest.map((cat) => ({ value: cat, label: cat }))
+                    ]}
+                    size="sm"
+                    variant="inset"
+                    align="right"
+                    searchable={false}
+                  />
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
@@ -941,11 +951,11 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
                     <div className="flex items-start justify-between gap-3">
                       <div className="space-y-1">
                         <div className="flex items-center gap-1.5 flex-wrap">
-                          <span className="px-2.5 py-0.5 rounded-lg text-[10px] uppercase tracking-wider neu-inset-sm text-[var(--primary)] font-mono font-semibold">
+                          <span className="px-2.5 py-0.5 rounded-lg text-[10px] uppercase tracking-wider neu-inset-sm text-[var(--primary)] font-mono font-semibold whitespace-nowrap shrink-0 inline-flex items-center">
                             {item.category}
                           </span>
                           {item.primary_language && (
-                            <span className="px-2.5 py-0.5 rounded-lg text-[10px] font-mono neu-inset-sm text-[var(--text-muted)]">
+                            <span className="px-2.5 py-0.5 rounded-lg text-[10px] font-mono neu-inset-sm text-[var(--text-muted)] whitespace-nowrap shrink-0 inline-flex items-center">
                               {item.primary_language}
                             </span>
                           )}
@@ -1029,12 +1039,12 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
                     </div>
 
                     {/* 3. AI NÊN DÙNG (Target Audience) */}
-                    <div className="flex items-center gap-2 text-xs">
-                      <span className="font-semibold text-[var(--text-muted)] flex items-center gap-1">
+                    <div className="flex flex-wrap items-center gap-2 text-xs">
+                      <span className="font-semibold text-[var(--text-muted)] flex items-center gap-1 shrink-0">
                         <Target className="w-3.5 h-3.5 text-[var(--primary)]" />
                         {t('label_target_audience')}:
                       </span>
-                      <span className="px-2.5 py-0.5 rounded-lg neu-inset-sm text-[var(--text-muted)] font-mono text-[11px]">
+                      <span className="px-2.5 py-0.5 rounded-lg neu-inset-sm text-[var(--text-muted)] font-mono text-[11px] whitespace-nowrap shrink-0 inline-flex items-center">
                         {item.target_audience}
                       </span>
                     </div>
