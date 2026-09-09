@@ -297,6 +297,10 @@ const AppContent: React.FC = () => {
                     }
                   }}
                   onToggleBookmark={(id) => bookmarkMutation.mutate(id)}
+                  onOpenAgentChat={(query) => {
+                    if (query) setAgentChatQuery(query);
+                    handleTabChange('agent_chat');
+                  }}
                 />
               )}
 

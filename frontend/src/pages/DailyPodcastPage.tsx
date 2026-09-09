@@ -21,7 +21,10 @@ import {
   Search,
   LayoutGrid,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  AlertTriangle,
+  Cpu,
+  Terminal
 } from 'lucide-react';
 import { api } from '../api/client';
 import { DailyDigest, DailyDigestDateInfo, SkillDigestSummary, SocialMediaPost, VoiceOption } from '../types';
@@ -56,11 +59,13 @@ const DEFAULT_PODCAST_VOICES: VoiceOption[] = [
 interface DailyPodcastPageProps {
   onSelectSkillById?: (id: number) => void;
   onToggleBookmark?: (id: number) => void;
+  onOpenAgentChat?: (query?: string) => void;
 }
 
 export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
   onSelectSkillById,
   onToggleBookmark,
+  onOpenAgentChat,
 }) => {
   const { t, language } = useLanguage();
   const { showToast } = useToast();
@@ -89,6 +94,7 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const [searchFilter, setSearchFilter] = useState<string>('');
   const [copiedSkillId, setCopiedSkillId] = useState<number | null>(null);
+  const [activePostSkillId, setActivePostSkillId] = useState<number | null>(null);
 
   // 1. Fetch available podcast voices
   const { data: voicesData } = useQuery<{ voices: VoiceOption[] }>({
@@ -440,6 +446,77 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
       ));
     return matchesCat && matchesSearch;
   });
+
+  // Automatically track active post
+  useEffect(() => {
+    if (filteredSkills.length > 0) {
+      if (!activePostSkillId || !filteredSkills.some((s) => s.skill_id === activePostSkillId)) {
+        setActivePostSkillId(filteredSkills[0].skill_id);
+      }
+    } else {
+      setActivePostSkillId(null);
+    }
+  }, [filteredSkills, activePostSkillId]);
+
+  // Observer to track visible post when scrolling in feed view mode
+  useEffect(() => {
+    if (feedViewMode !== 'feed' || filteredSkills.length === 0) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visibleEntries = entries.filter((e) => e.isIntersecting);
+        if (visibleEntries.length > 0) {
+          visibleEntries.sort((a, b) => b.intersectionRatio - a.intersectionRatio);
+          const skillIdStr = visibleEntries[0].target.getAttribute('data-skill-id');
+          if (skillIdStr) {
+            const sid = Number(skillIdStr);
+            if (sid && !isNaN(sid)) {
+              setActivePostSkillId(sid);
+            }
+          }
+        }
+      },
+      {
+        rootMargin: '-10% 0px -40% 0px',
+        threshold: [0.1, 0.3, 0.6],
+      }
+    );
+
+    filteredSkills.forEach((skill) => {
+      const el = document.getElementById(`post-${skill.skill_id}`);
+      if (el) observer.observe(el);
+    });
+
+    return () => observer.disconnect();
+  }, [filteredSkills, feedViewMode]);
+
+  const activeSummary = filteredSkills.find((s) => s.skill_id === activePostSkillId) || filteredSkills[0] || null;
+  const activePost = activeSummary ? ensureSocialPost(activeSummary) : null;
+
+  const handleJumpToPost = (skillId: number) => {
+    setActivePostSkillId(skillId);
+    const el = document.getElementById(`post-${skillId}`);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
+
+  const handleJumpToSection = (sectionAnchorId: string) => {
+    const el = document.getElementById(sectionAnchorId);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  };
+
+  const handleShareActivePost = async () => {
+    if (!activePost) return;
+    const ok = await copyToClipboard(
+      `# ${activePost.title}\n\n${activePost.hook}\n\n${activePost.summary}\n\nRepo: ${activePost.repository_url || ''}`
+    );
+    if (ok) {
+      showToast('Đã sao chép tóm tắt bài viết để chia sẻ!', 'success');
+    }
+  };
 
   // Safely extract highlights list regardless of backend runtime data shape (array, string, JSON string)
   const rawHighlights: any = digest?.highlights;
@@ -920,25 +997,300 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
             </p>
           </div>
         ) : feedViewMode === 'feed' ? (
-          /* SOCIAL MEDIA FEED VIEW: Full viral posts stream */
-          <div className="space-y-6 max-w-4xl mx-auto">
-            {filteredSkills.map((item, idx) => {
-              const post = ensureSocialPost(item);
-              return (
-                <SocialTechPostCard
-                  key={item.skill_id || idx}
-                  post={post}
-                  skillSummary={item}
-                  onSelectSkillById={onSelectSkillById}
-                  onToggleBookmark={onToggleBookmark}
-                  isBookmarked={bookmarkedSkillIds.has(item.skill_id)}
-                />
-              );
-            })}
+          /* SOCIAL MEDIA FEED VIEW: Full viral posts stream with 2-Column Desktop Layout */
+          <div className="lg:grid lg:grid-cols-12 lg:gap-8 items-start">
+            {/* Cột chính (bên trái, chiếm 65-70% trên desktop): Bài phân tích chuyên sâu chi tiết */}
+            <div className="lg:col-span-8 space-y-6 min-w-0">
+              {filteredSkills.map((item, idx) => {
+                const post = ensureSocialPost(item);
+                return (
+                  <SocialTechPostCard
+                    key={item.skill_id || idx}
+                    post={post}
+                    skillSummary={item}
+                    onSelectSkillById={onSelectSkillById}
+                    onToggleBookmark={onToggleBookmark}
+                    isBookmarked={bookmarkedSkillIds.has(item.skill_id)}
+                  />
+                );
+              })}
+            </div>
+
+            {/* Cột sidebar cố định (bên phải, sticky top-6, chiếm 30-35% trên desktop) */}
+            <aside className="hidden lg:block lg:col-span-4 sticky top-6 space-y-5">
+              {/* 1. Danh sách các bài viết hôm nay (Today's Digest Posts) */}
+              <div className="rounded-3xl neu-flat p-4 sm:p-5 space-y-3.5">
+                <div className="flex items-center justify-between gap-2 pb-2 border-b border-[var(--shadow-dark)]/20">
+                  <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 rounded-xl neu-inset text-[var(--primary)] flex items-center justify-center font-bold text-xs shrink-0 shadow-inner">
+                      <FileText className="w-3.5 h-3.5" />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-bold text-[var(--text-main)] uppercase tracking-wider font-mono">
+                        Bản Tin Hôm Nay
+                      </h4>
+                      <span className="text-[10px] text-[var(--text-muted)] font-mono">
+                        {filteredSkills.length} bài phân tích
+                      </span>
+                    </div>
+                  </div>
+                  <span className="px-2 py-0.5 rounded-full neu-inset-sm text-[10px] font-mono text-[var(--primary)] font-bold">
+                    {selectedDate ? selectedDate.split('-').slice(1).reverse().join('/') : 'TODAY'}
+                  </span>
+                </div>
+
+                {/* Danh sách bài viết click chuyển nhanh */}
+                <div className="space-y-2 max-h-[280px] overflow-y-auto pr-1 scrollbar-none">
+                  {filteredSkills.map((item, idx) => {
+                    const isCurrentActive = item.skill_id === activePostSkillId;
+                    return (
+                      <button
+                        key={item.skill_id}
+                        type="button"
+                        onClick={() => handleJumpToPost(item.skill_id)}
+                        className={`w-full text-left p-2.5 rounded-2xl transition-all cursor-pointer flex items-start gap-2.5 ${
+                          isCurrentActive
+                            ? 'neu-inset text-[var(--primary)] border-l-4 border-[var(--primary)] font-semibold shadow-inner'
+                            : 'neu-btn text-[var(--text-muted)] hover:text-[var(--text-main)]'
+                        }`}
+                      >
+                        <span
+                          className={`w-5 h-5 rounded-lg flex items-center justify-center text-[10px] font-mono font-bold shrink-0 mt-0.5 ${
+                            isCurrentActive
+                              ? 'bg-[var(--primary)] text-white shadow-sm'
+                              : 'neu-inset-sm text-[var(--text-muted)]'
+                          }`}
+                        >
+                          {idx + 1}
+                        </span>
+                        <div className="min-w-0 flex-1 space-y-0.5">
+                          <div className="text-xs font-bold truncate text-[var(--text-main)]">
+                            {item.title}
+                          </div>
+                          <div className="flex items-center gap-2 text-[10px] font-mono text-[var(--text-muted)] truncate">
+                            <span className="truncate">{item.name}</span>
+                            <span>•</span>
+                            <span className="text-amber-500 flex items-center gap-0.5 shrink-0 font-medium">
+                              <Star className="w-2.5 h-2.5 fill-current" />
+                              {item.stars.toLocaleString()}
+                            </span>
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* 2. Mục lục bài viết (Quick Jump Outline) */}
+              {activeSummary && activePost && (
+                <div className="rounded-3xl neu-flat p-4 sm:p-5 space-y-3">
+                  <div className="flex items-center justify-between gap-2 pb-2 border-b border-[var(--shadow-dark)]/20">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div className="w-7 h-7 rounded-xl neu-inset text-amber-500 flex items-center justify-center font-bold text-xs shrink-0 shadow-inner">
+                        <LayoutGrid className="w-3.5 h-3.5" />
+                      </div>
+                      <div className="min-w-0">
+                        <h4 className="text-xs font-bold text-[var(--text-main)] uppercase tracking-wider font-mono">
+                          Mục Lục Bài Viết
+                        </h4>
+                        <span className="text-[10px] text-[var(--text-muted)] truncate block max-w-[200px]">
+                          {activeSummary.title}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5 text-xs font-medium">
+                    <button
+                      type="button"
+                      onClick={() => handleJumpToSection(`post-${activePost.skill_id}-hook`)}
+                      className="w-full text-left px-3 py-1.5 rounded-xl neu-btn-sm text-[var(--text-muted)] hover:text-[var(--primary)] flex items-center gap-2 transition-all cursor-pointer"
+                    >
+                      <Sparkles className="w-3.5 h-3.5 text-[var(--primary)] shrink-0" />
+                      <span className="truncate">Điểm nhấn & Editorial Hook</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleJumpToSection(`post-${activePost.skill_id}-story`)}
+                      className="w-full text-left px-3 py-1.5 rounded-xl neu-btn-sm text-[var(--text-muted)] hover:text-[var(--primary)] flex items-center gap-2 transition-all cursor-pointer"
+                    >
+                      <AlertTriangle className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+                      <span className="truncate">Nỗi đau vs Trải nghiệm</span>
+                    </button>
+
+                    {activePost.core_mechanism && (
+                      <button
+                        type="button"
+                        onClick={() => handleJumpToSection(`post-${activePost.skill_id}-mechanism`)}
+                        className="w-full text-left px-3 py-1.5 rounded-xl neu-btn-sm text-[var(--text-muted)] hover:text-[var(--primary)] flex items-center gap-2 transition-all cursor-pointer"
+                      >
+                        <Cpu className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+                        <span className="truncate">Kiến trúc & Cơ chế lõi</span>
+                      </button>
+                    )}
+
+                    {activePost.key_features && activePost.key_features.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => handleJumpToSection(`post-${activePost.skill_id}-features`)}
+                        className="w-full text-left px-3 py-1.5 rounded-xl neu-btn-sm text-[var(--text-muted)] hover:text-[var(--primary)] flex items-center gap-2 transition-all cursor-pointer"
+                      >
+                        <Zap className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                        <span className="truncate">Tính năng nổi bật</span>
+                      </button>
+                    )}
+
+                    {activePost.code_example?.code && (
+                      <button
+                        type="button"
+                        onClick={() => handleJumpToSection(`post-${activePost.skill_id}-code`)}
+                        className="w-full text-left px-3 py-1.5 rounded-xl neu-btn-sm text-[var(--text-muted)] hover:text-[var(--primary)] flex items-center gap-2 transition-all cursor-pointer"
+                      >
+                        <Terminal className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                        <span className="truncate">
+                          Code mẫu ({activePost.code_example.filename || activePost.code_example.language})
+                        </span>
+                      </button>
+                    )}
+
+                    {activePost.pros_and_cons && (
+                      <button
+                        type="button"
+                        onClick={() => handleJumpToSection(`post-${activePost.skill_id}-proscons`)}
+                        className="w-full text-left px-3 py-1.5 rounded-xl neu-btn-sm text-[var(--text-muted)] hover:text-[var(--primary)] flex items-center gap-2 transition-all cursor-pointer"
+                      >
+                        <Check className="w-3.5 h-3.5 text-teal-500 shrink-0" />
+                        <span className="truncate">Ưu điểm & Lưu ý</span>
+                      </button>
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={() => handleJumpToSection(`post-${activePost.skill_id}-audience`)}
+                      className="w-full text-left px-3 py-1.5 rounded-xl neu-btn-sm text-[var(--text-muted)] hover:text-[var(--primary)] flex items-center gap-2 transition-all cursor-pointer"
+                    >
+                      <Target className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+                      <span className="truncate">Đối tượng khuyên dùng</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* 3. Thao tác nhanh (Quick Actions Deck) */}
+              {activeSummary && (
+                <div className="rounded-3xl neu-flat p-4 sm:p-5 space-y-3">
+                  <div className="flex items-center gap-2 pb-2 border-b border-[var(--shadow-dark)]/20">
+                    <div className="w-7 h-7 rounded-xl neu-inset text-emerald-500 flex items-center justify-center font-bold text-xs shrink-0 shadow-inner">
+                      <Zap className="w-3.5 h-3.5" />
+                    </div>
+                    <h4 className="text-xs font-bold text-[var(--text-main)] uppercase tracking-wider font-mono">
+                      Thao Tác Nhanh
+                    </h4>
+                  </div>
+
+                  <div className="space-y-2">
+                    {/* Listen Audio Segment */}
+                    <button
+                      type="button"
+                      onClick={() =>
+                        handleReadSkillSegment(
+                          activeSummary.podcast_snippet ||
+                            `${activeSummary.title}. ${activeSummary.what_it_does}. Nỗi đau giải quyết: ${activeSummary.pain_point_solved}`
+                        )
+                      }
+                      className="w-full px-3 py-2 rounded-xl neu-btn text-xs font-semibold text-[var(--text-main)] hover:text-[var(--primary)] flex items-center justify-between transition-all cursor-pointer"
+                      title="Nghe giọng AI đọc tóm tắt công cụ này"
+                    >
+                      <span className="flex items-center gap-2">
+                        <Headphones className="w-3.5 h-3.5 text-emerald-500" />
+                        <span>Nghe audio bài này</span>
+                      </span>
+                      <span className="text-[10px] font-mono text-[var(--text-muted)]">TTS</span>
+                    </button>
+
+                    {/* Ask Agent Chat (RAG) */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (onOpenAgentChat) {
+                          onOpenAgentChat(`Phân tích kỹ năng ${activeSummary.title} (${activeSummary.name}) và hướng dẫn tôi áp dụng vào dự án thực tế.`);
+                        } else {
+                          showToast(`Hãy mở tab Agent Chat và hỏi về ${activeSummary.title}`, 'info');
+                        }
+                      }}
+                      className="w-full px-3 py-2 rounded-xl neu-btn text-xs font-semibold text-[var(--text-main)] hover:text-[var(--primary)] flex items-center justify-between transition-all cursor-pointer"
+                      title="Mở Agent Chat và hỏi cố vấn RAG về kỹ năng này"
+                    >
+                      <span className="flex items-center gap-2">
+                        <Sparkles className="w-3.5 h-3.5 text-[var(--primary)]" />
+                        <span>Hỏi Agent Chat (RAG)</span>
+                      </span>
+                      <span className="text-[10px] font-mono text-[var(--primary)] font-bold">RAG</span>
+                    </button>
+
+                    {/* Bookmark Active Skill */}
+                    {onToggleBookmark && (
+                      <button
+                        type="button"
+                        onClick={() => onToggleBookmark(activeSummary.skill_id)}
+                        className={`w-full px-3 py-2 rounded-xl text-xs font-semibold flex items-center justify-between transition-all cursor-pointer ${
+                          bookmarkedSkillIds.has(activeSummary.skill_id)
+                            ? 'neu-inset text-[var(--primary)] shadow-inner'
+                            : 'neu-btn text-[var(--text-muted)] hover:text-[var(--primary)]'
+                        }`}
+                      >
+                        <span className="flex items-center gap-2">
+                          <Bookmark
+                            className={`w-3.5 h-3.5 ${
+                              bookmarkedSkillIds.has(activeSummary.skill_id) ? 'fill-current' : ''
+                            }`}
+                          />
+                          <span>
+                            {bookmarkedSkillIds.has(activeSummary.skill_id)
+                              ? 'Đã lưu bookmark'
+                              : 'Lưu bookmark'}
+                          </span>
+                        </span>
+                        <span className="text-[10px] font-mono">
+                          {bookmarkedSkillIds.has(activeSummary.skill_id) ? 'ĐÃ LƯU' : 'SAVE'}
+                        </span>
+                      </button>
+                    )}
+
+                    {/* Share / Copy Active Post */}
+                    <button
+                      type="button"
+                      onClick={handleShareActivePost}
+                      className="w-full px-3 py-2 rounded-xl neu-btn text-xs font-semibold text-[var(--text-muted)] hover:text-[var(--text-main)] flex items-center justify-between transition-all cursor-pointer"
+                    >
+                      <span className="flex items-center gap-2">
+                        <Copy className="w-3.5 h-3.5 text-amber-500" />
+                        <span>Sao chép bài viết</span>
+                      </span>
+                      <span className="text-[10px] font-mono">COPY</span>
+                    </button>
+
+                    {/* Open Skill Detail / Config Modal */}
+                    {onSelectSkillById && (
+                      <button
+                        type="button"
+                        onClick={() => onSelectSkillById(activeSummary.skill_id)}
+                        className="w-full px-3.5 py-2 rounded-xl neu-primary text-xs font-bold text-white flex items-center justify-center gap-1.5 transition-all active:scale-95 cursor-pointer shadow-md mt-1"
+                      >
+                        <span>Cấu hình & Tích hợp</span>
+                        <ArrowRight className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+            </aside>
           </div>
         ) : (
-          /* QUICK MATRIX CARDS VIEW: 2-column cards */
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5 sm:gap-6">
+          /* QUICK MATRIX CARDS VIEW: 2-3 column cards */
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5 sm:gap-6">
             {filteredSkills.map((item, idx) => {
               const isCardBookmarked = bookmarkedSkillIds.has(item.skill_id);
               return (
