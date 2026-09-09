@@ -18,6 +18,7 @@ import {
   Headphones,
   FileText,
   Bookmark,
+  Share2,
   Search,
   LayoutGrid,
   ChevronLeft,
@@ -95,6 +96,14 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
   const [searchFilter, setSearchFilter] = useState<string>('');
   const [copiedSkillId, setCopiedSkillId] = useState<number | null>(null);
   const [activePostSkillId, setActivePostSkillId] = useState<number | null>(null);
+  const isUserNavigatingRef = useRef<boolean>(false);
+  const jumpTimeoutRef = useRef<any>(null);
+
+  useEffect(() => {
+    return () => {
+      if (jumpTimeoutRef.current) clearTimeout(jumpTimeoutRef.current);
+    };
+  }, []);
 
   // 1. Fetch available podcast voices
   const { data: voicesData } = useQuery<{ voices: VoiceOption[] }>({
@@ -267,6 +276,10 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
       return;
     }
 
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+    }
+
     if (!selectedDate) {
       showToast('Vui lòng chọn ngày bản tin', 'error');
       return;
@@ -414,6 +427,10 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
 
   // Speech synthesis fallback for individual skill snippets
   const handleReadSkillSegment = (snippet: string) => {
+    if (audioRef.current && !audioRef.current.paused) {
+      audioRef.current.pause();
+      setIsPlaying(false);
+    }
     if ('speechSynthesis' in window) {
       window.speechSynthesis.cancel();
       const utter = new SpeechSynthesisUtterance(snippet);
@@ -464,6 +481,7 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
 
     const observer = new IntersectionObserver(
       (entries) => {
+        if (isUserNavigatingRef.current) return;
         const visibleEntries = entries.filter((e) => e.isIntersecting);
         if (visibleEntries.length > 0) {
           visibleEntries.sort((a, b) => b.intersectionRatio - a.intersectionRatio);
@@ -494,7 +512,13 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
   const activePost = activeSummary ? ensureSocialPost(activeSummary) : null;
 
   const handleJumpToPost = (skillId: number) => {
+    isUserNavigatingRef.current = true;
     setActivePostSkillId(skillId);
+    if (jumpTimeoutRef.current) clearTimeout(jumpTimeoutRef.current);
+    jumpTimeoutRef.current = setTimeout(() => {
+      isUserNavigatingRef.current = false;
+    }, 700);
+
     const el = document.getElementById(`post-${skillId}`);
     if (el) {
       el.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -502,19 +526,28 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
   };
 
   const handleJumpToSection = (sectionAnchorId: string) => {
+    isUserNavigatingRef.current = true;
+    if (jumpTimeoutRef.current) clearTimeout(jumpTimeoutRef.current);
+    jumpTimeoutRef.current = setTimeout(() => {
+      isUserNavigatingRef.current = false;
+    }, 700);
+
     const el = document.getElementById(sectionAnchorId);
     if (el) {
-      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
   };
 
   const handleShareActivePost = async () => {
     if (!activePost) return;
-    const ok = await copyToClipboard(
-      `# ${activePost.title}\n\n${activePost.hook}\n\n${activePost.summary}\n\nRepo: ${activePost.repository_url || ''}`
-    );
+    const shareUrl = `${window.location.origin}${window.location.pathname}#post-${activePost.skill_id}`;
+    const cleanHookText = activePost.hook ? activePost.hook.replace(/[*_~`]/g, '').trim() : '';
+    const shareContent = `🔥 [AI Radar] ${activePost.title}\n\n"${cleanHookText}"\n\n👉 Chi tiết phân tích: ${shareUrl}`;
+    const ok = await copyToClipboard(shareContent);
     if (ok) {
-      showToast('Đã sao chép tóm tắt bài viết để chia sẻ!', 'success');
+      showToast('Đã sao chép liên kết chia sẻ bài viết!', 'success');
+    } else {
+      showToast('Không thể sao chép liên kết vào bộ nhớ tạm', 'error');
     }
   };
 
@@ -998,9 +1031,9 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
           </div>
         ) : feedViewMode === 'feed' ? (
           /* SOCIAL MEDIA FEED VIEW: Full viral posts stream with 2-Column Desktop Layout */
-          <div className="lg:grid lg:grid-cols-12 lg:gap-8 items-start">
+          <div className="lg:flex lg:gap-8 items-start">
             {/* Cột chính (bên trái, chiếm 65-70% trên desktop): Bài phân tích chuyên sâu chi tiết */}
-            <div className="lg:col-span-8 space-y-6 min-w-0">
+            <div className="flex-1 min-w-0 space-y-6">
               {filteredSkills.map((item, idx) => {
                 const post = ensureSocialPost(item);
                 return (
@@ -1016,8 +1049,8 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
               })}
             </div>
 
-            {/* Cột sidebar cố định (bên phải, sticky top-6, chiếm 30-35% trên desktop) */}
-            <aside className="hidden lg:block lg:col-span-4 sticky top-6 space-y-5">
+            {/* Cột sidebar cố định (bên phải, sticky top-6, w-80 hoặc w-96 trên desktop) */}
+            <aside className="hidden lg:block w-80 xl:w-96 shrink-0 sticky top-6 max-h-[calc(100vh-4.5rem)] overflow-y-auto scrollbar-none pr-0.5 space-y-4">
               {/* 1. Danh sách các bài viết hôm nay (Today's Digest Posts) */}
               <div className="rounded-3xl neu-flat p-4 sm:p-5 space-y-3.5">
                 <div className="flex items-center justify-between gap-2 pb-2 border-b border-[var(--shadow-dark)]/20">
@@ -1050,7 +1083,7 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
                         onClick={() => handleJumpToPost(item.skill_id)}
                         className={`w-full text-left p-2.5 rounded-2xl transition-all cursor-pointer flex items-start gap-2.5 ${
                           isCurrentActive
-                            ? 'neu-inset text-[var(--primary)] border-l-4 border-[var(--primary)] font-semibold shadow-inner'
+                            ? 'neu-inset text-[var(--primary)] !border-l-4 !border-l-[var(--primary)] font-semibold shadow-inner'
                             : 'neu-btn text-[var(--text-muted)] hover:text-[var(--text-main)]'
                         }`}
                       >
@@ -1105,7 +1138,7 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
                     <button
                       type="button"
                       onClick={() => handleJumpToSection(`post-${activePost.skill_id}-hook`)}
-                      className="w-full text-left px-3 py-1.5 rounded-xl neu-btn-sm text-[var(--text-muted)] hover:text-[var(--primary)] flex items-center gap-2 transition-all cursor-pointer"
+                      className="w-full text-left px-3 py-1.5 rounded-xl neu-btn-sm text-[var(--text-muted)] hover:text-[var(--primary)] flex items-center gap-2 transition-all active:scale-[0.98] cursor-pointer"
                     >
                       <Sparkles className="w-3.5 h-3.5 text-[var(--primary)] shrink-0" />
                       <span className="truncate">Điểm nhấn & Editorial Hook</span>
@@ -1114,7 +1147,7 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
                     <button
                       type="button"
                       onClick={() => handleJumpToSection(`post-${activePost.skill_id}-story`)}
-                      className="w-full text-left px-3 py-1.5 rounded-xl neu-btn-sm text-[var(--text-muted)] hover:text-[var(--primary)] flex items-center gap-2 transition-all cursor-pointer"
+                      className="w-full text-left px-3 py-1.5 rounded-xl neu-btn-sm text-[var(--text-muted)] hover:text-[var(--primary)] flex items-center gap-2 transition-all active:scale-[0.98] cursor-pointer"
                     >
                       <AlertTriangle className="w-3.5 h-3.5 text-rose-500 shrink-0" />
                       <span className="truncate">Nỗi đau vs Trải nghiệm</span>
@@ -1124,7 +1157,7 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
                       <button
                         type="button"
                         onClick={() => handleJumpToSection(`post-${activePost.skill_id}-mechanism`)}
-                        className="w-full text-left px-3 py-1.5 rounded-xl neu-btn-sm text-[var(--text-muted)] hover:text-[var(--primary)] flex items-center gap-2 transition-all cursor-pointer"
+                        className="w-full text-left px-3 py-1.5 rounded-xl neu-btn-sm text-[var(--text-muted)] hover:text-[var(--primary)] flex items-center gap-2 transition-all active:scale-[0.98] cursor-pointer"
                       >
                         <Cpu className="w-3.5 h-3.5 text-blue-500 shrink-0" />
                         <span className="truncate">Kiến trúc & Cơ chế lõi</span>
@@ -1135,7 +1168,7 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
                       <button
                         type="button"
                         onClick={() => handleJumpToSection(`post-${activePost.skill_id}-features`)}
-                        className="w-full text-left px-3 py-1.5 rounded-xl neu-btn-sm text-[var(--text-muted)] hover:text-[var(--primary)] flex items-center gap-2 transition-all cursor-pointer"
+                        className="w-full text-left px-3 py-1.5 rounded-xl neu-btn-sm text-[var(--text-muted)] hover:text-[var(--primary)] flex items-center gap-2 transition-all active:scale-[0.98] cursor-pointer"
                       >
                         <Zap className="w-3.5 h-3.5 text-amber-500 shrink-0" />
                         <span className="truncate">Tính năng nổi bật</span>
@@ -1146,7 +1179,7 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
                       <button
                         type="button"
                         onClick={() => handleJumpToSection(`post-${activePost.skill_id}-code`)}
-                        className="w-full text-left px-3 py-1.5 rounded-xl neu-btn-sm text-[var(--text-muted)] hover:text-[var(--primary)] flex items-center gap-2 transition-all cursor-pointer"
+                        className="w-full text-left px-3 py-1.5 rounded-xl neu-btn-sm text-[var(--text-muted)] hover:text-[var(--primary)] flex items-center gap-2 transition-all active:scale-[0.98] cursor-pointer"
                       >
                         <Terminal className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
                         <span className="truncate">
@@ -1159,7 +1192,7 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
                       <button
                         type="button"
                         onClick={() => handleJumpToSection(`post-${activePost.skill_id}-proscons`)}
-                        className="w-full text-left px-3 py-1.5 rounded-xl neu-btn-sm text-[var(--text-muted)] hover:text-[var(--primary)] flex items-center gap-2 transition-all cursor-pointer"
+                        className="w-full text-left px-3 py-1.5 rounded-xl neu-btn-sm text-[var(--text-muted)] hover:text-[var(--primary)] flex items-center gap-2 transition-all active:scale-[0.98] cursor-pointer"
                       >
                         <Check className="w-3.5 h-3.5 text-teal-500 shrink-0" />
                         <span className="truncate">Ưu điểm & Lưu ý</span>
@@ -1169,7 +1202,7 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
                     <button
                       type="button"
                       onClick={() => handleJumpToSection(`post-${activePost.skill_id}-audience`)}
-                      className="w-full text-left px-3 py-1.5 rounded-xl neu-btn-sm text-[var(--text-muted)] hover:text-[var(--primary)] flex items-center gap-2 transition-all cursor-pointer"
+                      className="w-full text-left px-3 py-1.5 rounded-xl neu-btn-sm text-[var(--text-muted)] hover:text-[var(--primary)] flex items-center gap-2 transition-all active:scale-[0.98] cursor-pointer"
                     >
                       <Target className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
                       <span className="truncate">Đối tượng khuyên dùng</span>
@@ -1200,7 +1233,7 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
                             `${activeSummary.title}. ${activeSummary.what_it_does}. Nỗi đau giải quyết: ${activeSummary.pain_point_solved}`
                         )
                       }
-                      className="w-full px-3 py-2 rounded-xl neu-btn text-xs font-semibold text-[var(--text-main)] hover:text-[var(--primary)] flex items-center justify-between transition-all cursor-pointer"
+                      className="w-full px-3 py-2 rounded-xl neu-btn text-xs font-semibold text-[var(--text-main)] hover:text-[var(--primary)] flex items-center justify-between transition-all active:scale-[0.98] cursor-pointer"
                       title="Nghe giọng AI đọc tóm tắt công cụ này"
                     >
                       <span className="flex items-center gap-2">
@@ -1220,7 +1253,7 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
                           showToast(`Hãy mở tab Agent Chat và hỏi về ${activeSummary.title}`, 'info');
                         }
                       }}
-                      className="w-full px-3 py-2 rounded-xl neu-btn text-xs font-semibold text-[var(--text-main)] hover:text-[var(--primary)] flex items-center justify-between transition-all cursor-pointer"
+                      className="w-full px-3 py-2 rounded-xl neu-btn text-xs font-semibold text-[var(--text-main)] hover:text-[var(--primary)] flex items-center justify-between transition-all active:scale-[0.98] cursor-pointer"
                       title="Mở Agent Chat và hỏi cố vấn RAG về kỹ năng này"
                     >
                       <span className="flex items-center gap-2">
@@ -1235,7 +1268,7 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
                       <button
                         type="button"
                         onClick={() => onToggleBookmark(activeSummary.skill_id)}
-                        className={`w-full px-3 py-2 rounded-xl text-xs font-semibold flex items-center justify-between transition-all cursor-pointer ${
+                        className={`w-full px-3 py-2 rounded-xl text-xs font-semibold flex items-center justify-between transition-all active:scale-[0.98] cursor-pointer ${
                           bookmarkedSkillIds.has(activeSummary.skill_id)
                             ? 'neu-inset text-[var(--primary)] shadow-inner'
                             : 'neu-btn text-[var(--text-muted)] hover:text-[var(--primary)]'
@@ -1259,17 +1292,18 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
                       </button>
                     )}
 
-                    {/* Share / Copy Active Post */}
+                    {/* Share / Copy Share Link */}
                     <button
                       type="button"
                       onClick={handleShareActivePost}
-                      className="w-full px-3 py-2 rounded-xl neu-btn text-xs font-semibold text-[var(--text-muted)] hover:text-[var(--text-main)] flex items-center justify-between transition-all cursor-pointer"
+                      className="w-full px-3 py-2 rounded-xl neu-btn text-xs font-semibold text-[var(--text-muted)] hover:text-[var(--text-main)] flex items-center justify-between transition-all active:scale-[0.98] cursor-pointer"
+                      title="Sao chép liên kết chia sẻ bài viết"
                     >
                       <span className="flex items-center gap-2">
-                        <Copy className="w-3.5 h-3.5 text-amber-500" />
-                        <span>Sao chép bài viết</span>
+                        <Share2 className="w-3.5 h-3.5 text-amber-500" />
+                        <span>Sao chép link chia sẻ</span>
                       </span>
-                      <span className="text-[10px] font-mono">COPY</span>
+                      <span className="text-[10px] font-mono">LINK</span>
                     </button>
 
                     {/* Open Skill Detail / Config Modal */}
@@ -1296,7 +1330,7 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
               return (
                 <div
                   key={item.skill_id || idx}
-                  className="rounded-3xl neu-flat transition-all flex flex-col justify-between p-5 sm:p-6"
+                  className="rounded-3xl neu-flat neu-card-interactive transition-all flex flex-col justify-between p-5 sm:p-6"
                 >
                   <div className="space-y-3.5">
                     {/* Card Header: Title & Badges */}

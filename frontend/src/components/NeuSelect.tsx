@@ -206,7 +206,7 @@ export function NeuSelect<T extends string | number>({
         onClick={() => {
           if (!disabled) setIsOpen(!isOpen);
         }}
-        className={`flex items-center justify-between text-left transition-all duration-200 ease-[cubic-bezier(0.34,1.56,0.64,1)] active:scale-[0.98] active:translate-y-[1px] cursor-pointer font-medium select-none ${
+        className={`flex items-center justify-between text-left transition-all duration-200 ease-spring hover:-translate-y-0.5 active:duration-75 active:ease-spring-press active:scale-[0.98] active:translate-y-[1.5px] cursor-pointer font-medium select-none ${
           sizeStyles[size]
         } ${variantStyles[variant]} ${
           fullWidth ? 'w-full' : ''
@@ -340,7 +340,7 @@ export function NeuSelect<T extends string | number>({
             setSearchQuery('');
           }
         }}
-        className={`w-full flex items-center justify-between px-3 py-2 text-left text-xs rounded-xl transition-all duration-150 active:scale-[0.98] cursor-pointer ${
+        className={`w-full flex items-center justify-between px-3 py-2 text-left text-xs rounded-xl transition-all duration-150 ease-spring active:duration-75 active:ease-spring-press active:scale-[0.98] active:translate-y-[1px] cursor-pointer ${
           isSelected
             ? 'neu-inset-sm text-[var(--primary)] font-bold'
             : 'text-[var(--text-main)] hover:bg-slate-500/10 dark:hover:bg-slate-400/10 hover:text-[var(--primary)]'

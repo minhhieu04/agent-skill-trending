@@ -56,7 +56,11 @@ export const SocialTechPostCard: React.FC<SocialTechPostCardProps> = ({
 
   const cleanHook = (text: string) => {
     if (!text) return '';
-    return text.replace(/[*_~`]/g, '').trim();
+    return text
+      .replace(/[*_~`]/g, '')
+      .replace(/^["'“”]/, '')
+      .replace(/["'“”]$/, '')
+      .trim();
   };
 
   const handleToggleLike = () => {
@@ -89,11 +93,12 @@ export const SocialTechPostCard: React.FC<SocialTechPostCardProps> = ({
   const handleCopyFullPost = async () => {
     const prosText = post.pros_and_cons?.pros?.map((p) => `  * ${p}`).join('\n') || '';
     const consText = post.pros_and_cons?.cons?.map((c) => `  * ${c}`).join('\n') || '';
+    const postUrl = typeof window !== 'undefined' ? `${window.location.origin}${window.location.pathname}#post-${post.skill_id}` : '';
 
     const formatted = `
 # ${post.title} — Phân Tích Chuyên Sâu Mạng Xã Hội
 
-${cleanHook(post.hook)}
+"${cleanHook(post.hook)}"
 
 ${post.summary}
 
@@ -120,6 +125,7 @@ ${post.who_should_use || ''}
 
 ${post.hashtags?.join(' ') || ''}
 Repo: ${post.repository_url || ''}
+Link bài viết: ${postUrl}
 `.trim();
 
     const ok = await copyToClipboard(formatted);
@@ -143,6 +149,13 @@ Repo: ${post.repository_url || ''}
       setIsReadingAudio(false);
       return;
     }
+
+    // Pause any active HTML5 podcast audio to avoid audio collision
+    document.querySelectorAll('audio').forEach((el) => {
+      try {
+        el.pause();
+      } catch {}
+    });
 
     window.speechSynthesis.cancel();
     const readText = `${post.title}. ${cleanHook(post.hook)}. ${post.summary}. Tác dụng: ${skillSummary.what_it_does}`;
@@ -235,7 +248,7 @@ Repo: ${post.repository_url || ''}
         {/* VIRAL HOOK CALLOUT (EDITORIAL BLOCKQUOTE) */}
         <div
           id={`post-${post.skill_id}-hook`}
-          className="relative rounded-2xl neu-inset p-4 sm:p-5 border-l-4 border-[var(--primary)] bg-gradient-to-r from-[var(--primary)]/5 via-transparent to-transparent scroll-mt-24"
+          className="relative rounded-2xl neu-inset p-4 sm:p-5 !border-l-4 !border-l-[var(--primary)] bg-gradient-to-r from-[var(--primary)]/5 via-transparent to-transparent scroll-mt-24"
         >
           <div className="flex items-start gap-3">
             <div className="w-8 h-8 rounded-xl neu-flat-xs flex items-center justify-center shrink-0 text-[var(--primary)] mt-0.5 shadow-sm">
@@ -263,7 +276,7 @@ Repo: ${post.repository_url || ''}
           className="grid grid-cols-1 md:grid-cols-2 gap-3.5 items-stretch scroll-mt-24"
         >
           {/* BEFORE */}
-          <div className="rounded-2xl p-4 neu-inset space-y-2.5 bg-rose-500/[0.04] dark:bg-rose-500/[0.07] border border-rose-500/15 flex flex-col justify-between">
+          <div className="rounded-2xl p-4 neu-inset space-y-2.5 bg-rose-500/[0.04] dark:bg-rose-500/[0.07] !border !border-rose-500/20 flex flex-col justify-between">
             <div className="space-y-2">
               <div className="flex items-center gap-2 text-xs font-bold text-rose-600 dark:text-rose-400">
                 <span className="w-6 h-6 rounded-lg neu-inset-sm flex items-center justify-center text-rose-500 shrink-0">
@@ -283,7 +296,7 @@ Repo: ${post.repository_url || ''}
           </div>
 
           {/* AFTER */}
-          <div className="rounded-2xl p-4 neu-inset space-y-2.5 bg-emerald-500/[0.04] dark:bg-emerald-500/[0.07] border border-emerald-500/15 flex flex-col justify-between">
+          <div className="rounded-2xl p-4 neu-inset space-y-2.5 bg-emerald-500/[0.04] dark:bg-emerald-500/[0.07] !border !border-emerald-500/20 flex flex-col justify-between">
             <div className="space-y-2">
               <div className="flex items-center gap-2 text-xs font-bold text-emerald-600 dark:text-emerald-400">
                 <span className="w-6 h-6 rounded-lg neu-inset-sm flex items-center justify-center text-emerald-500 shrink-0">
@@ -348,16 +361,16 @@ Repo: ${post.repository_url || ''}
         {post.code_example?.code && (
           <div
             id={`post-${post.skill_id}-code`}
-            className="rounded-2xl neu-inset overflow-hidden border border-black/5 dark:border-white/5 space-y-1.5 scroll-mt-24"
+            className="rounded-2xl neu-inset overflow-hidden !border !border-black/10 dark:!border-white/10 space-y-1.5 scroll-mt-24"
           >
             {/* macOS Terminal Titlebar */}
             <div className="px-4 py-2.5 bg-[var(--bg)]/90 border-b border-[var(--shadow-dark)]/25 flex items-center justify-between gap-3">
               {/* 3 Mac Traffic Light Dots */}
               <div className="flex items-center gap-2">
                 <div className="flex items-center gap-1.5">
-                  <span className="w-3 h-3 rounded-full bg-[#ff5f56] border border-[#e0443e] inline-block shadow-sm" />
-                  <span className="w-3 h-3 rounded-full bg-[#ffbd2e] border border-[#dea123] inline-block shadow-sm" />
-                  <span className="w-3 h-3 rounded-full bg-[#27c93f] border border-[#1aab29] inline-block shadow-sm" />
+                  <span className="w-3 h-3 rounded-full bg-[#ff5f56] border border-[#e0443e] inline-block shadow-sm hover:opacity-80 transition-opacity" />
+                  <span className="w-3 h-3 rounded-full bg-[#ffbd2e] border border-[#dea123] inline-block shadow-sm hover:opacity-80 transition-opacity" />
+                  <span className="w-3 h-3 rounded-full bg-[#27c93f] border border-[#1aab29] inline-block shadow-sm hover:opacity-80 transition-opacity" />
                 </div>
                 <div className="flex items-center gap-1.5 ml-2 text-[var(--text-muted)] font-mono text-xs">
                   <Terminal className="w-3.5 h-3.5 text-[var(--primary)]" />
@@ -373,7 +386,7 @@ Repo: ${post.repository_url || ''}
               {/* Tactile Copy Button */}
               <button
                 onClick={handleCopyCode}
-                className="neu-btn-sm px-2.5 py-1 text-[11px] font-mono text-[var(--text-main)] flex items-center gap-1.5 cursor-pointer rounded-xl"
+                className="neu-btn-sm px-2.5 py-1 text-[11px] font-mono text-[var(--text-main)] flex items-center gap-1.5 cursor-pointer rounded-xl active:scale-95"
                 title="Sao chép toàn bộ mã nguồn"
               >
                 {copiedCode ? (

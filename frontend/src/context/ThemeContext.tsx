@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 
 type Theme = 'dark' | 'light';
 
@@ -19,6 +19,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   });
 
   const [isTransitioning, setIsTransitioning] = useState(false);
+  const isTransitioningRef = useRef(false);
 
   // Helper to apply theme classes to DOM root
   const applyThemeToDOM = (t: Theme) => {
@@ -39,7 +40,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }, []);
 
   const toggleTheme = (event?: React.MouseEvent) => {
-    if (isTransitioning) return;
+    if (isTransitioningRef.current) return;
 
     const nextTheme: Theme = theme === 'dark' ? 'light' : 'dark';
 
@@ -49,29 +50,55 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
     if (prefersReducedMotion) {
+      isTransitioningRef.current = true;
+      setIsTransitioning(true);
       document.documentElement.classList.add('no-theme-transition');
       setThemeState(nextTheme);
       applyThemeToDOM(nextTheme);
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
           document.documentElement.classList.remove('no-theme-transition');
+          isTransitioningRef.current = false;
+          setIsTransitioning(false);
         });
       });
       return;
     }
 
     // Path 1: Native View Transitions API with circular clip-path reveal from click position
-    if (typeof document !== 'undefined' && 'startViewTransition' in document) {
-      const x = event?.clientX ?? window.innerWidth / 2;
-      const y = event?.clientY ?? window.innerHeight / 2;
+    const hasViewTransition = typeof document !== 'undefined' && Boolean((document as any).startViewTransition);
+    if (hasViewTransition) {
+      let x = event?.clientX;
+      let y = event?.clientY;
+      if (typeof x !== 'number' || typeof y !== 'number' || (x === 0 && y === 0)) {
+        if (event?.currentTarget && 'getBoundingClientRect' in (event.currentTarget as Element)) {
+          const rect = (event.currentTarget as Element).getBoundingClientRect();
+          x = rect.left + rect.width / 2;
+          y = rect.top + rect.height / 2;
+        } else {
+          x = window.innerWidth / 2;
+          y = window.innerHeight / 2;
+        }
+      }
+
       const endRadius = Math.hypot(
         Math.max(x, window.innerWidth - x),
         Math.max(y, window.innerHeight - y)
       );
 
+      isTransitioningRef.current = true;
       setIsTransitioning(true);
       // Suppress child CSS transitions during view transition so GPU only renders the radial clip-path
       document.documentElement.classList.add('no-theme-transition');
+
+      let cleanupDone = false;
+      const cleanup = () => {
+        if (cleanupDone) return;
+        cleanupDone = true;
+        document.documentElement.classList.remove('no-theme-transition');
+        isTransitioningRef.current = false;
+        setIsTransitioning(false);
+      };
 
       try {
         const transition = (document as any).startViewTransition(() => {
@@ -95,52 +122,56 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
               }
             );
 
-            const cleanup = () => {
-              document.documentElement.classList.remove('no-theme-transition');
-              setIsTransitioning(false);
-            };
-
             animation.onfinish = cleanup;
             animation.oncancel = cleanup;
           })
           .catch(() => {
-            document.documentElement.classList.remove('no-theme-transition');
-            setIsTransitioning(false);
+            cleanup();
           });
 
         transition.finished
           .catch(() => {})
           .finally(() => {
-            document.documentElement.classList.remove('no-theme-transition');
-            setIsTransitioning(false);
+            cleanup();
           });
 
         return;
       } catch {
-        document.documentElement.classList.remove('no-theme-transition');
-        setIsTransitioning(false);
+        // If startViewTransition threw synchronously, apply theme directly in fallback
+        setThemeState(nextTheme);
+        applyThemeToDOM(nextTheme);
+        cleanup();
+        return;
       }
     }
 
     // Path 2: Fallback - instant gentle switch without blocking modal popup
+    isTransitioningRef.current = true;
+    setIsTransitioning(true);
     document.documentElement.classList.add('no-theme-transition');
     setThemeState(nextTheme);
     applyThemeToDOM(nextTheme);
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         document.documentElement.classList.remove('no-theme-transition');
+        isTransitioningRef.current = false;
+        setIsTransitioning(false);
       });
     });
   };
 
   const setTheme = (t: Theme) => {
-    if (t === theme) return;
+    if (t === theme || isTransitioningRef.current) return;
+    isTransitioningRef.current = true;
+    setIsTransitioning(true);
     document.documentElement.classList.add('no-theme-transition');
     setThemeState(t);
     applyThemeToDOM(t);
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         document.documentElement.classList.remove('no-theme-transition');
+        isTransitioningRef.current = false;
+        setIsTransitioning(false);
       });
     });
   };
