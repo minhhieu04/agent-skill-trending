@@ -1245,9 +1245,9 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
             {/* Cột sidebar cố định (bên phải, sticky top-6, w-80 hoặc w-96 trên desktop) */}
             <aside className="hidden lg:block w-80 xl:w-96 shrink-0 sticky top-6 pb-12">
               {/* MASTER COMPANION CARD: Khối thống nhất, Soft UI chuẩn, không lồng hộp thừa thãi */}
-              <div className="rounded-3xl neu-flat p-4 sm:p-5 space-y-4 transition-all max-h-[calc(100vh-4.5rem)] overflow-y-auto scrollbar-none">
+              <div className="rounded-3xl neu-flat p-5 sm:p-6 pb-6 sm:pb-7 space-y-5 transition-all max-h-[calc(100vh-4.5rem)] overflow-y-auto scrollbar-none">
                 {/* 1. HEADER & DANH SÁCH BÀI HÔM NAY */}
-                <div className="space-y-2.5">
+                <div className="space-y-3">
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2 min-w-0">
                       <div className="w-7 h-7 rounded-xl bg-[var(--primary)]/10 text-[var(--primary)] flex items-center justify-center font-bold text-xs shrink-0">
@@ -1264,7 +1264,7 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
 
                   {/* Single Post Compact Banner vs Multi-post Switcher */}
                   {filteredSkills.length === 1 ? (
-                    <div className="flex items-center justify-between p-2.5 rounded-2xl bg-[var(--primary)]/5 border border-[var(--primary)]/20 transition-all">
+                    <div className="flex items-center justify-between p-3 rounded-2xl bg-[var(--primary)]/5 border border-[var(--primary)]/20 transition-all">
                       <div className="flex items-center gap-2.5 min-w-0">
                         <div className="w-6 h-6 rounded-lg bg-[var(--primary)] text-white text-xs font-mono font-bold flex items-center justify-center shrink-0 shadow-xs">
                           1
@@ -1340,7 +1340,7 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
 
                 {/* 2. MỤC LỤC BÀI VIẾT (Streamlined Stepper TOC) */}
                 {activeSummary && activePost && (
-                  <div className="space-y-2">
+                  <div className="space-y-2.5">
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-2 min-w-0">
                         <div className="w-7 h-7 rounded-xl bg-amber-500/10 text-amber-500 flex items-center justify-center font-bold text-xs shrink-0">
@@ -1435,7 +1435,7 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
                         >
                           <div className="flex items-center gap-2 min-w-0">
                             <Check className="w-3.5 h-3.5 text-teal-500 shrink-0 group-hover:scale-110 transition-transform" />
-                            <span className="truncate font-medium">Ưu điểm & Lưu ý</span>
+                            <span className="truncate font-medium">Ưu & Nhược điểm</span>
                           </div>
                           <ChevronRight className="w-3 h-3 text-teal-500 opacity-0 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all shrink-0" />
                         </button>
@@ -1460,8 +1460,8 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
 
                 {/* 3. THAO TÁC NHANH (Tactile Quick Actions Deck) */}
                 {activeSummary && (
-                  <div className="space-y-2.5">
-                    <div className="flex items-center gap-2">
+                  <div className="space-y-3.5 pt-0.5">
+                    <div className="flex items-center gap-2.5">
                       <div className="w-7 h-7 rounded-xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center font-bold text-xs shrink-0">
                         <Zap className="w-3.5 h-3.5" />
                       </div>
@@ -1470,8 +1470,8 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
                       </h4>
                     </div>
 
-                    {/* 4 Action Tiles in 2x2 Grid */}
-                    <div className="grid grid-cols-2 gap-2">
+                    {/* 4 Action Tiles in 2x2 Grid with generous gap for Neumorphic shadow diffusion */}
+                    <div className="grid grid-cols-2 gap-3">
                       {/* 1. Nghe Audio */}
                       <button
                         type="button"
@@ -1481,7 +1481,7 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
                               `${activeSummary.title}. ${activeSummary.what_it_does}. Nỗi đau giải quyết: ${activeSummary.pain_point_solved}`
                           )
                         }
-                        className="p-2.5 rounded-2xl neu-btn flex items-center gap-2 text-left cursor-pointer group transition-all"
+                        className="p-3 rounded-2xl neu-btn flex items-center gap-2.5 text-left cursor-pointer group transition-all"
                         title="Nghe giọng AI đọc tóm tắt công cụ này"
                       >
                         <div className="w-7 h-7 rounded-xl bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform shadow-xs">
@@ -1491,7 +1491,7 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
                           <span className="text-xs font-bold text-[var(--text-main)] block leading-tight truncate">
                             Nghe Audio
                           </span>
-                          <span className="text-[10px] text-[var(--text-muted)] block truncate">
+                          <span className="text-[10px] text-[var(--text-muted)] block truncate mt-0.5">
                             Đọc tóm tắt
                           </span>
                         </div>
@@ -1509,7 +1509,7 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
                             showToast(`Hãy mở tab Agent Chat và hỏi về ${activeSummary.title}`, 'info');
                           }
                         }}
-                        className="p-2.5 rounded-2xl neu-btn flex items-center gap-2 text-left cursor-pointer group transition-all"
+                        className="p-3 rounded-2xl neu-btn flex items-center gap-2.5 text-left cursor-pointer group transition-all"
                         title="Hỏi cố vấn RAG AI về kỹ năng này"
                       >
                         <div className="w-7 h-7 rounded-xl bg-[var(--primary)]/15 text-[var(--primary)] flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform shadow-xs">
@@ -1519,7 +1519,7 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
                           <span className="text-xs font-bold text-[var(--text-main)] block leading-tight truncate">
                             Hỏi AI Chat
                           </span>
-                          <span className="text-[10px] text-[var(--primary)] font-medium block truncate">
+                          <span className="text-[10px] text-[var(--primary)] font-medium block truncate mt-0.5">
                             RAG Agent
                           </span>
                         </div>
@@ -1530,7 +1530,7 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
                         <button
                           type="button"
                           onClick={() => onToggleBookmark(activeSummary.skill_id)}
-                          className={`p-2.5 rounded-2xl flex items-center gap-2 text-left cursor-pointer transition-all group ${
+                          className={`p-3 rounded-2xl flex items-center gap-2.5 text-left cursor-pointer transition-all group ${
                             bookmarkedSkillIds.has(activeSummary.skill_id)
                               ? 'neu-inset text-[var(--primary)] font-bold'
                               : 'neu-btn text-[var(--text-main)]'
@@ -1558,7 +1558,7 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
                             <span className="text-xs font-bold block leading-tight truncate">
                               {bookmarkedSkillIds.has(activeSummary.skill_id) ? 'Đã Lưu' : 'Bookmark'}
                             </span>
-                            <span className="text-[10px] text-[var(--text-muted)] block truncate">
+                            <span className="text-[10px] text-[var(--text-muted)] block truncate mt-0.5">
                               {bookmarkedSkillIds.has(activeSummary.skill_id) ? 'Đã ghim' : 'Lưu lại'}
                             </span>
                           </div>
@@ -1569,7 +1569,7 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
                       <button
                         type="button"
                         onClick={handleShareActivePost}
-                        className="p-2.5 rounded-2xl neu-btn flex items-center gap-2 text-left cursor-pointer group transition-all"
+                        className="p-3 rounded-2xl neu-btn flex items-center gap-2.5 text-left cursor-pointer group transition-all"
                         title="Sao chép liên kết chia sẻ bài viết"
                       >
                         <div className="w-7 h-7 rounded-xl bg-amber-500/15 text-amber-500 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform shadow-xs">
@@ -1579,7 +1579,7 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
                           <span className="text-xs font-bold text-[var(--text-main)] block leading-tight truncate">
                             Chia Sẻ
                           </span>
-                          <span className="text-[10px] text-[var(--text-muted)] block truncate">
+                          <span className="text-[10px] text-[var(--text-muted)] block truncate mt-0.5">
                             Sao chép link
                           </span>
                         </div>
@@ -1591,7 +1591,7 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
                       <button
                         type="button"
                         onClick={() => onSelectSkillById(activeSummary.skill_id)}
-                        className="w-full py-3 px-4 rounded-2xl neu-primary text-xs font-bold text-white flex items-center justify-center gap-2 transition-all active:scale-98 cursor-pointer shadow-md group mt-1"
+                        className="w-full py-3.5 px-4 rounded-2xl neu-primary text-xs font-bold text-white flex items-center justify-center gap-2 transition-all active:scale-98 cursor-pointer shadow-md group mt-3.5"
                       >
                         <span>Cấu hình & Tích hợp Skill</span>
                         <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
