@@ -26,7 +26,6 @@ import {
   Plus,
   ArrowUp,
   ArrowDown,
-  User,
   Palette,
   Scale,
   BarChart3,
@@ -1213,7 +1212,7 @@ export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({
                 }`}
               >
                 <Sparkles className="w-3 h-3 text-[var(--primary)]" />
-                <span>⭐ Google AI Studio (Gemini 3.1 Live)</span>
+                <span>Google AI Studio (Gemini 3.1 Live)</span>
               </button>
               <button
                 type="button"
@@ -1225,7 +1224,7 @@ export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({
                 }`}
               >
                 <Zap className="w-3 h-3 text-amber-500" />
-                <span>⚡ Microsoft Edge-TTS (Diểm Phúc & Minh Hiếu)</span>
+                <span>Microsoft Edge-TTS (Diểm Phúc & Minh Hiếu)</span>
               </button>
             </div>
 
@@ -1254,7 +1253,14 @@ export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({
                             ? 'neu-primary text-white' 
                             : 'neu-inset text-[var(--text-muted)]'
                         }`}>
-                          <User className="w-4 h-4" />
+                          {voice.id.includes('Aoede') ? <Star className={`w-4 h-4 ${isSelected ? 'text-white' : 'text-amber-500'}`} /> :
+                           voice.id.includes('Puck') ? <Flame className={`w-4 h-4 ${isSelected ? 'text-white' : 'text-orange-500'}`} /> :
+                           voice.id.includes('Charon') ? <Target className={`w-4 h-4 ${isSelected ? 'text-white' : 'text-indigo-500'}`} /> :
+                           voice.id.includes('Kore') ? <Sparkles className={`w-4 h-4 ${isSelected ? 'text-white' : 'text-emerald-500'}`} /> :
+                           voice.id.includes('Fenrir') ? <Radio className={`w-4 h-4 ${isSelected ? 'text-white' : 'text-cyan-500'}`} /> :
+                           voice.id.includes('HoaiMy') ? <Zap className={`w-4 h-4 ${isSelected ? 'text-white' : 'text-amber-500'}`} /> :
+                           voice.id.includes('NamMinh') ? <Mic className={`w-4 h-4 ${isSelected ? 'text-white' : 'text-sky-500'}`} /> :
+                           <Volume2 className={`w-4 h-4 ${isSelected ? 'text-white' : 'text-[var(--primary)]'}`} />}
                         </div>
                         <div>
                           <div className="font-bold text-sm text-[var(--text-main)] flex items-center gap-1.5">

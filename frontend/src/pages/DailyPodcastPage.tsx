@@ -25,7 +25,11 @@ import {
   ChevronRight,
   AlertTriangle,
   Cpu,
-  Terminal
+  Terminal,
+  Mic,
+  Flame,
+  Globe,
+  Compass
 } from 'lucide-react';
 import { api } from '../api/client';
 import { DailyDigest, DailyDigestDateInfo, SkillDigestSummary, SocialMediaPost, VoiceOption } from '../types';
@@ -38,19 +42,19 @@ import { copyToClipboard } from '../utils/clipboard';
 
 // Curated AI Voices Fallback
 const DEFAULT_PODCAST_VOICES: VoiceOption[] = [
-  // Google AI Studio - Gemini 3.1 Live Native Audio (Top Community Choice ⭐)
-  { id: 'gemini-Aoede', name: '⭐ Aoede (Nữ - Siêu Tự Nhiên, Chuẩn Song Ngữ Anh-Việt)', provider: 'gemini_audio', language: 'multi', gender: 'female', style: 'Gemini 3.1 Multimodal Expressive Voice', preview_text: '', badge: '⭐ TOP 1 CỘNG ĐỒNG' },
-  { id: 'gemini-Puck', name: '🔥 Puck (Nam - Năng Động, Chuẩn Tech Reviewer)', provider: 'gemini_audio', language: 'multi', gender: 'male', style: 'Gemini 3.1 Multimodal Expressive Voice', preview_text: '', badge: '🔥 VIRAL REVIEW' },
-  { id: 'gemini-Charon', name: '💎 Charon (Nam - Trầm Ấm, Chuyên Gia Kiến Trúc)', provider: 'gemini_audio', language: 'multi', gender: 'male', style: 'Gemini 3.1 Multimodal Expressive Voice', preview_text: '', badge: '💎 CHUYÊN GIA PRO' },
-  { id: 'gemini-Kore', name: '✨ Kore (Nữ - Trong Trẻo, Host Hướng Dẫn)', provider: 'gemini_audio', language: 'multi', gender: 'female', style: 'Gemini 3.1 Multimodal Expressive Voice', preview_text: '', badge: '✨ TUTORIAL HOST' },
-  { id: 'gemini-Fenrir', name: '🚀 Fenrir (Nam - Bản Lĩnh, Keynote Leader)', provider: 'gemini_audio', language: 'multi', gender: 'male', style: 'Gemini 3.1 Multimodal Expressive Voice', preview_text: '', badge: '🚀 KEYNOTE PRO' },
+  // Google AI Studio - Gemini 3.1 Live Native Audio (Top Community Choice)
+  { id: 'gemini-Aoede', name: 'Aoede (Nữ - Siêu Tự Nhiên, Chuẩn Song Ngữ)', provider: 'gemini_audio', language: 'multi', gender: 'female', style: 'Gemini 3.1 Multimodal Expressive Voice', preview_text: '', badge: 'COMMUNITY CHOICE' },
+  { id: 'gemini-Puck', name: 'Puck (Nam - Năng Động, Chuẩn Tech Reviewer)', provider: 'gemini_audio', language: 'multi', gender: 'male', style: 'Gemini 3.1 Multimodal Expressive Voice', preview_text: '', badge: 'TRENDING REVIEW' },
+  { id: 'gemini-Charon', name: 'Charon (Nam - Trầm Ấm, Chuyên Gia Kiến Trúc)', provider: 'gemini_audio', language: 'multi', gender: 'male', style: 'Gemini 3.1 Multimodal Expressive Voice', preview_text: '', badge: 'SYSTEM ARCHITECT' },
+  { id: 'gemini-Kore', name: 'Kore (Nữ - Trong Trẻo, Host Hướng Dẫn)', provider: 'gemini_audio', language: 'multi', gender: 'female', style: 'Gemini 3.1 Multimodal Expressive Voice', preview_text: '', badge: 'TUTORIAL HOST' },
+  { id: 'gemini-Fenrir', name: 'Fenrir (Nam - Bản Lĩnh, Keynote Leader)', provider: 'gemini_audio', language: 'multi', gender: 'male', style: 'Gemini 3.1 Multimodal Expressive Voice', preview_text: '', badge: 'KEYNOTE LEADER' },
   // Tiêu Chuẩn Giọng Đọc Việt Nam Được Giữ Lại (Diểm Phúc & Minh Hiếu)
-  { id: 'vi-VN-HoaiMyNeural', name: '⚡ Diểm Phúc (Nữ - Truyền Cảm, TikTok Hot)', provider: 'edge_tts', language: 'vi-VN', gender: 'female', style: 'Viral Reviewer, TikTok Hot', preview_text: '', badge: '⚡ TIKTOK VIRAL' },
-  { id: 'vi-VN-NamMinhNeural', name: '🎙️ Minh Hiếu (Nam - Trầm Ấm, Radar Tech)', provider: 'edge_tts', language: 'vi-VN', gender: 'male', style: 'Tech Radar, Thời Sự', preview_text: '', badge: '🎙️ RADAR TECH' },
+  { id: 'vi-VN-HoaiMyNeural', name: 'Diểm Phúc (Nữ - Truyền Cảm, TikTok Hot)', provider: 'edge_tts', language: 'vi-VN', gender: 'female', style: 'Viral Reviewer, TikTok Hot', preview_text: '', badge: 'TIKTOK VIRAL' },
+  { id: 'vi-VN-NamMinhNeural', name: 'Minh Hiếu (Nam - Trầm Ấm, Radar Tech)', provider: 'edge_tts', language: 'vi-VN', gender: 'male', style: 'Tech Radar, Thời Sự', preview_text: '', badge: 'TECH RADAR' },
   // Tiếng Anh Quốc Tế (Silicon Valley & DeepMind)
-  { id: 'en-US-Journey-F', name: '👑 Google Journey (Female - Expressive)', provider: 'google_tts', language: 'en-US', gender: 'female', style: 'DeepMind Next-Gen Journey', preview_text: '', badge: '👑 DEEPMIND' },
-  { id: 'en-US-ChristopherNeural', name: '🌐 Christopher (Male - Silicon Valley Keynote)', provider: 'edge_tts', language: 'en-US', gender: 'male', style: 'Tech Podcast & Keynote', preview_text: '', badge: '🌐 SILICON VALLEY' },
-  { id: 'en-US-JennyNeural', name: '⚡ Jenny (Female - Dynamic Tech Host)', provider: 'edge_tts', language: 'en-US', gender: 'female', style: 'Tutorial & Explainer', preview_text: '', badge: '⚡ DYNAMIC HOST' },
+  { id: 'en-US-Journey-F', name: 'Google Journey (Female - Expressive)', provider: 'google_tts', language: 'en-US', gender: 'female', style: 'DeepMind Next-Gen Journey', preview_text: '', badge: 'DEEPMIND' },
+  { id: 'en-US-ChristopherNeural', name: 'Christopher (Male - Silicon Valley Keynote)', provider: 'edge_tts', language: 'en-US', gender: 'male', style: 'Tech Podcast & Keynote', preview_text: '', badge: 'SILICON VALLEY' },
+  { id: 'en-US-JennyNeural', name: 'Jenny (Female - Dynamic Tech Host)', provider: 'edge_tts', language: 'en-US', gender: 'female', style: 'Tutorial & Explainer', preview_text: '', badge: 'DYNAMIC HOST' },
 ];
 
 interface DailyPodcastPageProps {
@@ -124,23 +128,39 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
     (v) => v.language.startsWith('en') || (!v.id.startsWith('gemini-') && v.language !== 'vi-VN')
   );
 
+  const getVoiceSelectIcon = (voiceId: string) => {
+    if (voiceId.includes('Aoede')) return <Star className="w-3.5 h-3.5 text-amber-500 shrink-0" />;
+    if (voiceId.includes('Puck')) return <Flame className="w-3.5 h-3.5 text-orange-500 shrink-0" />;
+    if (voiceId.includes('Charon')) return <Target className="w-3.5 h-3.5 text-indigo-500 shrink-0" />;
+    if (voiceId.includes('Kore')) return <Sparkles className="w-3.5 h-3.5 text-emerald-500 shrink-0" />;
+    if (voiceId.includes('Fenrir')) return <Radio className="w-3.5 h-3.5 text-cyan-500 shrink-0" />;
+    if (voiceId.includes('HoaiMy')) return <Zap className="w-3.5 h-3.5 text-amber-500 shrink-0" />;
+    if (voiceId.includes('NamMinh')) return <Mic className="w-3.5 h-3.5 text-sky-500 shrink-0" />;
+    if (voiceId.includes('Journey')) return <Compass className="w-3.5 h-3.5 text-purple-500 shrink-0" />;
+    if (voiceId.includes('Christopher')) return <Globe className="w-3.5 h-3.5 text-blue-500 shrink-0" />;
+    return <Volume2 className="w-3.5 h-3.5 text-[var(--primary)] shrink-0" />;
+  };
+
   const voiceSelectOptions = React.useMemo(() => [
     ...geminiVoices.map((v) => ({
       value: v.id,
       label: v.name,
       badge: v.badge,
+      icon: getVoiceSelectIcon(v.id),
       group: 'Google AI Studio (Siêu Tự Nhiên & Chuẩn Song Ngữ)',
     })),
     ...vietnameseVoices.map((v) => ({
       value: v.id,
       label: v.name,
       badge: v.badge,
+      icon: getVoiceSelectIcon(v.id),
       group: 'Giọng Đọc Tiếng Việt Tiêu Chuẩn',
     })),
     ...internationalVoices.map((v) => ({
       value: v.id,
       label: v.name,
       badge: v.badge,
+      icon: getVoiceSelectIcon(v.id),
       group: 'English & Global Studio',
     })),
   ], [geminiVoices, vietnameseVoices, internationalVoices]);

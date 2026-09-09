@@ -17,22 +17,23 @@ logger = logging.getLogger("TTSService")
 
 # Curated Hot AI Voices: Google AI Studio Gemini 3.1 Flash TTS + Diểm Phúc & Minh Hiếu + Christopher
 CURATED_VOICES = [
-    # --- Google AI Studio - Gemini 3.1 Live Native Audio (Top Community Choice ⭐) ---
+    # --- Google AI Studio - Gemini 3.1 Live Native Audio (Top Community Choice) ---
     {
         "id": "gemini-Aoede",
-        "name": "⭐ Aoede (Nữ - Siêu Tự Nhiên, Chuẩn Song Ngữ Anh-Việt)",
+        "name": "Aoede (Nữ - Siêu Tự Nhiên, Chuẩn Song Ngữ)",
         "provider": "gemini_audio",
         "language": "multi",
         "gender": "female",
         "style": "Gemini 3.1 Multimodal Expressive Voice",
-        "description": "Giọng nữ Google AI Studio được cộng đồng yêu thích nhất: nhả chữ tự nhiên như người thật, phát âm thuật ngữ tiếng Anh chuẩn xác 100%.",
+        "description": "Giọng nữ Google AI Studio được cộng đồng đánh giá cao nhất: nhả chữ tự nhiên như người thật, phát âm thuật ngữ tiếng Anh chuẩn xác 100%.",
         "preview_text": "Xin chào anh Hiếu! Tôi là Aoede từ Google AI Studio, sẵn sàng cùng anh điểm tin công nghệ hôm nay.",
         "recommended_preset": "hype",
-        "badge": "⭐ TOP 1 CỘNG ĐỒNG"
+        "badge": "COMMUNITY CHOICE",
+        "icon_type": "star"
     },
     {
         "id": "gemini-Puck",
-        "name": "🔥 Puck (Nam - Năng Động, Chuẩn Tech Reviewer)",
+        "name": "Puck (Nam - Năng Động, Chuẩn Tech Reviewer)",
         "provider": "gemini_audio",
         "language": "multi",
         "gender": "male",
@@ -40,11 +41,12 @@ CURATED_VOICES = [
         "description": "Giọng nam trẻ trung, dứt khoát, năng động, chuẩn phong cách reviewer công nghệ bóc tách code & framework.",
         "preview_text": "Chào anh em developers! Puck đây, cùng khám phá những agent skills đột phá nhất hôm nay.",
         "recommended_preset": "hype",
-        "badge": "🔥 VIRAL REVIEW"
+        "badge": "TRENDING REVIEW",
+        "icon_type": "flame"
     },
     {
         "id": "gemini-Charon",
-        "name": "💎 Charon (Nam - Trầm Ấm, Chuyên Gia Kiến Trúc)",
+        "name": "Charon (Nam - Trầm Ấm, Chuyên Gia Kiến Trúc)",
         "provider": "gemini_audio",
         "language": "multi",
         "gender": "male",
@@ -52,11 +54,12 @@ CURATED_VOICES = [
         "description": "Giọng nam trầm ấm, bản lĩnh, mang phong thái chuyên gia công nghệ phân tích kiến trúc hệ thống và AI Agents.",
         "preview_text": "Chào mừng anh Hiếu quay trở lại. Hôm nay chúng ta sẽ cùng mổ xẻ những kiến trúc AI agent hàng đầu.",
         "recommended_preset": "professional",
-        "badge": "💎 CHUYÊN GIA PRO"
+        "badge": "SYSTEM ARCHITECT",
+        "icon_type": "award"
     },
     {
         "id": "gemini-Kore",
-        "name": "✨ Kore (Nữ - Trong Trẻo, Host Hướng Dẫn)",
+        "name": "Kore (Nữ - Trong Trẻo, Host Hướng Dẫn)",
         "provider": "gemini_audio",
         "language": "multi",
         "gender": "female",
@@ -64,11 +67,12 @@ CURATED_VOICES = [
         "description": "Giọng nữ thanh thoát, trong trẻo, mang lại cảm giác thân thiện khi nghe podcast hoặc video tutorial.",
         "preview_text": "Chào các bạn! Tôi là Kore từ Google AI Studio, đồng hành cùng bạn trong bản tin công nghệ hôm nay.",
         "recommended_preset": "professional",
-        "badge": "✨ TUTORIAL HOST"
+        "badge": "TUTORIAL HOST",
+        "icon_type": "sparkles"
     },
     {
         "id": "gemini-Fenrir",
-        "name": "🚀 Fenrir (Nam - Bản Lĩnh, Keynote Leader)",
+        "name": "Fenrir (Nam - Bản Lĩnh, Keynote Leader)",
         "provider": "gemini_audio",
         "language": "multi",
         "gender": "male",
@@ -76,13 +80,14 @@ CURATED_VOICES = [
         "description": "Giọng nam đĩnh đạc, uy lực, rất thích hợp cho bài thuyết trình Keynote và công bố tính năng lớn.",
         "preview_text": "Cùng khám phá kỷ nguyên tự động hóa mới cùng hệ sinh thái AI Agents và Google AI Studio.",
         "recommended_preset": "hype",
-        "badge": "🚀 KEYNOTE PRO"
+        "badge": "KEYNOTE LEADER",
+        "icon_type": "radio"
     },
 
     # --- Tiêu Chuẩn Giọng Đọc Việt Nam Được Giữ Lại (Diểm Phúc & Minh Hiếu) ---
     {
         "id": "vi-VN-HoaiMyNeural",
-        "name": "⚡ Diểm Phúc (Nữ - Truyền Cảm, TikTok Hot)",
+        "name": "Diểm Phúc (Nữ - Truyền Cảm, TikTok Hot)",
         "provider": "edge_tts",
         "language": "vi-VN",
         "gender": "female",
@@ -90,11 +95,12 @@ CURATED_VOICES = [
         "description": "Giọng đọc truyền cảm, giàu năng lượng quen thuộc của Edge-TTS trên các kênh review công nghệ ngắn.",
         "preview_text": "Chào các bạn! Tôi là Diểm Phúc - cùng khám phá công nghệ AI cực kỳ bùng nổ trong năm 2026.",
         "recommended_preset": "hype",
-        "badge": "⚡ TIKTOK VIRAL"
+        "badge": "TIKTOK VIRAL",
+        "icon_type": "zap"
     },
     {
         "id": "vi-VN-NamMinhNeural",
-        "name": "🎙️ Minh Hiếu (Nam - Trầm Ấm, Radar Tech)",
+        "name": "Minh Hiếu (Nam - Trầm Ấm, Radar Tech)",
         "provider": "edge_tts",
         "language": "vi-VN",
         "gender": "male",
@@ -102,13 +108,14 @@ CURATED_VOICES = [
         "description": "Giọng nam trầm ấm, chuyên nghiệp, chuẩn phong cách bản tin công nghệ và podcast chuyên sâu.",
         "preview_text": "Điểm tin công nghệ AI hôm nay: Tôi là Minh Hiếu - cùng cập nhật các xu hướng phát triển mới nhất.",
         "recommended_preset": "professional",
-        "badge": "🎙️ RADAR TECH"
+        "badge": "TECH RADAR",
+        "icon_type": "mic"
     },
 
     # --- Tiếng Anh Quốc Tế (Silicon Valley & DeepMind) ---
     {
         "id": "en-US-Journey-F",
-        "name": "👑 Google Journey (Female - Expressive)",
+        "name": "Google Journey (Female - Expressive)",
         "provider": "google_tts",
         "language": "en-US",
         "gender": "female",
@@ -116,11 +123,12 @@ CURATED_VOICES = [
         "description": "Google's most advanced expressive voice model with human-like breathing and natural pauses.",
         "preview_text": "Hey developers, let's explore how Google Antigravity is reshaping modern software architecture.",
         "recommended_preset": "hype",
-        "badge": "👑 DEEPMIND"
+        "badge": "DEEPMIND",
+        "icon_type": "compass"
     },
     {
         "id": "en-US-ChristopherNeural",
-        "name": "🌐 Christopher (Male - Silicon Valley Keynote)",
+        "name": "Christopher (Male - Silicon Valley Keynote)",
         "provider": "edge_tts",
         "language": "en-US",
         "gender": "male",
@@ -128,11 +136,12 @@ CURATED_VOICES = [
         "description": "Clear, authoritative American tech voice suitable for developer showcases and system design walkthroughs.",
         "preview_text": "Welcome back developers! In today's episode, we are diving deep into autonomous agent workflows.",
         "recommended_preset": "professional",
-        "badge": "🌐 SILICON VALLEY"
+        "badge": "SILICON VALLEY",
+        "icon_type": "globe"
     },
     {
         "id": "en-US-JennyNeural",
-        "name": "⚡ Jenny (Female - Dynamic Tech Host)",
+        "name": "Jenny (Female - Dynamic Tech Host)",
         "provider": "edge_tts",
         "language": "en-US",
         "gender": "female",
@@ -140,7 +149,8 @@ CURATED_VOICES = [
         "description": "Energetic, crisp and friendly voice ideal for quick tutorials, SaaS demos and product highlights.",
         "preview_text": "Here is how this agent skill can support a real developer workflow with source-backed guidance.",
         "recommended_preset": "hype",
-        "badge": "⚡ DYNAMIC HOST"
+        "badge": "DYNAMIC HOST",
+        "icon_type": "volume-2"
     },
 ]
 

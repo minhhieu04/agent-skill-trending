@@ -18,6 +18,7 @@ class Skill(Base):
     comparison_notes = Column(Text, nullable=True)
     target_audience = Column(String(128), default="Fullstack Developers")
     readme_preview = Column(Text, nullable=True)
+    readme_translations = Column(JSON, default=dict)
     demo_url = Column(String(512), nullable=True)
     
     # Categorization & taxonomy

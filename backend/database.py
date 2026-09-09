@@ -65,6 +65,13 @@ def auto_migrate_schema(eng=None):
                     logger.info("Auto-migrating: adding 'permission_level' to skills...")
                     conn.execute(text("ALTER TABLE skills ADD COLUMN permission_level VARCHAR(50) DEFAULT 'read-only'"))
 
+                if 'readme_translations' not in cols:
+                    logger.info("Auto-migrating: adding 'readme_translations' to skills...")
+                    if is_pg:
+                        conn.execute(text("ALTER TABLE skills ADD COLUMN readme_translations JSON DEFAULT '{}'::json"))
+                    else:
+                        conn.execute(text("ALTER TABLE skills ADD COLUMN readme_translations JSON DEFAULT '{}'"))
+
         logger.info("✅ Database auto-migration & schema sync completed.")
     except Exception as e:
         logger.warning(f"Auto-migration inspection note: {e}")
