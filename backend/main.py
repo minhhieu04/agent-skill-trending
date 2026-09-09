@@ -29,6 +29,7 @@ from models.collection_run import CollectionRun
 from models.audit_log import AuditLog
 from models.user import User
 from models.daily_digest import DailyDigest
+from models.agent_chat import ChatSession, ChatMessage
 from middleware.auth import hash_password as get_password_hash
 
 logging.basicConfig(

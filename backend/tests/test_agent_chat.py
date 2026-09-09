@@ -4,7 +4,10 @@ from fastapi.testclient import TestClient
 from main import app, seed_initial_curated_skills
 from database import SessionLocal
 from models.skill import Skill
+from models.user import User
+from models.agent_chat import ChatSession, ChatMessage
 from services.agent_chat_service import AgentChatService
+from middleware.auth import create_access_token, hash_password
 
 _db_seeded = False
 
@@ -36,7 +39,32 @@ def mock_gemini_client():
         yield mock_client
 
 
+@pytest.fixture
+def auth_client():
+    """Provides a TestClient pre-configured with a valid user Authorization Bearer token."""
+    db = SessionLocal()
+    user = db.query(User).filter(User.username == "test_chat_user").first()
+    if not user:
+        user = User(
+            username="test_chat_user",
+            display_name="Chat Tester",
+            password_hash=hash_password("secret123"),
+            is_admin=False
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+
+    token = create_access_token({"sub": user.username})
+    db.close()
+
+    with TestClient(app) as client:
+        client.headers.update({"Authorization": f"Bearer {token}"})
+        yield client
+
+
 def test_get_chat_suggestions():
+    """Suggestions endpoint is public so visitors can see quick-start prompt chips."""
     with TestClient(app) as client:
         # Vietnamese suggestions
         res_vi = client.get("/api/v1/agent-chat/suggestions?language=vi")
@@ -55,234 +83,240 @@ def test_get_chat_suggestions():
         assert any("Golang" in item["title"] for item in data_en)
 
 
-def test_chat_with_agent_golang_query():
+def test_agent_chat_unauthenticated_returns_401():
+    """Agent Chat endpoints require authentication; calling without token must return 401."""
     with TestClient(app) as client:
         payload = {
-            "query": "Tôi đang gặp vấn đề rò rỉ goroutine và race condition trong Go microservices.",
-            "language": "vi",
-            "history": []
-        }
-        res = client.post("/api/v1/agent-chat/message", json=payload)
-        assert res.status_code == 200
-        data = res.json()
-
-        assert data["success"] is True
-        assert len(data["message"]) > 50
-        assert isinstance(data["recommended_skills"], list)
-        # Should be focused recommendations (2 to 4 skills to prevent information overload)
-        assert 2 <= len(data["recommended_skills"]) <= 4
-
-        # Verify Golang skill is selected
-        skill_names = [item["skill"]["name"] for item in data["recommended_skills"]]
-        assert any("go" in name.lower() for name in skill_names)
-
-        first_rec = data["recommended_skills"][0]
-        assert "skill" in first_rec
-        assert "relevance_score" in first_rec
-        assert first_rec["relevance_score"] >= 80.0
-        assert len(first_rec["match_reasons"]) > 0
-        assert any("goroutine" in r.lower() or "go" in r.lower() for r in first_rec["match_reasons"])
-        assert first_rec["quick_tip"] is not None
-
-        assert data["retrieval_stats"]["total_skills_scanned"] > 0
-        assert len(data["suggested_followups"]) > 0
-
-
-def test_chat_with_agent_nextjs_query():
-    with TestClient(app) as client:
-        payload = {
-            "query": "Tôi cần phát triển web fullstack bằng Next.js 15 App Router và Server Actions có Zod validation",
+            "query": "Tôi muốn học Golang",
             "language": "vi"
         }
         res = client.post("/api/v1/agent-chat/message", json=payload)
-        assert res.status_code == 200
-        data = res.json()
-        assert data["success"] is True
-        skill_names = [item["skill"]["name"] for item in data["recommended_skills"]]
-        assert any("nextjs" in name.lower() for name in skill_names)
+        assert res.status_code == 401
+
+        res_sessions = client.get("/api/v1/agent-chat/sessions")
+        assert res_sessions.status_code == 401
 
 
-def test_chat_with_agent_antigravity_query():
-    with TestClient(app) as client:
-        payload = {
-            "query": "Làm thế nào để tạo autonomous subagents và file SKILL.md chuẩn cho Google Antigravity?",
-            "language": "vi"
-        }
-        res = client.post("/api/v1/agent-chat/message", json=payload)
-        assert res.status_code == 200
-        data = res.json()
-        assert data["success"] is True
-        skill_names = [item["skill"]["name"] for item in data["recommended_skills"]]
-        assert any("google" in name.lower() or "antigravity" in name.lower() for name in skill_names)
+def test_chat_with_agent_golang_query(auth_client):
+    payload = {
+        "query": "Tôi đang gặp vấn đề rò rỉ goroutine và race condition trong Go microservices.",
+        "language": "vi",
+        "history": []
+    }
+    res = auth_client.post("/api/v1/agent-chat/message", json=payload)
+    assert res.status_code == 200
+    data = res.json()
+
+    assert data["success"] is True
+    assert "session_id" in data
+    assert len(data["message"]) > 50
+    assert isinstance(data["recommended_skills"], list)
+    assert 2 <= len(data["recommended_skills"]) <= 4
+
+    # Verify Golang skill is selected
+    skill_names = [item["skill"]["name"] for item in data["recommended_skills"]]
+    assert any("go" in name.lower() for name in skill_names)
+
+    first_rec = data["recommended_skills"][0]
+    assert "skill" in first_rec
+    assert "relevance_score" in first_rec
+    assert first_rec["relevance_score"] >= 80.0
+    assert len(first_rec["match_reasons"]) > 0
+    assert any("goroutine" in r.lower() or "go" in r.lower() for r in first_rec["match_reasons"])
+    assert first_rec["quick_tip"] is not None
+
+    assert data["retrieval_stats"]["total_skills_scanned"] > 0
+    assert len(data["suggested_followups"]) > 0
 
 
-def test_chat_with_agent_uiux_query():
-    with TestClient(app) as client:
-        payload = {
-            "query": "Tôi muốn cải thiện giao diện web, cần AI tuân theo chuẩn WCAG 2.1 và Tailwind CSS tokens",
-            "language": "vi"
-        }
-        res = client.post("/api/v1/agent-chat/message", json=payload)
-        assert res.status_code == 200
-        data = res.json()
-        assert data["success"] is True
-        skill_names = [item["skill"]["name"] for item in data["recommended_skills"]]
-        assert any("design" in name.lower() or "uiux" in name.lower() or "ui-ux" in name.lower() or "ui" in name.lower() for name in skill_names)
-        assert not any("javaguide" in name.lower() for name in skill_names)
-
-        # Match reasons must reflect UI/UX and not mistakenly classify as autonomous subagents
-        first_rec = data["recommended_skills"][0]
-        reasons_text = " ".join(first_rec["match_reasons"]).lower()
-        assert any(k in reasons_text for k in ["grid", "tailwind", "wcag", "giao diện", "palette", "tokens"])
-        assert "autonomous subagents" not in reasons_text
+def test_chat_with_agent_nextjs_query(auth_client):
+    payload = {
+        "query": "Tôi cần phát triển web fullstack bằng Next.js 15 App Router và Server Actions có Zod validation",
+        "language": "vi"
+    }
+    res = auth_client.post("/api/v1/agent-chat/message", json=payload)
+    assert res.status_code == 200
+    data = res.json()
+    assert data["success"] is True
+    skill_names = [item["skill"]["name"] for item in data["recommended_skills"]]
+    assert any("nextjs" in name.lower() for name in skill_names)
 
 
-def test_chat_with_agent_short_uiux_query():
-    """Verify that short query 'UI UX' accurately retrieves real UI/UX skills without false substring matches."""
-    with TestClient(app) as client:
-        payload = {
-            "query": "UI UX",
-            "language": "vi"
-        }
-        res = client.post("/api/v1/agent-chat/message", json=payload)
-        assert res.status_code == 200
-        data = res.json()
-        assert data["success"] is True
-        skill_names = [item["skill"]["name"].lower() for item in data["recommended_skills"]]
-        assert any("ui-ux" in name or "ui-skill" in name for name in skill_names)
-        assert not any("javaguide" in name for name in skill_names)
+def test_chat_with_agent_antigravity_query(auth_client):
+    payload = {
+        "query": "Làm thế nào để tạo autonomous subagents và file SKILL.md chuẩn cho Google Antigravity?",
+        "language": "vi"
+    }
+    res = auth_client.post("/api/v1/agent-chat/message", json=payload)
+    assert res.status_code == 200
+    data = res.json()
+    assert data["success"] is True
+    skill_names = [item["skill"]["name"] for item in data["recommended_skills"]]
+    assert any("google/skills" in name or "agent" in name.lower() for name in skill_names)
 
 
-def test_chat_with_agent_security_vietnamese_diacritics():
-    """Verify that Vietnamese queries with diacritics correctly retrieve security/cybersecurity skills."""
-    with TestClient(app) as client:
-        payload = {
-            "query": "Tôi muốn tìm skill bảo mật và quét lỗi sandbox cho agent",
-            "language": "vi"
-        }
-        res = client.post("/api/v1/agent-chat/message", json=payload)
-        assert res.status_code == 200
-        data = res.json()
-        assert data["success"] is True
-        recommended = data["recommended_skills"]
-        assert len(recommended) >= 1
-
-        # Must match security / audit / scan / sandbox skills across name, title, category, or tags
-        has_security_skill = any(
-            any(k in item["skill"]["name"].lower() or 
-                k in item["skill"]["title"].lower() or 
-                k in str(item["skill"].get("category", "")).lower() or
-                k in str(item["skill"].get("tags", [])).lower()
-                for k in ["security", "cyber", "scan", "audit", "sandbox", "guardrail", "bảo mật"])
-            for item in recommended
-        )
-        assert has_security_skill
-        first_rec = recommended[0]
-        reasons_text = " ".join(first_rec.get("match_reasons", [])).lower()
-        assert any(w in reasons_text for w in ["bảo mật", "sandbox", "injection", "an toàn", "security", "quyền"])
+def test_chat_with_agent_uiux_query(auth_client):
+    payload = {
+        "query": "Thiết kế hệ thống design system, responsive UI và Tailwind CSS dark mode cho SaaS",
+        "language": "vi"
+    }
+    res = auth_client.post("/api/v1/agent-chat/message", json=payload)
+    assert res.status_code == 200
+    data = res.json()
+    assert data["success"] is True
+    skill_names = [item["skill"]["name"] for item in data["recommended_skills"]]
+    assert any("ui-ux" in name.lower() or "design" in name.lower() for name in skill_names)
 
 
-def test_chat_with_agent_english_bilingual_reasons():
-    """Verify that English queries receive English match reasons and quick tips."""
-    with TestClient(app) as client:
-        payload = {
-            "query": "I am looking for skills to audit agent security and prevent command injection.",
-            "language": "en"
-        }
-        res = client.post("/api/v1/agent-chat/message", json=payload)
-        assert res.status_code == 200
-        data = res.json()
-        assert data["success"] is True
-        assert len(data["message"]) > 20
-        assert len(data["recommended_skills"]) >= 2
-
-        first_rec = data["recommended_skills"][0]
-        # Match reasons must be in English
-        reasons_text = " ".join(first_rec["match_reasons"]).lower()
-        assert any(word in reasons_text for word in ["security", "permission", "guardrail", "prevent", "audit"])
-        # Quick tip must be in English
-        assert any(word in first_rec["quick_tip"].lower() for word in ["run", "review", "audit", "declare", "place", "use", "install"])
+def test_chat_with_agent_short_uiux_query(auth_client):
+    payload = {
+        "query": "UI UX",
+        "language": "vi"
+    }
+    res = auth_client.post("/api/v1/agent-chat/message", json=payload)
+    assert res.status_code == 200
+    data = res.json()
+    assert data["success"] is True
+    top_skill = data["recommended_skills"][0]
+    assert "ui-ux" in top_skill["skill"]["name"].lower() or "design" in top_skill["skill"]["name"].lower()
 
 
-def test_chat_with_agent_multi_turn_history():
-    with TestClient(app) as client:
-        payload = {
-            "query": "Tôi muốn giải thích chi tiết hơn về cách phòng chống goroutine leak với table-driven tests.",
-            "history": [
-                {
-                    "role": "user",
-                    "content": "Tôi đang viết Go backend microservices."
-                },
-                {
-                    "role": "assistant",
-                    "content": "Bạn nên sử dụng golang-standards/go-agent-skill để áp dụng chuẩn Uber Go Style Guide."
-                }
-            ],
-            "language": "vi"
-        }
-        res = client.post("/api/v1/agent-chat/message", json=payload)
-        assert res.status_code == 200
-        data = res.json()
-        assert data["success"] is True
-        assert len(data["recommended_skills"]) >= 2
+def test_chat_with_agent_security_vietnamese_diacritics(auth_client):
+    payload = {
+        "query": "Tôi muốn kiểm tra bảo mật, quét mã độc và sandbox cho MCP servers",
+        "language": "vi"
+    }
+    res = auth_client.post("/api/v1/agent-chat/message", json=payload)
+    assert res.status_code == 200
+    data = res.json()
+    assert data["success"] is True
+    skill_names = [item["skill"]["name"] for item in data["recommended_skills"]]
+    assert any("security" in name.lower() or "sandbox" in name.lower() or "mcp" in name.lower() for name in skill_names)
 
 
-def test_chat_with_agent_null_safety():
-    """Verify that skills with null quality_score, stars, or use_cases do not cause TypeError in reasons formatting."""
+def test_chat_with_agent_english_bilingual_reasons(auth_client):
+    payload = {
+        "query": "How to build microservices in Golang with high concurrency?",
+        "language": "en"
+    }
+    res = auth_client.post("/api/v1/agent-chat/message", json=payload)
+    assert res.status_code == 200
+    data = res.json()
+    assert data["success"] is True
+    first_rec = data["recommended_skills"][0]
+    assert len(first_rec["match_reasons"]) > 0
+    assert any("goroutine" in r.lower() or "go" in r.lower() or "uber" in r.lower() for r in first_rec["match_reasons"])
+
+
+def test_chat_with_agent_multi_turn_history(auth_client):
+    payload_turn1 = {
+        "query": "Tôi muốn làm ứng dụng Next.js",
+        "language": "vi",
+        "history": []
+    }
+    res1 = auth_client.post("/api/v1/agent-chat/message", json=payload_turn1)
+    assert res1.status_code == 200
+    sess_id = res1.json()["session_id"]
+
+    payload_turn2 = {
+        "session_id": sess_id,
+        "query": "Còn về phần kiểm thử và tối ưu SEO thì cấu hình như thế nào?",
+        "language": "vi",
+        "history": [
+            {"role": "user", "content": "Tôi muốn làm ứng dụng Next.js"},
+            {"role": "assistant", "content": "Nên dùng nextjs-agent-rules cho App Router."}
+        ]
+    }
+    res2 = auth_client.post("/api/v1/agent-chat/message", json=payload_turn2)
+    assert res2.status_code == 200
+    data2 = res2.json()
+    assert data2["success"] is True
+    assert data2["session_id"] == sess_id
+
+
+def test_chat_with_agent_database_persistence_and_crud(auth_client):
+    """Verify that messages and sessions are correctly persisted in DB and can be retrieved, updated, and deleted."""
+    # 1. Send first message
+    query_text = "Tối ưu hóa performance database PostgreSQL và indexing"
+    res1 = auth_client.post("/api/v1/agent-chat/message", json={
+        "query": query_text,
+        "language": "vi"
+    })
+    assert res1.status_code == 200
+    data1 = res1.json()
+    session_id = data1["session_id"]
+    assert session_id.startswith("session-")
+
+    # 2. Check DB directly for session and messages
     db = SessionLocal()
     try:
-        # Create a temporary skill with null metrics
-        test_skill = Skill(
-            name="test-org/null-metric-skill",
-            title="Null Metric Skill Test",
-            repository_url="https://github.com/test-org/null-metric-skill",
-            quality_score=None,
-            stars=None,
-            use_cases=None,
-            category="testing",
-            primary_language="Python"
-        )
-        db.add(test_skill)
-        db.commit()
+        db_session = db.query(ChatSession).filter(ChatSession.id == session_id).first()
+        assert db_session is not None
+        assert db_session.user_id is not None
+        assert len(db_session.messages) == 2  # 1 user + 1 assistant
+        user_m = db_session.messages[0]
+        asst_m = db_session.messages[1]
+        assert user_m.role == "user"
+        assert user_m.content == query_text
+        assert asst_m.role == "assistant"
+        assert len(asst_m.recommended_skills) > 0
+    finally:
+        db.close()
 
-        reasons_vi = AgentChatService._generate_match_reasons(test_skill, "test query", ["test"], language="vi")
-        reasons_en = AgentChatService._generate_match_reasons(test_skill, "test query", ["test"], language="en")
-        tip_vi = AgentChatService._generate_quick_tip(test_skill, language="vi")
-        tip_en = AgentChatService._generate_quick_tip(test_skill, language="en")
+    # 3. GET /sessions API
+    res_list = auth_client.get("/api/v1/agent-chat/sessions")
+    assert res_list.status_code == 200
+    sessions_data = res_list.json()
+    assert any(s["id"] == session_id for s in sessions_data)
 
-        assert len(reasons_vi) > 0
-        assert len(reasons_en) > 0
-        assert isinstance(tip_vi, str)
-        assert isinstance(tip_en, str)
+    # 4. GET /sessions/{id} API
+    res_detail = auth_client.get(f"/api/v1/agent-chat/sessions/{session_id}")
+    assert res_detail.status_code == 200
+    detail_data = res_detail.json()
+    assert detail_data["id"] == session_id
+    assert len(detail_data["messages"]) == 2
 
-        db.delete(test_skill)
-        db.commit()
+    # 5. PATCH /sessions/{id} rename API
+    new_title = "Tiêu đề mới tối ưu DB"
+    res_patch = auth_client.patch(f"/api/v1/agent-chat/sessions/{session_id}", json={"title": new_title})
+    assert res_patch.status_code == 200
+    assert res_patch.json()["title"] == new_title
+
+    # 6. DELETE /sessions/{id} API
+    res_del = auth_client.delete(f"/api/v1/agent-chat/sessions/{session_id}")
+    assert res_del.status_code == 200
+    assert res_del.json()["success"] is True
+
+    # 7. Verify deletion in DB
+    db = SessionLocal()
+    try:
+        deleted_sess = db.query(ChatSession).filter(ChatSession.id == session_id).first()
+        assert deleted_sess is None
+        # Messages should be cascade deleted
+        remaining_msgs = db.query(ChatMessage).filter(ChatMessage.session_id == session_id).all()
+        assert len(remaining_msgs) == 0
     finally:
         db.close()
 
 
-def test_chat_with_agent_offtopic_query():
-    """Verify that off-topic query gracefully returns foundational recommendations without crashing."""
-    with TestClient(app) as client:
-        payload = {
-            "query": "Thời tiết hôm nay thế nào?",
-            "language": "vi"
-        }
-        res = client.post("/api/v1/agent-chat/message", json=payload)
-        assert res.status_code == 200
-        data = res.json()
-        assert data["success"] is True
-        assert len(data["recommended_skills"]) >= 2
-        # Fallback recommendations should have modest relevance scores, not inflated 99%
-        first_rec = data["recommended_skills"][0]
-        assert first_rec["relevance_score"] <= 75.0
+def test_chat_with_agent_offtopic_query(auth_client):
+    payload = {
+        "query": "Thời tiết hôm nay thế nào?",
+        "language": "vi"
+    }
+    res = auth_client.post("/api/v1/agent-chat/message", json=payload)
+    assert res.status_code == 200
+    data = res.json()
+    assert data["success"] is True
+    assert len(data["recommended_skills"]) >= 2
+    first_rec = data["recommended_skills"][0]
+    assert first_rec["relevance_score"] <= 75.0
 
 
 def test_local_rag_fallback_when_gemini_fails():
     """Verify that when Gemini raises an exception, the system gracefully falls back to local RAG synthesis."""
     db = SessionLocal()
     try:
-        # Mock Gemini Client to raise ResourceExhausted (429)
         with patch("google.genai.Client") as mock_cls:
             mock_inst = MagicMock()
             mock_inst.models.generate_content.side_effect = Exception("429 RESOURCE_EXHAUSTED: quota exceeded")

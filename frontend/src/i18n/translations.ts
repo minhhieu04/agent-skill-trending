@@ -382,6 +382,9 @@ export const translations = {
     agent_chat_untitled: 'Cuộc trò chuyện mới',
     agent_chat_rename: 'Đổi tên',
     agent_chat_toggle_history: 'Lịch sử hội thoại',
+    agent_chat_login_required_title: 'Đăng nhập để sử dụng AI Agent Chat',
+    agent_chat_login_required_desc: 'Vui lòng đăng nhập để trò chuyện với Cố vấn Kỹ năng AI (RAG), lưu trữ vĩnh viễn lịch sử hội thoại trên Database và đồng bộ dữ liệu đa thiết bị.',
+    agent_chat_login_btn: 'Đăng nhập ngay',
   },
 
   en: {
@@ -765,5 +768,8 @@ export const translations = {
     agent_chat_untitled: 'New Conversation',
     agent_chat_rename: 'Rename',
     agent_chat_toggle_history: 'Chat History',
+    agent_chat_login_required_title: 'Sign In to use AI Agent Chat',
+    agent_chat_login_required_desc: 'Please log in to consult with the AI Skill Advisor (RAG), permanently persist chat history to the database, and sync across devices.',
+    agent_chat_login_btn: 'Sign In Now',
   }
 };

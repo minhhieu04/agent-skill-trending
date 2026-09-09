@@ -22,7 +22,9 @@ import {
   SceneImageResponse,
   AIRecommendationResponse,
   AgentChatResponse,
-  AgentChatSuggestion
+  AgentChatSuggestion,
+  AgentChatSessionSummary,
+  AgentChatSessionDetail
 } from '../types';
 
 const rawBase = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace(/\/+$/, '') : '';
@@ -402,15 +404,78 @@ export const api = {
   },
 
   // RAG Agent Chat
+  getAgentChatSessions: async (): Promise<AgentChatSessionSummary[]> => {
+    const res = await fetch(`${API_BASE}/agent-chat/sessions`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: 'Không thể tải danh sách phiên chat' }));
+      throw new Error(err.detail || 'Không thể tải danh sách phiên chat');
+    }
+    return res.json();
+  },
+
+  getAgentChatSessionDetail: async (sessionId: string): Promise<AgentChatSessionDetail> => {
+    const res = await fetch(`${API_BASE}/agent-chat/sessions/${encodeURIComponent(sessionId)}`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: 'Không thể tải chi tiết phiên chat' }));
+      throw new Error(err.detail || 'Không thể tải chi tiết phiên chat');
+    }
+    return res.json();
+  },
+
+  createAgentChatSession: async (title?: string): Promise<AgentChatSessionDetail> => {
+    const res = await fetch(`${API_BASE}/agent-chat/sessions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+      body: JSON.stringify({ title: title || 'Cuộc trò chuyện mới' }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: 'Không thể tạo phiên chat mới' }));
+      throw new Error(err.detail || 'Không thể tạo phiên chat mới');
+    }
+    return res.json();
+  },
+
+  updateAgentChatSession: async (sessionId: string, title: string): Promise<AgentChatSessionSummary> => {
+    const res = await fetch(`${API_BASE}/agent-chat/sessions/${encodeURIComponent(sessionId)}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+      body: JSON.stringify({ title }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: 'Không thể cập nhật tên phiên chat' }));
+      throw new Error(err.detail || 'Không thể cập nhật tên phiên chat');
+    }
+    return res.json();
+  },
+
+  deleteAgentChatSession: async (sessionId: string): Promise<{ success: boolean; message: string }> => {
+    const res = await fetch(`${API_BASE}/agent-chat/sessions/${encodeURIComponent(sessionId)}`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: 'Không thể xóa phiên chat' }));
+      throw new Error(err.detail || 'Không thể xóa phiên chat');
+    }
+    return res.json();
+  },
+
   sendAgentChatMessage: async (
     query: string,
     history: Array<{ role: string; content: string }> = [],
-    language: string = 'vi'
+    language: string = 'vi',
+    sessionId?: string
   ): Promise<AgentChatResponse> => {
     const res = await fetch(`${API_BASE}/agent-chat/message`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-      body: JSON.stringify({ query, history, language }),
+      body: JSON.stringify({ query, history, language, session_id: sessionId || null }),
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({ detail: 'Lỗi khi gửi tin nhắn tới Agent Chat' }));

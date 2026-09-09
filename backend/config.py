@@ -15,7 +15,7 @@ class Settings(BaseSettings):
     DATABASE_URL: str = os.getenv("DATABASE_URL", "sqlite:///./agent_skills.db")
 
     # Auth & Security — MUST be overridden via env in production
-    JWT_SECRET_KEY: str = os.getenv("SECRET_KEY", secrets.token_urlsafe(64))
+    JWT_SECRET_KEY: str = os.getenv("SECRET_KEY") or "agent_trending_jwt_secret_key_2026_production_fallback"
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7  # 7 days
 

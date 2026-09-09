@@ -28,7 +28,7 @@ services:
       - "8899:8899"
     environment:
       - DATABASE_URL=${DATABASE_URL:-postgresql://${POSTGRES_USER:-agent_admin}:${POSTGRES_PASSWORD:-agent_secure_2026}@db:5432/${POSTGRES_DB:-agent_skills}}
-      - SECRET_KEY=${SECRET_KEY:-}
+      - SECRET_KEY=${SECRET_KEY:-agent_trending_jwt_secret_secure_key_2026_super_safe_and_long}
       - CORS_ORIGINS=${CORS_ORIGINS:-*}
       - GITHUB_TOKEN=${GITHUB_TOKEN:-}
       - GEMINI_API_KEY=${GEMINI_API_KEY:-}

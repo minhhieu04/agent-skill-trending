@@ -407,6 +407,7 @@ export interface AgentChatSession {
 
 export interface AgentChatResponse {
   success: boolean;
+  session_id?: string;
   message: string;
   recommended_skills: AgentChatRecommendedSkill[];
   suggested_followups: string[];
@@ -417,6 +418,39 @@ export interface AgentChatResponse {
   };
   model_used: string;
   is_ai_powered: boolean;
+}
+
+export interface AgentChatSessionSummary {
+  id: string;
+  title: string;
+  message_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AgentChatMessageDetail {
+  id: number;
+  session_id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  recommended_skills?: AgentChatRecommendedSkill[];
+  suggested_followups?: string[];
+  retrieval_stats?: {
+    total_skills_scanned: number;
+    candidates_matched: number;
+    top_selected: number;
+  };
+  model_used?: string;
+  is_ai_powered?: boolean;
+  created_at: string;
+}
+
+export interface AgentChatSessionDetail {
+  id: string;
+  title: string;
+  created_at: string;
+  updated_at: string;
+  messages: AgentChatMessageDetail[];
 }
 
 export interface AgentChatSuggestion {
