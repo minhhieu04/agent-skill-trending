@@ -536,14 +536,14 @@ class TTSService:
 
             # Candidate audio models from Google AI Studio
             audio_models = [
+                "gemini-3.1-flash-tts-preview",
                 "gemini-2.5-flash-preview-tts",
                 "gemini-2.5-pro-preview-tts",
-                "gemini-3.1-flash-tts-preview",
                 "gemini-2.5-flash-native-audio-latest"
             ]
 
             response = None
-            used_model = "gemini-2.5-flash-preview-tts"
+            used_model = "gemini-3.1-flash-tts-preview"
             for model_id in audio_models:
                 try:
                     response = await asyncio.to_thread(

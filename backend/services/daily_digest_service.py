@@ -1117,20 +1117,24 @@ class DailyDigestService:
                     for s in skill_summaries[:4]
                 ]
                 prompt = (
-                    f"Bạn là Host Podcast công nghệ kiêm Tech Reviewer hàng đầu trên mạng xã hội công nghệ (Substack / Twitter / LinkedIn / Dev.to). "
+                    f"Bạn là Host Podcast công nghệ của trang AI Agent Skill Trending (cổng thông tin xu hướng AI Agents và lập trình tự động). "
                     f"Dưới đây là danh sách các công cụ AI và kỹ năng lập trình mới nhất ngày {title_date}:\n"
                     f"{json.dumps(top_skills_payload, ensure_ascii=False, indent=2)}\n\n"
                     f"Hãy hoàn thiện nội dung bản tin theo định dạng JSON với các trường sau:\n"
                     f"1. title: Tiêu đề bản tin cực kỳ cuốn hút, phản ánh điểm đột phá hôm nay.\n"
-                    f"2. podcast_script: Kịch bản phát thanh/podcast bằng tiếng Việt (250-350 từ) sinh động, dí dỏm, nhấn mạnh tác dụng thực tế của từng công cụ.\n"
+                    f"2. podcast_script: Kịch bản phát thanh/podcast bằng tiếng Việt (250-350 từ) sinh động, lôi cuốn, nhấn mạnh tác dụng thực tế của từng công cụ. "
+                    f"QUY TẮC BẮT BUỘC:\n"
+                    f"- Giọng đọc tự nhiên, giữ nguyên các tên framework, thư viện và thuật ngữ tiếng Anh chuẩn xác.\n"
+                    f"- TUYỆT ĐỐI KHÔNG thêm bất kỳ câu kêu gọi ngoại vi nào như 'truy cập Substack', 'đăng ký kênh', 'subscribe', 'YouTube', 'Patreon', v.v.\n"
+                    f"- Đoạn kết chỉ cần chào tạm biệt ngắn gọn và mời người nghe khám phá trực tiếp các agent skills này trên hệ thống.\n"
                     f"3. highlights: Mảng 3-4 câu điểm nhấn ngắn gọn.\n"
-                    f"4. social_reviews: Danh sách bài review mạng xã hội cho các công cụ trên, mỗi phần tử gồm: "
+                    f"4. social_reviews: Danh sách bài review chuyên sâu cho các công cụ trên, mỗi phần tử gồm: "
                     f"skill_id, hook (câu giật tít đánh trúng nỗi đau dev), deep_dive (phân tích sâu 2-3 câu về cơ chế hoạt động), "
                     f"pros (mảng 2 ưu điểm), cons (mảng 1 nhược điểm/lưu ý).\n"
                     f"Chỉ trả về JSON thuần túy."
                 )
                 response = None
-                for candidate_model in ["gemini-3.6-flash", "gemini-3.5-flash-lite", "gemini-flash-latest", "gemini-3.1-flash-lite"]:
+                for candidate_model in ["gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.6-flash", "gemini-3.5-flash", "gemini-flash-latest"]:
                     try:
                         response = client.models.generate_content(
                             model=candidate_model,
@@ -1149,7 +1153,14 @@ class DailyDigestService:
                 if response and response.text:
                     parsed = json.loads(response.text)
                     if "podcast_script" in parsed and parsed["podcast_script"]:
-                        podcast_script = parsed["podcast_script"]
+                        raw_script = parsed["podcast_script"]
+                        for bad_phrase in [
+                            r"(?i)truy\s+cập\s+(?:ngay\s+)?(?:vào\s+)?(?:substack|kênh|youtube|patreon)[^.!?\n]*[.!?]?",
+                            r"(?i)(?:đừng\s+quên\s+)?(?:bấm\s+)?(?:like\s+)?(?:và\s+)?(?:subscribe|đăng\s+ký|theo\s+dõi)[^.!?\n]*[.!?]?",
+                            r"(?i)link\s+bài\s+viết\s+ở\s+phần\s+mô\s+tả[^.!?\n]*[.!?]?",
+                        ]:
+                            raw_script = re.sub(bad_phrase, "", raw_script)
+                        podcast_script = raw_script.strip()
                     if "title" in parsed and parsed["title"]:
                         episode_title = parsed["title"]
                     if "highlights" in parsed and parsed["highlights"]:
