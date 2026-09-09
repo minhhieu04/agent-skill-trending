@@ -182,7 +182,7 @@ Link bài viết: ${postUrl}
       {/* 1. AUTHOR & POST HEADER */}
       <div className="p-4 sm:p-5 flex items-start justify-between gap-4 bg-[var(--bg)]">
         <div className="flex items-center gap-3 min-w-0">
-          <div className="w-10 h-10 rounded-2xl neu-inset text-[var(--primary)] flex items-center justify-center font-bold text-sm shrink-0 shadow-inner">
+          <div className="w-10 h-10 rounded-2xl bg-[var(--primary)]/10 text-[var(--primary)] flex items-center justify-center font-bold text-sm shrink-0">
             {initial}
           </div>
           <div className="min-w-0">

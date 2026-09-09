@@ -437,7 +437,7 @@ const AppContent: React.FC = () => {
       {/* Floating Agent Chat Launcher */}
       <AgentChatFloatingButton
         onClick={() => setIsAgentChatDrawerOpen(true)}
-        isOpen={isAgentChatDrawerOpen || activeTab === 'agent_chat'}
+        isOpen={isAgentChatDrawerOpen || activeTab === 'agent_chat' || activeTab === 'podcast'}
       />
 
       {/* Slide-out Quick Agent Chat Drawer */}

@@ -1,3 +1,5 @@
+import re
+from datetime import datetime
 import pytest
 from unittest.mock import patch, AsyncMock
 from fastapi.testclient import TestClient
@@ -302,6 +304,49 @@ def test_translate_daily_digest_endpoint():
         assert data.get("target_lang") == "en"
         assert "skill_summaries" in data
         assert isinstance(data["skill_summaries"], list)
+        # Verify date was normalized and NOT stored as literal "today"
+        assert data.get("digest_date") != "today"
+        assert re.match(r"^\d{4}-\d{2}-\d{2}$", data.get("digest_date", ""))
+
+
+def test_date_normalization_and_validation():
+    with TestClient(app) as client:
+        today_str = datetime.now().strftime("%Y-%m-%d")
+
+        # 1. 'today' should resolve to today's date
+        res_today = client.get("/api/v1/daily-digest/today")
+        assert res_today.status_code == 200
+        assert res_today.json()["digest_date"] == today_str
+
+        # 2. 'current' should resolve to today's date
+        res_current = client.get("/api/v1/daily-digest/current")
+        assert res_current.status_code == 200
+        assert res_current.json()["digest_date"] == today_str
+
+        # 3. Invalid date format should return 400
+        res_invalid = client.get("/api/v1/daily-digest/not-a-date")
+        assert res_invalid.status_code == 400
+        assert "Định dạng ngày không hợp lệ" in res_invalid.json()["detail"]
+
+        # 4. Invalid calendar date should return 400
+        res_bad_cal = client.get("/api/v1/daily-digest/2026-02-31")
+        assert res_bad_cal.status_code == 400
+        assert "Ngày không hợp lệ trong lịch" in res_bad_cal.json()["detail"]
+
+        # 5. Invalid date on translate returns 400
+        res_bad_trans = client.post("/api/v1/daily-digest/invalid-format/translate")
+        assert res_bad_trans.status_code == 400
+
+        # 6. Verify /dates endpoint returns ONLY valid YYYY-MM-DD dates and never 'today'
+        res_dates = client.get("/api/v1/daily-digest/dates")
+        assert res_dates.status_code == 200
+        dates_list = res_dates.json()["dates"]
+        assert len(dates_list) > 0
+        for item in dates_list:
+            d = item["date"]
+            assert d != "today"
+            assert re.match(r"^\d{4}-\d{2}-\d{2}$", d), f"Invalid date found in /dates: {d}"
+
 
 
 

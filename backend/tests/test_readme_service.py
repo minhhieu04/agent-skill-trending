@@ -79,3 +79,129 @@ async def test_translate_via_engine_mock():
         result = await ReadmeService._translate_via_engine(text, target_lang="vi")
         # Code block should remain completely intact
         assert "```bash\nnpm install my-package\n```" in result
+
+
+@pytest.mark.asyncio
+async def test_get_active_ollama_url_fallback():
+    # Test that get_active_ollama_url falls back to host.docker.internal when localhost fails
+    from unittest.mock import MagicMock
+    ReadmeService._cached_ollama_url = None
+
+    async def mock_get(url, *args, **kwargs):
+        resp = MagicMock()
+        if "host.docker.internal" in str(url):
+            resp.status_code = 200
+            resp.json.return_value = {"models": [{"name": "qwen2.5:7b"}]}
+            return resp
+        raise Exception("Connection refused")
+
+    with patch("httpx.AsyncClient.get", side_effect=mock_get):
+        active = await ReadmeService.get_active_ollama_url()
+        assert active is not None
+        assert "host.docker.internal" in active[0]
+        assert active[1] == "qwen2.5:7b"
+
+        # Check that check_ollama_status also succeeds
+        has_ollama, model_name = await ReadmeService.check_ollama_status()
+        assert has_ollama is True
+        assert model_name == "qwen2.5:7b"
+
+
+@pytest.mark.asyncio
+async def test_get_available_providers_streamlined():
+    providers = await ReadmeService.get_available_providers()
+    provider_ids = [p["id"] for p in providers]
+    assert "auto" in provider_ids
+    assert "local_llm" in provider_ids
+    assert "gemini" in provider_ids
+    assert "translation_engine" in provider_ids
+    # Ensure redundant individual gemini-3.x models are no longer cluttering the list
+    assert "gemini-3.8-flash" not in provider_ids
+
+
+@pytest.mark.asyncio
+async def test_local_llm_markdown_translation():
+    from unittest.mock import MagicMock
+    ReadmeService._cached_ollama_url = "http://host.docker.internal:11434"
+
+    mock_resp = MagicMock()
+    mock_resp.status_code = 200
+    mock_resp.json.return_value = {"response": "# Tài Liệu Dự Án\nNội dung đã dịch"}
+
+    with patch.object(ReadmeService, "get_active_ollama_url", return_value=("http://host.docker.internal:11434", "qwen2.5:7b")), \
+         patch("httpx.AsyncClient.post", new_callable=AsyncMock, return_value=mock_resp):
+        res = await ReadmeService.translate_markdown_content("# Project Docs\nEnglish text", preferred_provider="local_llm")
+        assert res["success"] is True
+        assert res["provider"] == "local_llm"
+        assert "Local Ollama" in res["model_used"]
+        assert "Tài Liệu Dự Án" in res["translated_text"]
+
+
+@pytest.mark.asyncio
+async def test_translate_summary_cjk_fallback():
+    # Verify no NameError on is_cjk and fallback when all providers fail
+    with patch("services.readme_service.settings.GEMINI_API_KEY", None), \
+         patch.object(ReadmeService, "get_active_ollama_url", return_value=None), \
+         patch.object(ReadmeService, "_translate_via_engine", side_effect=Exception("API fail")):
+        # English fallback returns original text
+        en_res = await ReadmeService.translate_summary_to_vietnamese("Hello world")
+        assert en_res == "Hello world"
+
+        # CJK text returns empty string when untranslated
+        cjk_res = await ReadmeService.translate_summary_to_vietnamese("这是一个测试")
+        assert cjk_res == ""
+
+
+@pytest.mark.asyncio
+async def test_ollama_chunker_handles_various_markdown_headers():
+    # Long document > 5000 characters using ### headers and paragraphs
+    section = "### Feature Subsection\n\nThis is detailed documentation paragraph. " * 50
+    long_content = f"# Main Title\n\n{section}\n\n## Second Section\n\n{section}"
+    assert len(long_content) > 5000
+
+    from unittest.mock import MagicMock
+    mock_resp = MagicMock()
+    mock_resp.status_code = 200
+    mock_resp.json.return_value = {"response": "Translated chunk"}
+
+    with patch.object(ReadmeService, "get_active_ollama_url", return_value=("http://host.docker.internal:11434", "qwen2.5:7b")), \
+         patch("httpx.AsyncClient.post", new_callable=AsyncMock, return_value=mock_resp) as mock_post:
+        res = await ReadmeService._translate_via_ollama(
+            content=long_content,
+            ollama_url="http://host.docker.internal:11434",
+            ollama_model="qwen2.5:7b",
+            system_instruction="System prompt",
+            target_lang="vi"
+        )
+        assert res is not None
+        assert "Translated chunk" in res
+        # Verify it split into multiple chunk calls with system parameter passed
+        assert mock_post.call_count >= 2
+        call_json = mock_post.call_args_list[0][1]["json"]
+        assert call_json["system"] == "System prompt"
+        assert call_json["model"] == "qwen2.5:7b"
+
+
+@pytest.mark.asyncio
+async def test_gemini_429_fast_bailout_to_ollama():
+    # When Gemini returns 429 RESOURCE_EXHAUSTED, it should fast bailout to Ollama without trying all models
+    from unittest.mock import MagicMock
+    mock_gemini_client = MagicMock()
+    mock_gemini_client.models.generate_content.side_effect = Exception("429 RESOURCE_EXHAUSTED: quota exceeded")
+
+    mock_ollama_resp = MagicMock()
+    mock_ollama_resp.status_code = 200
+    mock_ollama_resp.json.return_value = {"response": "Bản dịch từ Ollama"}
+
+    with patch("services.readme_service.settings.GEMINI_API_KEY", "fake-key"), \
+         patch("google.genai.Client", return_value=mock_gemini_client), \
+         patch.object(ReadmeService, "get_active_ollama_url", return_value=("http://host.docker.internal:11434", "qwen2.5:7b")), \
+         patch("httpx.AsyncClient.post", new_callable=AsyncMock, return_value=mock_ollama_resp):
+
+        res = await ReadmeService.translate_markdown_content("Short text", preferred_provider="auto")
+        assert res["success"] is True
+        assert res["provider"] == "local_llm"
+        # Verify Gemini was aborted after first 429 instead of calling 6 times
+        assert mock_gemini_client.models.generate_content.call_count == 1
+
+

@@ -1,5 +1,8 @@
 import logging
 import base64
+import json
+import re
+from datetime import datetime
 from typing import Optional, List, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy.orm import Session
@@ -13,6 +16,38 @@ from services.tts_service import TTSService
 logger = logging.getLogger("DailyDigestRouter")
 
 router = APIRouter(prefix="/daily-digest", tags=["Daily AI Podcast & Feed"])
+
+
+def validate_and_normalize_date(date_str: str) -> str:
+    """
+    Validates and normalizes date parameter.
+    Resolves 'today', 'current', 'latest', 'now', or empty strings to today's local date (YYYY-MM-DD).
+    Validates against YYYY-MM-DD pattern and validates calendar date validity.
+    Raises HTTPException(400) on invalid date format or calendar date.
+    """
+    if not date_str:
+        return datetime.now().strftime("%Y-%m-%d")
+
+    clean_date = date_str.strip().lower()
+    if clean_date in ("today", "current", "latest", "now"):
+        return datetime.now().strftime("%Y-%m-%d")
+
+    # Must match YYYY-MM-DD format
+    if not re.match(r"^\d{4}-\d{2}-\d{2}$", clean_date):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Định dạng ngày không hợp lệ: '{date_str}'. Định dạng yêu cầu là YYYY-MM-DD hoặc 'today'."
+        )
+
+    # Must be valid calendar date
+    try:
+        valid_date = datetime.strptime(clean_date, "%Y-%m-%d")
+        return valid_date.strftime("%Y-%m-%d")
+    except ValueError:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Ngày không hợp lệ trong lịch: '{date_str}'. Định dạng yêu cầu là YYYY-MM-DD."
+        )
 
 
 class AudioSynthesizeRequest(BaseModel):
@@ -78,6 +113,7 @@ async def get_daily_digest(
     """
     Gets the podcast digest and practical skill summaries for a specific date (YYYY-MM-DD).
     """
+    date_str = validate_and_normalize_date(date_str)
     try:
         digest = await DailyDigestService.generate_digest(
             db=db,
@@ -101,6 +137,8 @@ async def get_daily_digest(
             "source_model": digest.source_model,
             "updated_at": digest.updated_at.isoformat() if digest.updated_at else None
         }
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error getting daily digest for {date_str}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -115,6 +153,7 @@ async def regenerate_daily_digest(
     """
     Forces AI to re-analyze skills and re-generate the podcast script & practical summary.
     """
+    date_str = validate_and_normalize_date(date_str)
     try:
         digest = await DailyDigestService.generate_digest(
             db=db,
@@ -138,6 +177,8 @@ async def regenerate_daily_digest(
             "source_model": digest.source_model,
             "updated_at": digest.updated_at.isoformat() if digest.updated_at else None
         }
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error regenerating daily digest for {date_str}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -152,6 +193,7 @@ async def translate_daily_digest(
     """
     Translates the daily digest and skill summaries to target language (e.g. 'en' or 'vi') using Gemini 3.8 Flash.
     """
+    date_str = validate_and_normalize_date(date_str)
     try:
         translated = await DailyDigestService.translate_digest(
             db=db,
@@ -160,6 +202,8 @@ async def translate_daily_digest(
             model=payload.model or "gemini-3.8-flash"
         )
         return translated
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error translating daily digest for {date_str}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -175,6 +219,7 @@ async def synthesize_audio(
     Generates TTS audio for the daily podcast episode using Google AI Studio / Gemini / EdgeTTS.
     Returns audio_base64 and duration.
     """
+    date_str = validate_and_normalize_date(date_str)
     try:
         result = await DailyDigestService.synthesize_podcast_audio(
             db=db,
@@ -184,6 +229,8 @@ async def synthesize_audio(
             force_regenerate=bool(payload.force_regenerate)
         )
         return result
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error synthesizing podcast audio for {date_str}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -201,6 +248,7 @@ async def stream_podcast_audio(
     Streams audio bytes directly to the browser (audio/mpeg or audio/wav).
     Enables native HTML5 audio playback and instant buffering.
     """
+    date_str = validate_and_normalize_date(date_str)
     try:
         result = await DailyDigestService.synthesize_podcast_audio(
             db=db,
@@ -232,6 +280,7 @@ async def get_skill_social_post(
     """
     Returns the complete Social Media Tech Post for a specific skill in the digest.
     """
+    date_str = validate_and_normalize_date(date_str)
     try:
         digest = await DailyDigestService.generate_digest(
             db=db,

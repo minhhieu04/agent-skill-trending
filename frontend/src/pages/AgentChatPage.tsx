@@ -446,7 +446,7 @@ export const AgentChatPage: React.FC<AgentChatPageProps> = ({
     return (
       <div className="w-full h-[calc(100vh-140px)] min-h-[500px] flex items-center justify-center p-4 sm:p-6 animate-fade-in">
         <div className="max-w-md w-full p-8 rounded-3xl neu-flat text-center space-y-6">
-          <div className="w-16 h-16 mx-auto rounded-3xl neu-inset flex items-center justify-center text-[var(--primary)] shadow-inner">
+          <div className="w-16 h-16 mx-auto rounded-3xl neu-inset flex items-center justify-center text-[var(--primary)]">
             <Lock className="w-8 h-8" />
           </div>
 
@@ -464,7 +464,7 @@ export const AgentChatPage: React.FC<AgentChatPageProps> = ({
               <Sparkles className="w-4 h-4 text-amber-500" />
               <span>{language === 'vi' ? 'Đặc quyền khi đăng nhập:' : 'Sign-in benefits:'}</span>
             </div>
-            <p>• {language === 'vi' ? 'Lưu trữ vĩnh viễn lịch sử hỏi đáp vào PostgreSQL Database' : 'Persist complete conversation history to PostgreSQL DB'}</p>
+            <p>• {language === 'vi' ? 'Lưu trữ vĩnh viễn lịch sử hỏi đáp vào Database' : 'Persist complete conversation history to Database'}</p>
             <p>• {language === 'vi' ? 'Đồng bộ phiên trò chuyện tức thì giữa các thiết bị' : 'Sync chat sessions across multiple devices'}</p>
             <p>• {language === 'vi' ? 'Phân tích RAG chuyên sâu trên 450+ kỹ năng AI Agent' : 'Deep RAG insights on 450+ AI Agent skills'}</p>
           </div>

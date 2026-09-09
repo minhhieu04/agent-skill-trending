@@ -371,14 +371,14 @@ input[type="range"]::-moz-range-thumb:active {
 .neu-divider {
   height: 1px;
   width: 100%;
-  background-color: rgba(163, 177, 198, 0.3);
-  box-shadow: 0 1px 0 var(--shadow-light);
+  background-color: rgba(163, 177, 198, 0.25);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.5);
   border: none !important;
 }
 
 .dark .neu-divider {
-  background-color: rgba(19, 22, 27, 0.6);
-  box-shadow: 0 1px 0 rgba(41, 48, 58, 0.6);
+  background-color: rgba(19, 22, 27, 0.5);
+  box-shadow: 0 1px 0 rgba(41, 48, 58, 0.4);
 }
 
 /* Sidebar Floating Dock */

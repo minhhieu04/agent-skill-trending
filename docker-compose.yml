@@ -34,8 +34,11 @@ services:
       - GEMINI_API_KEY=${GEMINI_API_KEY:-}
       - REDDIT_CLIENT_ID=${REDDIT_CLIENT_ID:-}
       - REDDIT_CLIENT_SECRET=${REDDIT_CLIENT_SECRET:-}
+      - OLLAMA_HOST=${OLLAMA_HOST:-http://host.docker.internal:11434}
       - COLLECTION_INTERVAL_HOURS=6
       - AUTO_SCHEDULE_ENABLED=true
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
       db:
         condition: service_healthy

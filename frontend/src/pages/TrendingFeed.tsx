@@ -319,7 +319,7 @@ export const TrendingFeed: React.FC<TrendingFeedProps> = ({
             <div
               ref={categoryScrollRef}
               onScroll={updateCategoryScrollState}
-              className="flex items-center gap-1.5 overflow-x-auto pb-1 pt-0.5 scrollbar-none scroll-smooth"
+              className="flex items-center gap-1.5 overflow-x-auto py-2 px-1 scrollbar-none scroll-smooth"
             >
               <button
                 onClick={() => setSelectedCategory('all')}

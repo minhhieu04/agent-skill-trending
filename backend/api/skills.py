@@ -20,6 +20,7 @@ from services.exporter_service import ExporterService
 from services.security_scanner import SecurityScanner
 from services.learning_track_service import LearningTrackService
 from services.readme_service import ReadmeService, SUPPORTED_LANGUAGES
+from config import settings
 
 router = APIRouter(tags=["Skills"])
 
@@ -444,9 +445,10 @@ async def translate_skill_summary(
     if not skill:
         raise HTTPException(status_code=404, detail="Skill not found")
     
+    cjk_regex = re.compile(r"[\u4e00-\u9fff]")
     text_to_check = skill.description or skill.ai_summary or ""
     vi_summary = await ReadmeService.translate_summary_to_vietnamese(text_to_check, name=skill.name)
-    if vi_summary:
+    if vi_summary and not cjk_regex.search(vi_summary):
         skill.ai_summary = vi_summary
         skill.updated_at = datetime.utcnow()
         db.commit()
@@ -545,12 +547,20 @@ async def translate_skill_readme(
         cached_model = str(cached_entry.get("model_used", "")).lower()
         cached_provider = str(cached_entry.get("provider", "")).lower()
 
-        provider_matches = (
-            pref_provider == "auto"
-            or (pref_provider == "local_llm" and cached_provider == "local_llm")
-            or (pref_provider == "translation_engine" and cached_provider == "translation_engine")
-            or (pref_provider.startswith("gemini") and (cached_provider == "gemini" or pref_provider in cached_model))
-        )
+        # If cache is from degraded translation_engine, but user requested auto or an AI provider,
+        # check if real AI is available and upgrade rather than serving degraded cache
+        has_ollama, _ = await ReadmeService.check_ollama_status()
+        ai_available = bool(settings.GEMINI_API_KEY) or has_ollama
+
+        if cached_provider == "translation_engine" and pref_provider in ("auto", "local_llm", "gemini") and ai_available:
+            provider_matches = False
+        else:
+            provider_matches = (
+                pref_provider == "auto"
+                or (pref_provider == "local_llm" and cached_provider == "local_llm")
+                or (pref_provider == "translation_engine" and cached_provider == "translation_engine")
+                or ((pref_provider == "gemini" or pref_provider.startswith("gemini")) and (cached_provider == "gemini" or pref_provider in cached_model))
+            )
 
         if provider_matches and cached_entry.get("content"):
             return {
@@ -580,10 +590,13 @@ async def translate_skill_readme(
         preferred_provider=pref_provider,
     )
 
-    if not res.get("success") and not res.get("translated_text"):
-        raise HTTPException(status_code=500, detail=res.get("error", "Translation failed"))
+    if not res.get("success"):
+        raise HTTPException(
+            status_code=500,
+            detail=res.get("error") or "Không thể hoàn thành dịch thuật với mô hình đã chọn."
+        )
 
-    # Persist in DB
+    # Persist in DB only on genuine success
     new_translations = dict(skill.readme_translations or {})
     new_translations[target_lang] = {
         "content": res.get("translated_text"),
