@@ -81,6 +81,24 @@ const formatModelName = (model?: string) => {
   return model.replace('models/', '').replace(/^gemini-/, 'Gemini ');
 };
 
+export const formatDisplayDate = (dateStr?: string): string => {
+  if (!dateStr) return '';
+  const clean = dateStr.trim();
+  const parts = clean.split('-');
+  if (parts.length === 3 && parts[1] && parts[2]) {
+    return `${parts[2]}/${parts[1]}`;
+  }
+  if (clean.toLowerCase() === 'today' || clean.toLowerCase() === 'hôm nay') {
+    const now = new Date();
+    return `${String(now.getDate()).padStart(2, '0')}/${String(now.getMonth() + 1).padStart(2, '0')}`;
+  }
+  const d = new Date(clean);
+  if (!isNaN(d.getTime())) {
+    return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
+  }
+  return clean;
+};
+
 interface DailyPodcastPageProps {
   onSelectSkillById?: (id: number) => void;
   onToggleBookmark?: (id: number) => void;
@@ -778,8 +796,7 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
               availableDates.map((item) => {
                 const isSelected = item.date === selectedDate;
                 const isTodayDate = item.is_today || item.date === todayLocalStr;
-                const dateParts = item.date.split('-');
-                const label = `${dateParts[2]}/${dateParts[1]}`;
+                const label = formatDisplayDate(item.date);
                 return (
                   <button
                     key={item.date}
