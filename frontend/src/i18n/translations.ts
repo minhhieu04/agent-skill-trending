@@ -26,7 +26,7 @@ export const translations = {
     tab_daily_podcast: 'Podcast AI Hàng Ngày',
     tab_agent_chat: 'Trợ Lý AI (RAG)',
     tab_bundles: 'Gói Kỹ Năng / Bundles',
-    tab_playground: 'Thử Nghiệm / Playground',
+    tab_playground: 'Phòng Thử Nghiệm',
     tab_personalized: 'Dành Cho Bạn',
     tab_compare: 'So Sánh',
     tab_categories: 'Chuyên Mục',

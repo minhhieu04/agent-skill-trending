@@ -703,7 +703,7 @@ export const VideoBlogStudio: React.FC<VideoBlogStudioProps> = ({
             <div className="flex items-center gap-2 flex-wrap">
               <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-semibold uppercase tracking-wider neu-inset-sm text-[var(--primary)] flex items-center gap-1.5 whitespace-nowrap shrink-0">
                 <Radio className="w-3 h-3 text-[var(--primary)]" />
-                AI Video & Blog Studio v5.0
+                AI Video & Blog Studio (Beta)
               </span>
               <span className="px-2.5 py-0.5 text-[10px] font-mono rounded-full neu-inset-sm text-[var(--text-muted)] flex items-center gap-1 whitespace-nowrap shrink-0">
                 <Sparkles className="w-2.5 h-2.5 text-[var(--primary)]" />
