@@ -87,9 +87,7 @@ export const AgentChatDrawer: React.FC<AgentChatDrawerProps> = ({
       } else {
         setSessions((prev) => {
           if (prev.length > 0 && prev[0].messages.length === 0) return prev;
-          const fresh = createNewSession(t('agent_chat_untitled'));
-          setActiveSessionId(fresh.id);
-          return [fresh];
+          return [createNewSession(t('agent_chat_untitled'))];
         });
       }
     }

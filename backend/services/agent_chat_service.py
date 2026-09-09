@@ -95,7 +95,7 @@ class AgentChatService:
             },
             {
                 "title": "💡 Người mới: Nên chọn kỹ năng nào trước?",
-                "query": "Tôi mới tiếp cận Agentic Coding và thấy quá nhiều kỹ năng bị bội thực. Hãy đề xuất 2-3 kỹ năng nền tảng nhất nên cài đặt trước.",
+                "query": "Tôi mới tiếp cận Agentic Coding và muốn tìm các kỹ năng cốt lõi. Hãy đề xuất 2-3 kỹ năng nền tảng nhất nên cài đặt trước.",
                 "icon": "compass",
                 "category": "Khởi Đầu Nhanh"
             }
@@ -219,29 +219,37 @@ class AgentChatService:
                     if rw in readme_lower:
                         score += 10.0
 
+        def _match_token(tok: str, target: str) -> bool:
+            if not target or not tok:
+                return False
+            # Short tokens (<= 3 chars, e.g. ui, ux, go, ai) require word boundary to avoid matching 'guide', 'linux', 'algorithm'
+            if len(tok) <= 3:
+                return bool(re.search(r'(?:\b|_)' + re.escape(tok) + r'(?:\b|_)', target, re.IGNORECASE))
+            return tok.lower() in target.lower()
+
         # 2. Token matches across metadata
         for t in query_tokens:
             if len(t) < 2:
                 continue
-            if t in name_lower:
+            if _match_token(t, name_lower):
                 score += 30.0
-            if t in title_lower:
+            if _match_token(t, title_lower):
                 score += 25.0
             if t == lang_lower:
                 score += 35.0
-            if t in cat_lower:
+            if _match_token(t, cat_lower):
                 score += 25.0
-            if any(t in tag for tag in tags_lower):
+            if any(_match_token(t, tag) for tag in tags_lower):
                 score += 20.0
-            if any(t in r for r in runtimes_lower):
+            if any(_match_token(t, r) for r in runtimes_lower):
                 score += 15.0
-            if any(t in u for u in use_cases_lower):
+            if any(_match_token(t, u) for u in use_cases_lower):
                 score += 15.0
-            if t in ai_summary_lower or t in desc_lower:
+            if _match_token(t, ai_summary_lower) or _match_token(t, desc_lower):
                 score += 10.0
-            if t in readme_lower:
+            if _match_token(t, readme_lower):
                 score += 6.0
-            if t in notes_lower or t in audience_lower:
+            if _match_token(t, notes_lower) or _match_token(t, audience_lower):
                 score += 8.0
 
         raw_score = score
@@ -386,8 +394,21 @@ class AgentChatService:
         tags_lower = [str(t).lower() for t in (skill.tags or [])]
         is_vi = language == "vi"
 
-        # 1. Golang & Concurrency
-        if "golang" in name_lower or "go" == lang_lower or any("golang" in t or "concurrency" in t for t in tags_lower):
+        # 1. UI/UX & Tailwind CSS / Design Systems
+        if (
+            any(k in name_lower for k in ["ui-ux", "uiux", "ui-skills", "design", "tailwind", "accessibility", "screenshot-to-code"]) or
+            any(k in title_lower for k in ["ui/ux", "design", "tailwind", "accessibility"]) or
+            any(k in t for t in tags_lower for k in ["ui-design", "design-system", "tailwind", "mobile-ui", "uikit"])
+        ):
+            if is_vi:
+                reasons.append("Cung cấp hệ thống 8pt grid, Tailwind CSS tokens & dark/light palette chuẩn mực")
+                reasons.append("Chuẩn hóa component heuristics và tuân thủ tiêu chuẩn tiếp cận WCAG 2.1 AA cho giao diện")
+            else:
+                reasons.append("Provides 8pt spatial grid scale, Tailwind CSS tokens & optimized light/dark palettes")
+                reasons.append("Enforces component heuristics and WCAG 2.1 AA accessibility compliance for modern UIs")
+
+        # 2. Golang & Concurrency
+        elif "golang" in name_lower or "go-agent" in name_lower or (re.search(r'(?:\b|_)go(?:\b|_)', name_lower) and "uber" in name_lower) or "go" == lang_lower or any("golang" in t or "concurrency" in t or "goroutine" in t for t in tags_lower):
             if is_vi:
                 reasons.append("Chống rò rỉ goroutine leak, race condition & chuẩn hóa table-driven test trong Go")
                 reasons.append("Áp dụng trực tiếp quy chuẩn Uber Go Style Guide & Clean Architecture")
@@ -395,17 +416,8 @@ class AgentChatService:
                 reasons.append("Prevents goroutine leaks, race conditions & enforces idiomatic table-driven tests")
                 reasons.append("Directly implements Uber Go Style Guide and clean architecture")
 
-        # 2. Google Antigravity & Subagents
-        elif "antigravity" in name_lower or "google" in name_lower or any("antigravity" in t or "subagent" in t for t in tags_lower):
-            if is_vi:
-                reasons.append("Hỗ trợ kiến trúc Autonomous Subagents & chuẩn hóa cấu trúc file SKILL.md")
-                reasons.append("Tương thích hoàn hảo với Google Antigravity & Gemini CLI")
-            else:
-                reasons.append("Enables autonomous subagent workflows & standardized SKILL.md specs")
-                reasons.append("100% compatible with Google Antigravity and Gemini CLI harnesses")
-
         # 3. Next.js & React Server Components
-        elif "nextjs" in name_lower or "next" in name_lower or any("nextjs" in t or "react" in t for t in tags_lower):
+        elif "nextjs" in name_lower or "next.js" in name_lower or "next" in name_lower or any("nextjs" in t or "react" in t for t in tags_lower):
             if is_vi:
                 reasons.append("Chuẩn hóa Next.js 15 App Router, React Server Components và Server Actions")
                 reasons.append("Tích hợp Zod input validation và chiến lược revalidateTag SEO tối ưu")
@@ -413,17 +425,17 @@ class AgentChatService:
                 reasons.append("Standardizes Next.js 15 App Router, React Server Components & Server Actions")
                 reasons.append("Integrates Zod schema validation and optimal revalidateTag caching for SEO")
 
-        # 4. UI/UX & Tailwind CSS
-        elif "design" in name_lower or "uiux" in name_lower or any("tailwind" in t or "design-system" in t for t in tags_lower):
+        # 4. Google Antigravity & Subagents (strictly for Antigravity orchestration, not any skill that happens to run on it)
+        elif "google/skills" in name_lower or "subagent" in name_lower or ("antigravity" in name_lower and not any(k in name_lower for k in ["ui", "design", "go", "next"])):
             if is_vi:
-                reasons.append("Cung cấp hệ thống 8pt grid, Tailwind CSS tokens & dark/light palette")
-                reasons.append("Đạt chuẩn tiếp cận WCAG 2.1 AA cho giao diện web/mobile hiện đại")
+                reasons.append("Hỗ trợ kiến trúc Autonomous Subagents & chuẩn hóa cấu trúc file SKILL.md")
+                reasons.append("Tương thích hoàn hảo với Google Antigravity & Gemini CLI")
             else:
-                reasons.append("Provides 8pt spatial grid scale, Tailwind CSS tokens & contrast palettes")
-                reasons.append("Complies with WCAG 2.1 AA accessibility standards for modern web/mobile UIs")
+                reasons.append("Enables autonomous subagent workflows & standardized SKILL.md specs")
+                reasons.append("100% compatible with Google Antigravity and Gemini CLI harnesses")
 
         # 5. Security, Audit & Sandboxing
-        elif "security" in name_lower or "cybersecurity" in name_lower or "scan" in name_lower or any("security" in t or "audit" in t for t in tags_lower):
+        elif any(k in name_lower for k in ["security", "cybersecurity", "scan", "audit", "sandbox", "guardrail"]) or any(k in t for t in tags_lower for k in ["security", "audit", "sandbox"]):
             if is_vi:
                 reasons.append("Kiểm toán quyền hạn runtime, phát hiện nguy cơ command injection và privilege leak")
                 reasons.append("Cung cấp guardrails an toàn và phân tích cách ly sandbox cho Agentic workflows")
@@ -471,9 +483,16 @@ class AgentChatService:
     @classmethod
     def _generate_quick_tip(cls, skill: Skill, language: str = "vi") -> str:
         name_lower = (skill.name or "").lower()
+        title_lower = (skill.title or "").lower()
         is_vi = language == "vi"
 
-        if "google/skills" in name_lower or "antigravity" in name_lower:
+        if any(k in name_lower for k in ["ui-ux", "uiux", "ui-skill", "design", "tailwind", "accessibility", "screenshot-to-code"]) or any(k in title_lower for k in ["ui/ux", "design"]):
+            return (
+                "Khai báo Tailwind tokens trong tailwind.config.js và kiểm tra tương phản màu WCAG 2.1 trước khi render."
+                if is_vi else
+                "Declare Tailwind tokens in tailwind.config.js and verify WCAG 2.1 contrast ratios before rendering."
+            )
+        elif "google/skills" in name_lower or "subagent" in name_lower or ("antigravity" in name_lower and not any(k in name_lower for k in ["ui", "design"])):
             return (
                 "Chạy `npx skills add google/skills` hoặc đưa vào thư mục `.gemini/config/skills/`."
                 if is_vi else
@@ -485,17 +504,11 @@ class AgentChatService:
                 if is_vi else
                 "Place configuration at `.github/copilot-instructions.md` in repository root."
             )
-        elif "go-agent-skill" in name_lower or "golang" in name_lower:
+        elif "go-agent-skill" in name_lower or "golang" in name_lower or "uber-go" in name_lower:
             return (
                 "Dùng `go test -race ./...` để kiểm chứng hiệu quả sau khi apply chỉ dẫn của skill."
                 if is_vi else
                 "Run `go test -race ./...` to verify concurrency safety after applying skill rules."
-            )
-        elif "design" in name_lower or "uiux" in name_lower:
-            return (
-                "Sử dụng các biến Tailwind token và kiểm tra độ tương phản trước khi render UI."
-                if is_vi else
-                "Leverage Tailwind CSS tokens and verify contrast ratios before rendering UI."
             )
         elif "nextjs" in name_lower:
             return (
@@ -509,7 +522,7 @@ class AgentChatService:
                 if is_vi else
                 "Declare the server configuration in your agent harness settings (e.g. cursor.json or antigravity)."
             )
-        elif "security" in name_lower or "scan" in name_lower:
+        elif "security" in name_lower or "scan" in name_lower or "audit" in name_lower:
             return (
                 "Chạy lệnh quét bảo mật trước khi cấp quyền can thiệp filesystem hoặc mạng."
                 if is_vi else
@@ -618,8 +631,8 @@ class AgentChatService:
                 """
 
                 def _generate_with_gemini_sync():
-                    # Active models in 2026
-                    for candidate_model in ["gemini-3.6-flash", "gemini-3.5-flash"]:
+                    # Active models in 2026 with graceful fallback across quotas
+                    for candidate_model in ["gemini-3.5-flash", "gemini-3.6-flash"]:
                         try:
                             resp = client.models.generate_content(
                                 model=candidate_model,
@@ -629,16 +642,7 @@ class AgentChatService:
                                 return resp.text.strip(), candidate_model
                         except Exception as me:
                             logger.warning(f"Model {candidate_model} failed: {me}")
-                            err_msg = str(me)
-                            # If quota exceeded or 429, break immediately to avoid blocking retries
-                            if "429" in err_msg or "RESOURCE_EXHAUSTED" in err_msg or "quota" in err_msg.lower():
-                                break
-                        except Exception as me:
-                            logger.warning(f"Model {candidate_model} failed: {me}")
-                            err_msg = str(me)
-                            # If quota exceeded or 429, break immediately to avoid blocking retries
-                            if "429" in err_msg or "RESOURCE_EXHAUSTED" in err_msg or "quota" in err_msg.lower():
-                                break
+                            continue
                     return "", ""
 
                 # Run synchronous generation off the async event loop
@@ -762,27 +766,39 @@ class AgentChatService:
 
         if is_vi:
             if any(k in q_lower for k in ["ui", "ux", "giao diện", "design", "tailwind", "css", "wcag", "frontend"]):
-                domain_prefix = f"Đối với bài toán chuẩn hóa UI/UX và thiết kế giao diện (*\"{q_clean}\"*),"
-            elif any(k in q_lower for k in ["go", "golang", "goroutine", "concurrency", "channel", "race"]):
-                domain_prefix = f"Về bài toán concurrency và kiểm soát goroutines/microservices trong Go (*\"{q_clean}\"*),"
-            elif any(k in q_lower for k in ["next", "nextjs", "react", "fullstack", "server action"]):
-                domain_prefix = f"Đối với kiến trúc fullstack với Next.js và Server Actions (*\"{q_clean}\"*),"
-            elif any(k in q_lower for k in ["security", "bảo mật", "sandbox", "audit", "lỗ hổng", "injection"]):
-                domain_prefix = f"Về giải pháp bảo mật, phân quyền sandbox và audit an toàn (*\"{q_clean}\"*),"
-            elif any(k in q_lower for k in ["antigravity", "gemini", "agent harness", "skill"]):
-                domain_prefix = f"Về cấu hình và chuẩn hóa kỹ năng cho AI Agent (*\"{q_clean}\"*),"
-            else:
-                domain_prefix = f"Dựa trên yêu cầu kỹ thuật *\"{q_clean}\"*,"
-
-            if has_direct_matches:
                 intro = (
-                    f"{domain_prefix} hệ thống RAG đã chọn lọc và đối chiếu được **{len(skills)} kỹ năng tối ưu nhất** "
-                    f"để áp dụng trực tiếp vào kiến trúc dự án của bạn:\n\n"
+                    f"Đối với bài toán chuẩn hóa **UI/UX & Design System** (*\"{q_clean}\"*), "
+                    f"trọng tâm là đảm bảo tính nhất quán của Tailwind tokens, độ tương phản WCAG 2.1 AA và kiến trúc component heuristics. "
+                    f"Dưới đây là **{len(skills)} giải pháp kỹ thuật tối ưu nhất** giải quyết trực tiếp yêu cầu này:\n\n"
+                )
+            elif any(k in q_lower for k in ["go", "golang", "goroutine", "concurrency", "channel", "race"]):
+                intro = (
+                    f"Về bài toán **Concurrency & Microservices trong Go** (*\"{q_clean}\"*), "
+                    f"điểm then chốt là kiểm soát vòng đời goroutine, timeout channel và tuân thủ quy chuẩn Uber Go Style Guide. "
+                    f"Dưới đây là **{len(skills)} kỹ năng chuẩn mực** dành cho kiến trúc của bạn:\n\n"
+                )
+            elif any(k in q_lower for k in ["next", "nextjs", "react", "fullstack", "server action"]):
+                intro = (
+                    f"Đối với kiến trúc **Next.js 15 Fullstack & Server Actions** (*\"{q_clean}\"*), "
+                    f"mục tiêu cốt lõi là kiểm soát type-safety với Zod, phân tách ranh giới Server/Client Component và tối ưu SEO revalidation. "
+                    f"Dưới đây là **{len(skills)} quy chuẩn trọng tâm** cho dự án của bạn:\n\n"
+                )
+            elif any(k in q_lower for k in ["security", "bảo mật", "sandbox", "audit", "lỗ hổng", "injection"]):
+                intro = (
+                    f"Về giải pháp **Bảo Mật, Phân Quyền & Sandbox** (*\"{q_clean}\"*), "
+                    f"ưu tiên hàng đầu là kiểm toán quyền can thiệp filesystem/mạng và ngăn chặn rủi ro prompt/command injection. "
+                    f"Dưới đây là **{len(skills)} guardrails an toàn** được khuyến nghị áp dụng:\n\n"
+                )
+            elif any(k in q_lower for k in ["antigravity", "gemini", "agent harness", "skill"]):
+                intro = (
+                    f"Về cấu hình **Agent Harness & Autonomous Subagents** (*\"{q_clean}\"*), "
+                    f"nguyên tắc quan trọng là chuẩn hóa cấu trúc file SKILL.md, phân quyền rõ ràng và cô lập tác vụ cho từng subagent. "
+                    f"Dưới đây là **{len(skills)} kỹ năng nền tảng** phù hợp nhất:\n\n"
                 )
             else:
                 intro = (
-                    f"{domain_prefix} mặc dù chưa khớp từ khóa chuyên biệt tuyệt đối, hệ thống RAG đã chọn lọc "
-                    f"**{len(skills)} kỹ năng nền tảng vững chắc nhất** để bạn bắt đầu:\n\n"
+                    f"Phân tích yêu cầu kỹ thuật *\"{q_clean}\"*, "
+                    f"dưới đây là **{len(skills)} giải pháp tinh hoa** đáp ứng trực tiếp bài toán và kiến trúc triển khai của bạn:\n\n"
                 )
 
             sections = []
@@ -821,27 +837,39 @@ class AgentChatService:
 
         else:
             if any(k in q_lower for k in ["ui", "ux", "design", "tailwind", "css", "wcag", "frontend"]):
-                domain_prefix = f"Regarding your UI/UX and design system focus for *\"{q_clean}\"*,"
-            elif any(k in q_lower for k in ["go", "golang", "goroutine", "concurrency", "channel", "race"]):
-                domain_prefix = f"Regarding Go concurrency, goroutine safety, and microservice resilience for *\"{q_clean}\"*,"
-            elif any(k in q_lower for k in ["next", "nextjs", "react", "fullstack", "server action"]):
-                domain_prefix = f"Regarding Next.js fullstack architecture and Server Actions for *\"{q_clean}\"*,"
-            elif any(k in q_lower for k in ["security", "sandbox", "audit", "injection"]):
-                domain_prefix = f"Regarding agent security posture, sandboxing, and audit safety for *\"{q_clean}\"*,"
-            elif any(k in q_lower for k in ["antigravity", "gemini", "agent harness", "skill"]):
-                domain_prefix = f"Regarding agent harness configuration and skill standards for *\"{q_clean}\"*,"
-            else:
-                domain_prefix = f"Based on your technical requirements for *\"{q_clean}\"*,"
-
-            if has_direct_matches:
                 intro = (
-                    f"{domain_prefix} our RAG engine has selected the **{len(skills)} most relevant skills** "
-                    f"to directly solve your challenge:\n\n"
+                    f"Addressing your **UI/UX & Design System** requirements (*\"{q_clean}\"*), "
+                    f"the primary focus is enforcing Tailwind token consistency, WCAG 2.1 AA accessibility, and responsive component heuristics. "
+                    f"Here are the **{len(skills)} best-fitting technical skills** for your stack:\n\n"
+                )
+            elif any(k in q_lower for k in ["go", "golang", "goroutine", "concurrency", "channel", "race"]):
+                intro = (
+                    f"Regarding **Go Concurrency & Microservice Resilience** (*\"{q_clean}\"*), "
+                    f"the key imperative is controlling goroutine lifecycles, context timeouts, and race detection. "
+                    f"Here are the **{len(skills)} focused engineering standards** recommended for your architecture:\n\n"
+                )
+            elif any(k in q_lower for k in ["next", "nextjs", "react", "fullstack", "server action"]):
+                intro = (
+                    f"Addressing **Next.js 15 Fullstack & Server Actions** (*\"{q_clean}\"*), "
+                    f"the critical priorities are strict Zod schema validation, safe server-client boundaries, and SEO caching strategies. "
+                    f"Here are the **{len(skills)} core skills** to enforce these patterns:\n\n"
+                )
+            elif any(k in q_lower for k in ["security", "sandbox", "audit", "injection"]):
+                intro = (
+                    f"Regarding **Agent Security Posture & Sandboxing** (*\"{q_clean}\"*), "
+                    f"the foremost objective is auditing runtime tool execution and preventing prompt/command injections. "
+                    f"Here are the **{len(skills)} robust security guardrails** for your workflow:\n\n"
+                )
+            elif any(k in q_lower for k in ["antigravity", "gemini", "agent harness", "skill"]):
+                intro = (
+                    f"Regarding **Agent Harness Orchestration & Subagent Workflows** (*\"{q_clean}\"*), "
+                    f"the main objective is standardizing SKILL.md specifications and isolated subagent handoffs. "
+                    f"Here are the **{len(skills)} foundational skills** for your setup:\n\n"
                 )
             else:
                 intro = (
-                    f"{domain_prefix} while no single keyword matched exactly, our RAG engine identified "
-                    f"the **{len(skills)} most versatile foundational skills** for your stack:\n\n"
+                    f"Analyzing your technical inquiry *\"{q_clean}\"*, "
+                    f"here are the **{len(skills)} top-tier skills** tailored directly to your engineering requirements:\n\n"
                 )
 
             sections = []

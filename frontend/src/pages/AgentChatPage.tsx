@@ -118,6 +118,12 @@ export const AgentChatPage: React.FC<AgentChatPageProps> = ({
   // Handle initialQuery if passed from other views
   useEffect(() => {
     if (initialQuery && initialQuery.trim()) {
+      if (activeSession.messages.length > 0) {
+        const nonEmpties = sessions.filter((s) => s.messages && s.messages.length > 0);
+        const fresh = createNewSession(t('agent_chat_untitled'));
+        setSessions([fresh, ...nonEmpties]);
+        setActiveSessionId(fresh.id);
+      }
       handleSendMessage(initialQuery.trim());
     }
   }, [initialQuery]);

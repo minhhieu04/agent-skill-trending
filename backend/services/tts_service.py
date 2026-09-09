@@ -483,11 +483,23 @@ class TTSService:
         return result
 
     @staticmethod
+    def _pcm_to_wav(pcm_bytes: bytes, sample_rate: int = 24000) -> bytes:
+        """Converts raw 16-bit mono PCM bytes to standard playable RIFF/WAV format."""
+        buf = io.BytesIO()
+        with wave.open(buf, "wb") as wav_file:
+            wav_file.setnchannels(1)
+            wav_file.setsampwidth(2)
+            wav_file.setframerate(sample_rate)
+            wav_file.writeframes(pcm_bytes)
+        return buf.getvalue()
+
+    @staticmethod
     async def _synthesize_gemini_audio(
         text: str, voice: str, rate: str, pitch: str
     ) -> Optional[Dict[str, Any]]:
         """
-        Synthesizes speech using Gemini 2.0 Flash Native Audio Output.
+        Synthesizes speech using Google AI Studio's Gemini 2.5 Flash Preview TTS & Native Audio Output.
+        Produces ultra-realistic, expressive bilingual audio (Vietnamese + English tech terminology).
         """
         if not settings.GEMINI_API_KEY:
             return None
@@ -502,7 +514,14 @@ class TTSService:
             from google.genai import types as genai_types
 
             client = genai.Client(api_key=settings.GEMINI_API_KEY)
-            prompt = f"Please read the following text aloud with natural intonation, clear pronunciation, and expressive emotion. Do not include any explanations or intro text, only speak the exact words:\n\n{text}"
+            prompt = (
+                "You are a charismatic, articulate tech podcast host. "
+                "Read the following Vietnamese script aloud with natural human warmth, expressive rhythm, and engaging delivery. "
+                "For English technical words, framework names, and acronyms (e.g. Next.js, GitHub, Cursor, Claude Code, Python, Agent, TypeScript, HTML, REST, API), "
+                "pronounce them with authentic, native English clarity while speaking Vietnamese seamlessly. "
+                "Do not output any introductory notes or markdown, speak only the exact words:\n\n"
+                f"{text}"
+            )
 
             config = genai_types.GenerateContentConfig(
                 response_modalities=["AUDIO"],
@@ -515,40 +534,58 @@ class TTSService:
                 )
             )
 
-            # Use asyncio.to_thread to avoid blocking the event loop
-            response = await asyncio.to_thread(
-                client.models.generate_content,
-                model="gemini-2.0-flash",
-                contents=prompt,
-                config=config
-            )
+            # Candidate audio models from Google AI Studio
+            audio_models = [
+                "gemini-2.5-flash-preview-tts",
+                "gemini-2.5-pro-preview-tts",
+                "gemini-3.1-flash-tts-preview",
+                "gemini-2.5-flash-native-audio-latest"
+            ]
 
-            if response.candidates and response.candidates[0].content.parts:
+            response = None
+            used_model = "gemini-2.5-flash-preview-tts"
+            for model_id in audio_models:
+                try:
+                    response = await asyncio.to_thread(
+                        client.models.generate_content,
+                        model=model_id,
+                        contents=prompt,
+                        config=config
+                    )
+                    if response and response.candidates and response.candidates[0].content.parts:
+                        used_model = model_id
+                        break
+                except Exception as model_err:
+                    logger.warning(f"Audio model {model_id} failed: {model_err}, trying fallback...")
+                    continue
+
+            if response and response.candidates and response.candidates[0].content.parts:
                 for part in response.candidates[0].content.parts:
                     if hasattr(part, "inline_data") and part.inline_data:
-                        audio_data = part.inline_data.data
-                        if isinstance(audio_data, bytes):
-                            audio_b64 = base64.b64encode(audio_data).decode("utf-8")
-                        else:
-                            logger.warning("Gemini audio data is not bytes, skipping")
+                        raw_pcm = part.inline_data.data
+                        if not isinstance(raw_pcm, bytes):
                             continue
 
-                        words = text.split()
-                        estimated_duration = max(2.0, len(words) * 0.38)
-                        subtitle_entries = TTSService._generate_synthetic_timings(text, estimated_duration)
+                        # Wrap raw PCM into standard playable WAV 24kHz format
+                        wav_bytes = TTSService._pcm_to_wav(raw_pcm, sample_rate=24000)
+                        audio_b64 = base64.b64encode(wav_bytes).decode("utf-8")
+
+                        # Exact duration from sample rate (24000 samples/sec, 16-bit = 2 bytes/sample)
+                        duration = round(len(raw_pcm) / (24000 * 2), 2)
+                        subtitle_entries = TTSService._generate_synthetic_timings(text, duration)
 
                         return {
                             "audio_base64": audio_b64,
-                            "duration_seconds": round(estimated_duration, 2),
+                            "duration_seconds": duration,
                             "subtitle_entries": subtitle_entries,
                             "voice": voice,
                             "status": "success",
-                            "message": f"Gemini 2.0 Native Audio ({voice_name})",
+                            "message": f"Google AI Studio ({used_model} - {voice_name})",
                             "timing_quality": "estimated",
                         }
 
         except Exception as e:
-            logger.warning(f"Gemini 2.0 Native Audio synthesis failed: {e}")
+            logger.warning(f"Google AI Studio Gemini Audio synthesis failed: {e}")
             return None
 
         return None
