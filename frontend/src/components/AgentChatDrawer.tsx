@@ -42,7 +42,13 @@ export const AgentChatDrawer: React.FC<AgentChatDrawerProps> = ({
   const { t, language } = useLanguage();
   const { showToast } = useToast();
 
-  const [sessions, setSessions] = useState<AgentChatSession[]>(() => loadChatSessions());
+  const [sessions, setSessions] = useState<AgentChatSession[]>(() => {
+    const loaded = loadChatSessions();
+    if (loaded.length > 0) {
+      return loaded;
+    }
+    return [createNewSession()];
+  });
   const [activeSessionId, setActiveSessionId] = useState<string>(() => {
     const savedActiveId = loadActiveSessionId();
     const found = sessions.find((s) => s.id === savedActiveId);
@@ -64,12 +70,27 @@ export const AgentChatDrawer: React.FC<AgentChatDrawerProps> = ({
     if (isOpen) {
       setTimeout(() => inputRef.current?.focus(), 150);
       const reloaded = loadChatSessions();
-      setSessions(reloaded);
       const activeId = loadActiveSessionId();
-      if (activeId && reloaded.some((s) => s.id === activeId)) {
-        setActiveSessionId(activeId);
-      } else if (reloaded.length > 0) {
-        setActiveSessionId(reloaded[0].id);
+      if (reloaded.length > 0) {
+        if (activeId && reloaded.some((s) => s.id === activeId)) {
+          setSessions(reloaded);
+          setActiveSessionId(activeId);
+        } else {
+          setSessions((prev) => {
+            const currentActive = prev.find((s) => s.id === activeSessionId);
+            if (currentActive && currentActive.messages.length === 0) {
+              return [currentActive, ...reloaded];
+            }
+            return reloaded;
+          });
+        }
+      } else {
+        setSessions((prev) => {
+          if (prev.length > 0 && prev[0].messages.length === 0) return prev;
+          const fresh = createNewSession(t('agent_chat_untitled'));
+          setActiveSessionId(fresh.id);
+          return [fresh];
+        });
       }
     }
   }, [isOpen]);
@@ -118,6 +139,7 @@ export const AgentChatDrawer: React.FC<AgentChatDrawerProps> = ({
 
   const activeSession = sessions.find((s) => s.id === activeSessionId) || sessions[0] || createNewSession();
   const messages = activeSession.messages;
+  const savedSessions = sessions.filter((s) => s.messages && s.messages.length > 0);
 
   // Auto scroll on new messages or loading
   useEffect(() => {
@@ -184,7 +206,10 @@ export const AgentChatDrawer: React.FC<AgentChatDrawerProps> = ({
 
   const handleDeleteSession = (sessionId: string, e?: React.MouseEvent) => {
     e?.stopPropagation();
-    if (sessions.length <= 1) {
+    const remaining = sessions.filter((s) => s.id !== sessionId);
+    const remainingSaved = remaining.filter((s) => s.messages && s.messages.length > 0);
+
+    if (remainingSaved.length === 0) {
       const fresh = createNewSession(t('agent_chat_untitled'));
       setSessions([fresh]);
       setActiveSessionId(fresh.id);
@@ -193,10 +218,9 @@ export const AgentChatDrawer: React.FC<AgentChatDrawerProps> = ({
       return;
     }
 
-    const filtered = sessions.filter((s) => s.id !== sessionId);
-    setSessions(filtered);
+    setSessions(remaining);
     if (activeSessionId === sessionId) {
-      setActiveSessionId(filtered[0].id);
+      setActiveSessionId(remainingSaved[0].id);
       setAnimatingMessageId(null);
     }
     showToast(language === 'vi' ? 'Đã xóa cuộc trò chuyện' : 'Chat deleted', 'info');
@@ -210,9 +234,9 @@ export const AgentChatDrawer: React.FC<AgentChatDrawerProps> = ({
       inputRef.current?.focus();
       return;
     }
+    const nonEmpties = sessions.filter((s) => s.messages && s.messages.length > 0);
     const fresh = createNewSession(t('agent_chat_untitled'));
-    const updated = [fresh, ...sessions];
-    setSessions(updated);
+    setSessions([fresh, ...nonEmpties]);
     setActiveSessionId(fresh.id);
     setAnimatingMessageId(null);
     setShowSessionDropdown(false);
@@ -334,11 +358,15 @@ export const AgentChatDrawer: React.FC<AgentChatDrawerProps> = ({
               onClick={() => setShowSessionDropdown(!showSessionDropdown)}
               className="flex items-center gap-1.5 text-left text-xs sm:text-sm font-semibold text-[var(--text-main)] hover:text-[var(--primary)] transition-colors truncate max-w-[210px] sm:max-w-[240px]"
             >
-              <span className="truncate">{activeSession.title || t('agent_chat_title')}</span>
+              <span className="truncate">
+                {activeSession.messages.length === 0
+                  ? t('agent_chat_new_chat')
+                  : activeSession.title || t('agent_chat_title')}
+              </span>
               <ChevronDown className="w-3.5 h-3.5 shrink-0 text-[var(--text-muted)]" />
             </button>
             <p className="text-[11px] font-mono text-[var(--text-muted)] truncate">
-              {sessions.length} {t('agent_chat_sessions_title').toLowerCase()}
+              {savedSessions.length} {t('agent_chat_sessions_title').toLowerCase()}
             </p>
 
             {/* Session Dropdown Menu */}
@@ -351,38 +379,45 @@ export const AgentChatDrawer: React.FC<AgentChatDrawerProps> = ({
                 <div className="absolute top-full left-0 mt-2 w-72 max-h-72 overflow-y-auto rounded-2xl neu-modal z-50 p-2.5 space-y-1.5 scrollbar-thin animate-scale-in">
                   <button
                     onClick={handleCreateNewSession}
-                    className="w-full flex items-center justify-center gap-2 py-2 px-3 text-xs font-semibold rounded-xl neu-primary text-white transition-opacity"
+                    className="w-full flex items-center justify-center gap-2 py-2 px-3 text-xs font-semibold rounded-xl neu-primary text-white transition-opacity cursor-pointer"
                   >
                     <Plus className="w-3.5 h-3.5" />
                     <span>{t('agent_chat_new_chat')}</span>
                   </button>
                   <div className="my-1.5" />
-                  {sessions.map((s) => (
-                    <div
-                      key={s.id}
-                      onClick={() => {
-                        setActiveSessionId(s.id);
-                        setShowSessionDropdown(false);
-                      }}
-                      className={`w-full p-2.5 rounded-xl text-xs flex items-center justify-between gap-2 transition-all cursor-pointer group ${
-                        s.id === activeSession.id
-                          ? 'neu-inset text-[var(--primary)] font-semibold'
-                          : 'neu-btn text-[var(--text-muted)] hover:text-[var(--text-main)]'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2 min-w-0 flex-1">
-                        <MessageSquare className="w-3.5 h-3.5 shrink-0 text-[var(--primary)]" />
-                        <span className="truncate">{s.title}</span>
-                      </div>
-                      <button
-                        onClick={(e) => handleDeleteSession(s.id, e)}
-                        className="opacity-0 group-hover:opacity-100 p-1 rounded-lg hover:bg-rose-500/10 text-rose-500 transition-all shrink-0"
-                        title={t('agent_chat_delete_session')}
-                      >
-                        <Trash2 className="w-3 h-3" />
-                      </button>
+                  {savedSessions.length === 0 ? (
+                    <div className="py-3 px-2 text-center text-xs text-[var(--text-muted)]">
+                      {t('agent_chat_no_sessions')}
                     </div>
-                  ))}
+                  ) : (
+                    savedSessions.map((s) => (
+                      <div
+                        key={s.id}
+                        onClick={() => {
+                          setSessions((prev) => prev.filter((item) => item.id === s.id || (item.messages && item.messages.length > 0)));
+                          setActiveSessionId(s.id);
+                          setShowSessionDropdown(false);
+                        }}
+                        className={`w-full p-2.5 rounded-xl text-xs flex items-center justify-between gap-2 transition-all cursor-pointer group ${
+                          s.id === activeSession.id
+                            ? 'neu-inset text-[var(--primary)] font-semibold'
+                            : 'neu-btn text-[var(--text-muted)] hover:text-[var(--text-main)]'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 min-w-0 flex-1">
+                          <MessageSquare className="w-3.5 h-3.5 shrink-0 text-[var(--primary)]" />
+                          <span className="truncate">{s.title}</span>
+                        </div>
+                        <button
+                          onClick={(e) => handleDeleteSession(s.id, e)}
+                          className="opacity-0 group-hover:opacity-100 p-1 rounded-lg hover:bg-rose-500/10 text-rose-500 transition-all shrink-0"
+                          title={t('agent_chat_delete_session')}
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      </div>
+                    ))
+                  )}
                 </div>
               </>
             )}

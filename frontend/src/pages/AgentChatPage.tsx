@@ -49,7 +49,13 @@ export const AgentChatPage: React.FC<AgentChatPageProps> = ({
   const { showToast } = useToast();
 
   // Multi-session state
-  const [sessions, setSessions] = useState<AgentChatSession[]>(() => loadChatSessions());
+  const [sessions, setSessions] = useState<AgentChatSession[]>(() => {
+    const loaded = loadChatSessions();
+    if (loaded.length > 0) {
+      return loaded;
+    }
+    return [createNewSession()];
+  });
   const [activeSessionId, setActiveSessionId] = useState<string>(() => {
     const savedActiveId = loadActiveSessionId();
     const found = sessions.find((s) => s.id === savedActiveId);
@@ -75,6 +81,9 @@ export const AgentChatPage: React.FC<AgentChatPageProps> = ({
   // Active session helper
   const activeSession = sessions.find((s) => s.id === activeSessionId) || sessions[0] || createNewSession();
   const messages = activeSession.messages;
+
+  // Only non-empty sessions are considered saved historical sessions
+  const savedSessions = sessions.filter((s) => s.messages && s.messages.length > 0);
 
   // Persist sessions to localStorage whenever sessions change
   useEffect(() => {
@@ -180,20 +189,23 @@ export const AgentChatPage: React.FC<AgentChatPageProps> = ({
     if (window.innerWidth < 1024) {
       setIsSidebarOpen(false);
     }
-    // If current session is already empty, just focus input
+    // If current session is already empty, just focus input without creating duplicate
     if (activeSession.messages.length === 0) {
       inputRef.current?.focus();
       return;
     }
+    // Discard any unsent empty sessions, prepend fresh session
+    const nonEmpties = sessions.filter((s) => s.messages && s.messages.length > 0);
     const fresh = createNewSession(t('agent_chat_untitled'));
-    const updated = [fresh, ...sessions];
-    setSessions(updated);
+    setSessions([fresh, ...nonEmpties]);
     setActiveSessionId(fresh.id);
     setAnimatingMessageId(null);
     setTimeout(() => inputRef.current?.focus(), 100);
   };
 
   const handleSelectSession = (id: string) => {
+    // If current active session was an empty draft, discard it when switching to a saved session
+    setSessions((prev) => prev.filter((s) => s.id === id || (s.messages && s.messages.length > 0)));
     setActiveSessionId(id);
     if (window.innerWidth < 1024) {
       setIsSidebarOpen(false);
@@ -204,7 +216,10 @@ export const AgentChatPage: React.FC<AgentChatPageProps> = ({
 
   const handleDeleteSession = (sessionId: string, e?: React.MouseEvent) => {
     e?.stopPropagation();
-    if (sessions.length <= 1) {
+    const remaining = sessions.filter((s) => s.id !== sessionId);
+    const remainingSaved = remaining.filter((s) => s.messages && s.messages.length > 0);
+
+    if (remainingSaved.length === 0) {
       const fresh = createNewSession(t('agent_chat_untitled'));
       setSessions([fresh]);
       setActiveSessionId(fresh.id);
@@ -213,10 +228,9 @@ export const AgentChatPage: React.FC<AgentChatPageProps> = ({
       return;
     }
 
-    const filtered = sessions.filter((s) => s.id !== sessionId);
-    setSessions(filtered);
+    setSessions(remaining);
     if (activeSessionId === sessionId) {
-      setActiveSessionId(filtered[0].id);
+      setActiveSessionId(remainingSaved[0].id);
       setAnimatingMessageId(null);
     }
     showToast(language === 'vi' ? 'Đã xóa cuộc trò chuyện' : 'Chat deleted', 'info');
@@ -381,62 +395,68 @@ export const AgentChatPage: React.FC<AgentChatPageProps> = ({
         <div className="flex-1 overflow-y-auto p-3 space-y-2 scrollbar-none">
           <div className="px-2 py-1 text-[11px] font-mono text-[var(--text-muted)] uppercase tracking-wider flex items-center gap-1.5 font-bold">
             <Clock className="w-3.5 h-3.5 text-[var(--primary)]" />
-            <span>{t('agent_chat_sessions_title')} ({sessions.length})</span>
+            <span>{t('agent_chat_sessions_title')} ({savedSessions.length})</span>
           </div>
 
-          {sessions.map((session) => {
-            const isActive = session.id === activeSession.id;
-            const messageCount = session.messages.length;
-            const dateStr = new Date(session.updatedAt).toLocaleDateString([], {
-              month: 'short',
-              day: 'numeric'
-            });
+          {savedSessions.length === 0 ? (
+            <div className="py-6 px-3 text-center text-xs text-[var(--text-muted)] space-y-1">
+              <p>{t('agent_chat_no_sessions')}</p>
+            </div>
+          ) : (
+            savedSessions.map((session) => {
+              const isActive = session.id === activeSession.id;
+              const messageCount = session.messages.length;
+              const dateStr = new Date(session.updatedAt).toLocaleDateString([], {
+                month: 'short',
+                day: 'numeric'
+              });
 
-            return (
-              <div
-                key={session.id}
-                onClick={() => handleSelectSession(session.id)}
-                className={`group relative flex items-center justify-between p-3 rounded-2xl cursor-pointer transition-all text-left ${
-                  isActive
-                    ? 'neu-inset text-[var(--primary)] font-bold'
-                    : 'neu-btn text-[var(--text-muted)] hover:text-[var(--text-main)]'
-                }`}
-              >
-                <div className="flex items-center gap-2.5 min-w-0 pr-2">
-                  <div
-                    className={`w-7 h-7 rounded-xl flex items-center justify-center shrink-0 ${
-                      isActive
-                        ? 'neu-primary text-white font-bold'
-                        : 'neu-inset-sm text-[var(--primary)]'
-                    }`}
-                  >
-                    <MessageSquare className="w-3.5 h-3.5" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className={`text-xs truncate ${isActive ? 'font-bold text-[var(--text-main)]' : 'text-[var(--text-main)]'}`}>
-                      {session.title}
-                    </p>
-                    <p className="text-[10px] font-mono text-[var(--text-muted)] truncate">
-                      {dateStr} • {messageCount} tin nhắn
-                    </p>
-                  </div>
-                </div>
-
-                {/* Delete session button */}
-                <button
-                  onClick={(e) => handleDeleteSession(session.id, e)}
-                  className="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg neu-btn text-rose-500 hover:text-rose-600 transition-all shrink-0 cursor-pointer"
-                  title={t('agent_chat_delete_session')}
+              return (
+                <div
+                  key={session.id}
+                  onClick={() => handleSelectSession(session.id)}
+                  className={`group relative flex items-center justify-between p-3 rounded-2xl cursor-pointer transition-all text-left ${
+                    isActive
+                      ? 'neu-inset text-[var(--primary)] font-bold'
+                      : 'neu-btn text-[var(--text-muted)] hover:text-[var(--text-main)]'
+                  }`}
                 >
-                  <Trash2 className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            );
-          })}
+                  <div className="flex items-center gap-2.5 min-w-0 pr-2">
+                    <div
+                      className={`w-7 h-7 rounded-xl flex items-center justify-center shrink-0 ${
+                        isActive
+                          ? 'neu-primary text-white font-bold'
+                          : 'neu-inset-sm text-[var(--primary)]'
+                      }`}
+                    >
+                      <MessageSquare className="w-3.5 h-3.5" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className={`text-xs truncate ${isActive ? 'font-bold text-[var(--text-main)]' : 'text-[var(--text-main)]'}`}>
+                        {session.title}
+                      </p>
+                      <p className="text-[10px] font-mono text-[var(--text-muted)] truncate">
+                        {dateStr} • {messageCount} tin nhắn
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Delete session button */}
+                  <button
+                    onClick={(e) => handleDeleteSession(session.id, e)}
+                    className="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg neu-btn text-rose-500 hover:text-rose-600 transition-all shrink-0 cursor-pointer"
+                    title={t('agent_chat_delete_session')}
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              );
+            })
+          )}
         </div>
 
         {/* Sidebar Footer */}
-        {sessions.length > 1 && (
+        {savedSessions.length > 0 && (
           <>
             <div className="neu-divider" />
             <div className="p-3.5 bg-[var(--bg)]">
@@ -476,7 +496,7 @@ export const AgentChatPage: React.FC<AgentChatPageProps> = ({
             <div className="min-w-0">
               <div className="flex items-center gap-2">
                 <h2 className="text-sm sm:text-base font-bold text-[var(--text-main)] truncate">
-                  {activeSession.title || t('agent_chat_title')}
+                  {activeSession.messages.length === 0 ? t('agent_chat_new_chat') : (activeSession.title || t('agent_chat_title'))}
                 </h2>
                 <span className="hidden sm:inline-flex px-2.5 py-0.5 rounded-xl text-[10px] font-mono neu-inset-sm text-[var(--primary)] font-bold items-center gap-1.5 whitespace-nowrap shrink-0">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
