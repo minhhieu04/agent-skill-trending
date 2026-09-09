@@ -71,8 +71,12 @@ class DailyDigestService:
         for d, count in skill_dates:
             if not d:
                 continue
-            date_str = str(d)
+            date_str = str(d).strip()
             if not re.match(r"^\d{4}-\d{2}-\d{2}$", date_str):
+                continue
+            try:
+                datetime.strptime(date_str, "%Y-%m-%d")
+            except ValueError:
                 continue
             date_list.append({
                 "date": date_str,
@@ -84,11 +88,18 @@ class DailyDigestService:
         # Also include any digests that might not have skills directly on that created_at date
         existing_digest_dates = {item["date"] for item in date_list}
         for d_date, has_audio in digest_map.items():
-            if not d_date or not re.match(r"^\d{4}-\d{2}-\d{2}$", str(d_date)):
+            if not d_date:
                 continue
-            if d_date not in existing_digest_dates:
+            clean_d = str(d_date).strip()
+            if not re.match(r"^\d{4}-\d{2}-\d{2}$", clean_d):
+                continue
+            try:
+                datetime.strptime(clean_d, "%Y-%m-%d")
+            except ValueError:
+                continue
+            if clean_d not in existing_digest_dates:
                 date_list.append({
-                    "date": str(d_date),
+                    "date": clean_d,
                     "skills_count": 0,
                     "has_digest": True,
                     "has_audio": has_audio,

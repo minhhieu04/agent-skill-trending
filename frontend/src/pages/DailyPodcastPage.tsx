@@ -84,13 +84,19 @@ const formatModelName = (model?: string) => {
 export const formatDisplayDate = (dateStr?: string): string => {
   if (!dateStr) return '';
   const clean = dateStr.trim();
-  const parts = clean.split('-');
-  if (parts.length === 3 && parts[1] && parts[2]) {
-    return `${parts[2]}/${parts[1]}`;
+  const match = clean.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if (match) {
+    return `${match[3].padStart(2, '0')}/${match[2].padStart(2, '0')}`;
   }
   if (clean.toLowerCase() === 'today' || clean.toLowerCase() === 'hôm nay') {
     const now = new Date();
     return `${String(now.getDate()).padStart(2, '0')}/${String(now.getMonth() + 1).padStart(2, '0')}`;
+  }
+  const parts = clean.split('-');
+  if (parts.length === 3 && parts[1] && parts[2]) {
+    const day = parts[2].trim().replace(/\D.*$/, '').padStart(2, '0');
+    const month = parts[1].trim().replace(/\D.*$/, '').padStart(2, '0');
+    if (day && month) return `${day}/${month}`;
   }
   const d = new Date(clean);
   if (!isNaN(d.getTime())) {
