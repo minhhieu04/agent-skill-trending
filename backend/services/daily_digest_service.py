@@ -1134,7 +1134,7 @@ class DailyDigestService:
                     f"Chỉ trả về JSON thuần túy."
                 )
                 response = None
-                for candidate_model in ["gemini-3.9-flash", "gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.6-flash", "gemini-3.5-flash", "gemini-flash-latest"]:
+                for candidate_model in ["gemini-3-flash-preview", "gemini-3.5-flash", "gemini-3.6-flash", "gemini-3.1-pro-preview", "gemini-3.1-flash-lite", "gemini-flash-latest"]:
                     try:
                         response = client.models.generate_content(
                             model=candidate_model,
@@ -1158,9 +1158,10 @@ class DailyDigestService:
                             r"(?i)truy\s+cập\s+(?:ngay\s+)?(?:vào\s+)?(?:substack|kênh|youtube|patreon)[^.!?\n]*[.!?]?",
                             r"(?i)(?:đừng\s+quên\s+)?(?:bấm\s+)?(?:like\s+)?(?:và\s+)?(?:subscribe|đăng\s+ký|theo\s+dõi)[^.!?\n]*[.!?]?",
                             r"(?i)link\s+bài\s+viết\s+ở\s+phần\s+mô\s+tả[^.!?\n]*[.!?]?",
+                            r"(?i)đừng\s+quên\s+bấm\s+ủng\s+hộ[^.!?\n]*[.!?]?"
                         ]:
-                            raw_script = re.sub(bad_phrase, "", raw_script)
-                        podcast_script = raw_script.strip()
+                            raw_script = re.sub(bad_phrase, "", raw_script).strip()
+                        podcast_script = raw_script
                     if "title" in parsed and parsed["title"]:
                         episode_title = parsed["title"]
                     if "highlights" in parsed and parsed["highlights"]:
@@ -1206,6 +1207,7 @@ class DailyDigestService:
             existing.highlights = highlights
             existing.skill_summaries = skill_summaries
             existing.total_skills_count = len(skills)
+            existing.source_model = used_model if (HAS_GENAI and settings.GEMINI_API_KEY) else "smart-heuristic-v1"
             existing.updated_at = datetime.utcnow()
             db.commit()
             db.refresh(existing)
