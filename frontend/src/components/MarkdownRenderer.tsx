@@ -47,6 +47,7 @@ type Block =
   | { type: 'blockquote'; text: string }
   | { type: 'table'; headers: string[]; rows: string[][] }
   | { type: 'list'; items: ListItem[] }
+  | { type: 'html'; html: string }
   | { type: 'paragraph'; text: string };
 
 function parseTableRow(line: string): string[] {
@@ -110,10 +111,48 @@ export function parseMarkdownBlocks(markdown: string): Block[] {
       continue;
     }
 
-    // 3. Horizontal Rule (---, ***, ___ on a line by itself)
-    if (/^(\*{3,}|-{3,}|_{3,})$/.test(trimmed)) {
+    // 3. Horizontal Rule (---, ***, ___ on a line by itself, or <hr>, <hr/>, <hr />)
+    if (/^(\*{3,}|-{3,}|_{3,})$/.test(trimmed) || /^<hr\s*\/?>$/i.test(trimmed)) {
       blocks.push({ type: 'hr' });
       i++;
+      continue;
+    }
+
+    // 3b. HTML Table block (<table> ... </table>)
+    if (/^<table[\s>]/i.test(trimmed)) {
+      const tableLines: string[] = [line];
+      i++;
+      let foundClosing = /<\/table>/i.test(trimmed);
+      while (i < lines.length && !foundClosing) {
+        tableLines.push(lines[i]);
+        if (/<\/table>/i.test(lines[i])) {
+          foundClosing = true;
+        }
+        i++;
+      }
+      blocks.push({
+        type: 'html',
+        html: tableLines.join('\n')
+      });
+      continue;
+    }
+
+    // 3c. HTML Details block (<details> ... </details>)
+    if (/^<details[\s>]/i.test(trimmed)) {
+      const detailsLines: string[] = [line];
+      i++;
+      let foundClosing = /<\/details>/i.test(trimmed);
+      while (i < lines.length && !foundClosing) {
+        detailsLines.push(lines[i]);
+        if (/<\/details>/i.test(lines[i])) {
+          foundClosing = true;
+        }
+        i++;
+      }
+      blocks.push({
+        type: 'html',
+        html: detailsLines.join('\n')
+      });
       continue;
     }
 
@@ -361,11 +400,18 @@ function renderBlock(block: Block, idx: number): React.ReactNode {
       );
     }
 
+    case 'html':
+      return (
+        <div key={idx} className="my-1.5 leading-relaxed">
+          {renderInline(block.html)}
+        </div>
+      );
+
     case 'paragraph':
       return (
-        <p key={idx} className="leading-relaxed">
+        <div key={idx} className="leading-relaxed my-1.5">
           {renderInline(block.text)}
-        </p>
+        </div>
       );
   }
 }
@@ -417,110 +463,256 @@ const CodeBlock: React.FC<{ language: string; code: string }> = ({ language, cod
   );
 };
 
-// Inline parser for bold, italic, code, links, images, strikethrough
-export function renderInline(text: string): React.ReactNode[] {
-  if (!text) return [];
-  const nodes: React.ReactNode[] = [];
-  // Tokenizer regex matching `code`, ![img](url), [link](url), **bold**, __bold__, *italic*, ~~strike~~
-  const regex = /(`[^`]+`|!\[([^\]]*)\]\(([^)]+)\)|\[([^\]]+)\]\([^)]+\)|\*\*[^*]+\*\*|__([^_]+)__|\*[^*]+\*|~~([^~]+)~~)/g;
+function markdownInlineToHtml(text: string): string {
+  if (!text) return '';
 
-  let lastIndex = 0;
-  let match: RegExpExecArray | null;
+  // 1. Protect inline code: `code`
+  const codeSnippets: string[] = [];
+  let processed = text.replace(/`([^`]+)`/g, (_, codeContent) => {
+    const idx = codeSnippets.length;
+    const escaped = codeContent
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+    codeSnippets.push(`<code>${escaped}</code>`);
+    return `___CODE_TOKEN_${idx}___`;
+  });
 
-  while ((match = regex.exec(text)) !== null) {
-    if (match.index > lastIndex) {
-      nodes.push(text.slice(lastIndex, match.index));
+  // 2. Markdown Images: ![alt](url) -> <img src="url" alt="alt" />
+  processed = processed.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (_, alt, url) => {
+    const cleanUrl = url.trim();
+    return `<img src="${cleanUrl}" alt="${alt}" />`;
+  });
+
+  // 3. Markdown Links: [text](url) -> <a href="url">text</a>
+  processed = processed.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_, linkText, url) => {
+    const cleanUrl = url.trim();
+    return `<a href="${cleanUrl}">${linkText}</a>`;
+  });
+
+  // 4. Bold: **text** or __text__ -> <strong>text</strong>
+  processed = processed.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+  processed = processed.replace(/__([^_]+)__/g, '<strong>$1</strong>');
+
+  // 5. Italic: *text* -> <em>text</em>
+  processed = processed.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+
+  // 6. Strikethrough: ~~text~~ -> <del>text</del>
+  processed = processed.replace(/~~([^~]+)~~/g, '<del>$1</del>');
+
+  // 7. Restore inline code
+  codeSnippets.forEach((codeHtml, idx) => {
+    processed = processed.replace(`___CODE_TOKEN_${idx}___`, codeHtml);
+  });
+
+  return processed;
+}
+
+function domNodeToReact(node: Node, key: string | number): React.ReactNode {
+  if (node.nodeType === Node.TEXT_NODE) {
+    return node.textContent;
+  }
+
+  if (node.nodeType === Node.ELEMENT_NODE) {
+    const el = node as HTMLElement;
+    const tagName = el.tagName.toLowerCase();
+
+    // Disallowed dangerous tags
+    if (['script', 'style', 'iframe', 'object', 'embed', 'meta', 'link'].includes(tagName)) {
+      return null;
     }
 
-    const token = match[0];
-    const key = `${match.index}-${token}`;
+    const children = Array.from(el.childNodes).map((child, idx) =>
+      domNodeToReact(child, `${key}-${idx}`)
+    );
 
-    if (token.startsWith('`') && token.endsWith('`')) {
-      // Inline code
-      nodes.push(
-        <code
-          key={key}
-          className="px-1.5 py-0.5 rounded-md neu-inset-sm font-mono text-[11px] text-[var(--primary)] font-semibold"
-        >
-          {token.slice(1, -1)}
-        </code>
-      );
-    } else if (token.startsWith('![') && token.includes('](')) {
-      // Image
-      const imgMatch = token.match(/^!\[([^\]]*)\]\(([^)]+)\)$/);
-      if (imgMatch) {
-        const rawSrc = imgMatch[2].trim();
-        const safeSrc = /^(https?:\/\/|\/|data:image\/)/i.test(rawSrc) ? rawSrc : '';
-        if (safeSrc) {
-          nodes.push(
-            <img
-              key={key}
-              src={safeSrc}
-              alt={imgMatch[1]}
-              className="inline-block max-h-8 max-w-full my-0.5 rounded shadow-xs align-middle"
-            />
-          );
-        } else {
-          nodes.push(token);
-        }
-      } else {
-        nodes.push(token);
+    switch (tagName) {
+      case 'img': {
+        const src = el.getAttribute('src') || '';
+        const alt = el.getAttribute('alt') || '';
+        const rawWidth = el.getAttribute('width') || undefined;
+        const rawHeight = el.getAttribute('height') || undefined;
+        const safeSrc = /^(https?:\/\/|\/|data:image\/)/i.test(src.trim()) ? src.trim() : '';
+        if (!safeSrc) return null;
+
+        const isBadge = safeSrc.includes('shields.io') || 
+                        safeSrc.includes('badgen.net') || 
+                        safeSrc.includes('github.com/badges') ||
+                        (rawHeight && parseInt(rawHeight, 10) <= 32);
+
+        return (
+          <img
+            key={key}
+            src={safeSrc}
+            alt={alt}
+            loading="lazy"
+            className={
+              isBadge
+                ? "inline-block h-auto max-h-6 my-0.5 mx-0.5 align-middle rounded-sm shadow-xs"
+                : "max-w-full h-auto rounded-xl my-2 inline-block shadow-xs align-middle"
+            }
+            style={{
+              width: rawWidth && rawWidth.endsWith('%') ? rawWidth : rawWidth ? `${rawWidth}px` : undefined,
+              height: rawHeight && !rawHeight.endsWith('%') ? `${rawHeight}px` : undefined,
+              maxHeight: isBadge ? '24px' : '560px',
+              objectFit: 'contain',
+            }}
+          />
+        );
       }
-    } else if ((token.startsWith('**') && token.endsWith('**')) || (token.startsWith('__') && token.endsWith('__'))) {
-      // Bold
-      nodes.push(
-        <strong key={key} className="font-bold text-slate-950 dark:text-emerald-300">
-          {token.slice(2, -2)}
-        </strong>
-      );
-    } else if (token.startsWith('~~') && token.endsWith('~~')) {
-      // Strikethrough
-      nodes.push(
-        <del key={key} className="line-through text-slate-400 dark:text-slate-500">
-          {token.slice(2, -2)}
-        </del>
-      );
-    } else if (token.startsWith('*') && token.endsWith('*')) {
-      // Italic
-      nodes.push(
-        <em key={key} className="italic text-slate-700 dark:text-slate-300">
-          {token.slice(1, -1)}
-        </em>
-      );
-    } else if (token.startsWith('[') && token.includes('](')) {
-      // Link
-      const linkMatch = token.match(/^\[([^\]]+)\]\(([^)]+)\)$/);
-      if (linkMatch) {
-        const rawHref = linkMatch[2].trim();
-        const safeHref = /^(https?:\/\/|mailto:|\/|#)/i.test(rawHref) ? rawHref : '#';
-        nodes.push(
+
+      case 'a': {
+        const href = el.getAttribute('href') || '#';
+        const safeHref = /^(https?:\/\/|mailto:|\/|#)/i.test(href.trim()) ? href.trim() : '#';
+        const hasText = Array.from(el.childNodes).some(
+          (c) => c.nodeType === Node.TEXT_NODE && c.textContent && c.textContent.trim().length > 0
+        );
+
+        return (
           <a
             key={key}
             href={safeHref}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-emerald-600 dark:text-emerald-400 underline hover:text-emerald-500 inline-flex items-center gap-0.5 font-medium"
+            className="text-[var(--primary)] hover:underline inline-flex items-center gap-0.5 font-medium transition-colors"
           >
-            <span>{linkMatch[1]}</span>
-            <ExternalLink className="w-3 h-3 inline shrink-0" />
+            {children}
+            {hasText && <ExternalLink className="w-3 h-3 inline shrink-0 ml-0.5 opacity-70" />}
           </a>
         );
-      } else {
-        nodes.push(token);
       }
-    } else {
-      nodes.push(token);
-    }
 
-    if (regex.lastIndex === lastIndex) {
-      regex.lastIndex++;
+      case 'p':
+      case 'div': {
+        const align = el.getAttribute('align')?.toLowerCase();
+        const alignClass = align === 'center' ? 'text-center' : align === 'right' ? 'text-right' : '';
+        return (
+          <div key={key} className={`my-2 leading-relaxed ${alignClass}`}>
+            {children}
+          </div>
+        );
+      }
+
+      case 'table':
+        return (
+          <div key={key} className="my-3 overflow-x-auto rounded-2xl neu-inset p-1">
+            <table className="w-full text-left text-xs border-collapse">
+              {children}
+            </table>
+          </div>
+        );
+
+      case 'thead':
+        return <thead key={key} className="text-[var(--text-main)] font-bold">{children}</thead>;
+      case 'tbody':
+        return <tbody key={key} className="divide-y divide-[var(--shadow-dark)]/20 text-[var(--text-main)]">{children}</tbody>;
+      case 'tr':
+        return <tr key={key} className="hover:bg-[var(--shadow-light)]/30 transition-colors">{children}</tr>;
+      case 'th':
+      case 'td': {
+        const width = el.getAttribute('width') || undefined;
+        const align = el.getAttribute('align')?.toLowerCase();
+        const alignClass = align === 'center' ? 'text-center' : align === 'right' ? 'text-right' : '';
+        return (
+          <td
+            key={key}
+            className={`p-2.5 sm:p-3 align-middle ${alignClass}`}
+            style={{ width: width && width.endsWith('%') ? width : width ? `${width}px` : undefined }}
+          >
+            {children}
+          </td>
+        );
+      }
+
+      case 'hr':
+        return <div key={key} className="neu-divider my-3" />;
+
+      case 'sub':
+        return <sub key={key} className="text-[10px] text-[var(--text-muted)] align-sub">{children}</sub>;
+      case 'sup':
+        return <sup key={key} className="text-[10px] text-[var(--text-muted)] align-super">{children}</sup>;
+
+      case 'b':
+      case 'strong':
+        return <strong key={key} className="font-bold text-[var(--text-main)]">{children}</strong>;
+
+      case 'i':
+      case 'em':
+        return <em key={key} className="italic text-slate-700 dark:text-slate-300">{children}</em>;
+
+      case 'del':
+      case 's':
+      case 'strike':
+        return <del key={key} className="line-through text-slate-400 dark:text-slate-500">{children}</del>;
+
+      case 'code':
+        return (
+          <code key={key} className="px-1.5 py-0.5 rounded-md neu-inset-sm font-mono text-[11px] text-[var(--primary)] font-semibold">
+            {children}
+          </code>
+        );
+
+      case 'br':
+        return <br key={key} />;
+
+      case 'details':
+        return <details key={key} className="my-2 rounded-xl neu-inset-sm p-3 text-xs">{children}</details>;
+      case 'summary':
+        return <summary key={key} className="font-bold cursor-pointer text-[var(--text-main)] select-none mb-1">{children}</summary>;
+
+      case 'h1':
+        return <h1 key={key} className="text-base sm:text-lg font-black text-[var(--text-main)] pt-2 pb-1">{children}</h1>;
+      case 'h2':
+        return <h2 key={key} className="text-sm sm:text-base font-extrabold text-[var(--text-main)] pt-3 pb-0.5">{children}</h2>;
+      case 'h3':
+        return <h3 key={key} className="text-xs sm:text-sm font-bold text-[var(--text-main)] pt-2">{children}</h3>;
+      case 'h4':
+        return <h4 key={key} className="text-xs font-bold text-[var(--text-main)] pt-1">{children}</h4>;
+      case 'h5':
+      case 'h6':
+        return <h5 key={key} className="text-xs font-semibold text-[var(--text-muted)] pt-1">{children}</h5>;
+
+      case 'ul':
+        return <ul key={key} className="space-y-1 my-1 list-disc list-inside">{children}</ul>;
+      case 'ol':
+        return <ol key={key} className="space-y-1 my-1 list-decimal list-inside">{children}</ol>;
+      case 'li':
+        return <li key={key} className="leading-relaxed">{children}</li>;
+
+      case 'blockquote':
+        return (
+          <blockquote key={key} className="border-l-4 border-[var(--primary)] neu-inset px-3.5 py-2 rounded-2xl text-[var(--text-main)] text-xs italic my-2">
+            {children}
+          </blockquote>
+        );
+
+      default:
+        return <span key={key}>{children}</span>;
     }
-    lastIndex = regex.lastIndex;
   }
 
-  if (lastIndex < text.length) {
-    nodes.push(text.slice(lastIndex));
+  return null;
+}
+
+// Inline parser for bold, italic, code, links, images, strikethrough, and raw HTML tags
+export function renderInline(text: string): React.ReactNode[] {
+  if (!text) return [];
+
+  // If in browser environment with DOMParser available
+  if (typeof window !== 'undefined' && typeof DOMParser !== 'undefined') {
+    try {
+      const html = markdownInlineToHtml(text);
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(html, 'text/html');
+      const nodes = Array.from(doc.body.childNodes)
+        .map((child, idx) => domNodeToReact(child, `inline-${idx}`))
+        .filter((n): n is NonNullable<React.ReactNode> => n !== null && n !== undefined);
+      if (nodes.length > 0) return nodes;
+    } catch (e) {
+      console.warn('DOMParser failed in renderInline:', e);
+    }
   }
 
-  return nodes.length > 0 ? nodes : [text];
+  // Fallback if DOMParser unavailable or failed
+  return [text];
 }
