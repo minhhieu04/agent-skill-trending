@@ -25,6 +25,7 @@ export interface NeuSelectProps<T = string | number> {
   searchPlaceholder?: string;
   disabled?: boolean;
   align?: 'left' | 'right' | 'auto';
+  direction?: 'auto' | 'up' | 'down';
   title?: string;
   fullWidth?: boolean;
   renderOption?: (option: NeuSelectOption<T>, isSelected: boolean) => React.ReactNode;
@@ -44,6 +45,7 @@ export function NeuSelect<T extends string | number>({
   searchPlaceholder = 'Tìm kiếm nhanh...',
   disabled = false,
   align = 'auto',
+  direction = 'auto',
   title,
   fullWidth = false,
   renderOption,
@@ -55,6 +57,7 @@ export function NeuSelect<T extends string | number>({
   const containerRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const [computedAlign, setComputedAlign] = useState<'left' | 'right'>(align === 'right' ? 'right' : 'left');
+  const [computedDirection, setComputedDirection] = useState<'up' | 'down'>(direction === 'up' ? 'up' : 'down');
 
   // Handle open and close transitions
   useEffect(() => {
@@ -73,38 +76,55 @@ export function NeuSelect<T extends string | number>({
     }
   }, [isOpen]);
 
-  // Compute smart alignment to avoid viewport overflow
+  // Compute smart horizontal alignment & vertical direction to avoid viewport overflow
   useEffect(() => {
     if (!isOpen) return;
+
+    // Horizontal alignment
     if (align === 'right') {
       setComputedAlign('right');
-      return;
-    }
-    if (align === 'left') {
+    } else if (align === 'left') {
       if (containerRef.current) {
         const rect = containerRef.current.getBoundingClientRect();
         const screenWidth = window.innerWidth;
-        // Estimated popover width for safety check
         if (rect.left + 320 > screenWidth - 16) {
           setComputedAlign('right');
-          return;
+        } else {
+          setComputedAlign('left');
         }
-      }
-      setComputedAlign('left');
-      return;
-    }
-    // Auto alignment:
-    if (containerRef.current) {
-      const rect = containerRef.current.getBoundingClientRect();
-      const screenWidth = window.innerWidth;
-      // If button is in the right half of the viewport or expanding 320px would bleed off-screen
-      if (rect.left + 320 > screenWidth - 16 || rect.left > screenWidth * 0.48) {
-        setComputedAlign('right');
       } else {
         setComputedAlign('left');
       }
+    } else {
+      // Auto alignment:
+      if (containerRef.current) {
+        const rect = containerRef.current.getBoundingClientRect();
+        const screenWidth = window.innerWidth;
+        if (rect.left + 320 > screenWidth - 16 || rect.left > screenWidth * 0.48) {
+          setComputedAlign('right');
+        } else {
+          setComputedAlign('left');
+        }
+      }
     }
-  }, [isOpen, align]);
+
+    // Vertical direction (flip upwards if not enough room below)
+    if (direction === 'up') {
+      setComputedDirection('up');
+    } else if (direction === 'down') {
+      setComputedDirection('down');
+    } else if (containerRef.current) {
+      const rect = containerRef.current.getBoundingClientRect();
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const spaceAbove = rect.top;
+      // If space below is less than 250px and there's more room above, flip up
+      if (spaceBelow < 250 && spaceAbove > spaceBelow) {
+        setComputedDirection('up');
+      } else {
+        setComputedDirection('down');
+      }
+    }
+  }, [isOpen, align, direction]);
 
   // Auto-enable search if there are more than 7 options
   const isSearchable = searchable !== undefined ? searchable : options.length > 7;
@@ -245,12 +265,18 @@ export function NeuSelect<T extends string | number>({
       {isMounted && (
         <div
           className={`absolute ${
-            computedAlign === 'right' ? 'right-0 origin-top-right' : 'left-0 origin-top-left'
-          } top-full mt-2 z-50 ${
+            computedAlign === 'right' ? 'right-0' : 'left-0'
+          } ${
+            computedDirection === 'up'
+              ? 'bottom-full mb-2 origin-bottom'
+              : 'top-full mt-2 origin-top'
+          } z-50 ${
             fullWidth ? 'w-full min-w-[260px]' : 'w-max min-w-[220px]'
           } max-w-[min(480px,calc(100vw-2rem))] neu-dropdown backdrop-blur-xl bg-[var(--bg)]/98 rounded-2xl p-1.5 shadow-2xl transition-all duration-200 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${
             isVisible
               ? 'opacity-100 scale-100 translate-y-0 pointer-events-auto'
+              : computedDirection === 'up'
+              ? 'opacity-0 scale-95 translate-y-1.5 pointer-events-none'
               : 'opacity-0 scale-95 -translate-y-1.5 pointer-events-none'
           } ${dropdownClassName}`}
           style={{ maxHeight: '340px' }}

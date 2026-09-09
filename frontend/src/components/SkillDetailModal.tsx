@@ -551,27 +551,32 @@ export const SkillDetailModal: React.FC<SkillDetailModalProps> = ({
     {
       id: 'overview' as const,
       label: language === 'vi' ? 'Tổng Quan & Luồng' : 'Overview & Flow',
+      shortLabel: language === 'vi' ? 'Tổng Quan' : 'Overview',
       icon: BookOpen,
     },
     {
       id: 'scenarios' as const,
       label: language === 'vi' ? 'Kịch Bản & Prompt' : 'Prompts & Scenarios',
+      shortLabel: language === 'vi' ? 'Kịch Bản' : 'Scenarios',
       icon: MessageSquare,
       badge: enrichedUseCases.length > 0 ? String(enrichedUseCases.length) : undefined,
     },
     {
       id: 'install' as const,
       label: language === 'vi' ? 'Cài Đặt Đa IDE' : 'Multi-IDE Setup',
+      shortLabel: language === 'vi' ? 'Cài Đặt' : 'Install',
       icon: Code,
     },
     {
       id: 'compare' as const,
       label: language === 'vi' ? 'So Sánh Hiệu Quả' : 'Benchmark & Compare',
+      shortLabel: language === 'vi' ? 'So Sánh' : 'Compare',
       icon: Scale,
     },
     {
       id: 'security' as const,
       label: language === 'vi' ? 'Kiểm Định & Docs' : 'Security & Docs',
+      shortLabel: language === 'vi' ? 'Bảo Mật' : 'Security',
       icon: ShieldCheck,
       badge: (skill.security_rating || 'SAFE').toUpperCase(),
     }
@@ -697,14 +702,15 @@ export const SkillDetailModal: React.FC<SkillDetailModalProps> = ({
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`flex-1 min-w-[110px] sm:min-w-0 py-2 px-2.5 sm:px-3 rounded-xl transition-all duration-200 ease-out active:scale-[0.97] flex items-center justify-center gap-1.5 text-xs font-semibold cursor-pointer ${
+                  className={`flex-1 min-w-max sm:min-w-0 py-2 px-3 sm:px-3.5 rounded-xl transition-all duration-200 ease-out active:scale-[0.97] flex items-center justify-center gap-1.5 text-xs font-semibold cursor-pointer shrink-0 ${
                     isActive
                       ? 'neu-primary text-white font-bold shadow-sm'
                       : 'text-[var(--text-muted)] hover:text-[var(--primary)] font-medium hover:bg-[var(--shadow-dark)]/10'
                   }`}
                 >
                   <Icon className="w-3.5 h-3.5 shrink-0" />
-                  <span className="truncate">{tab.label}</span>
+                  <span className="sm:hidden whitespace-nowrap">{tab.shortLabel}</span>
+                  <span className="hidden sm:inline truncate">{tab.label}</span>
                   {tab.badge && (
                     <span className={`text-[10px] px-1.5 py-0.5 rounded-md font-mono shrink-0 whitespace-nowrap inline-flex items-center ${
                       isActive ? 'bg-white/25 text-white font-bold' : 'neu-inset-sm text-[var(--primary)]'
@@ -1393,66 +1399,91 @@ export const SkillDetailModal: React.FC<SkillDetailModalProps> = ({
                   </div>
 
                   {/* Right: Streamlined Actions Toolbar */}
-                  <div className="flex items-center gap-2 flex-wrap w-full lg:w-auto justify-start lg:justify-end">
-                    {/* View Mode Switch: Original vs AI Translated */}
-                    <div className="flex items-center p-0.5 rounded-xl neu-inset-sm text-xs font-semibold">
-                      <button
-                        onClick={() => setReadmeMode('original')}
-                        className={`px-3 py-1 rounded-lg transition-all cursor-pointer ${
-                          readmeMode === 'original'
-                            ? 'bg-[var(--primary)] text-white shadow-xs font-bold'
-                            : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
-                        }`}
-                        title={language === 'vi' ? 'Xem tài liệu gốc từ GitHub' : 'View original README'}
-                      >
-                        {language === 'vi' ? 'Bản Gốc' : 'Original'}
-                      </button>
-                      <button
-                        onClick={handleSwitchToTranslated}
-                        className={`px-3 py-1 rounded-lg transition-all flex items-center gap-1.5 cursor-pointer ${
-                          readmeMode === 'translated'
-                            ? 'bg-[var(--primary)] text-white shadow-xs font-bold'
-                            : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
-                        }`}
-                        title={language === 'vi' ? 'Xem bản dịch AI' : 'View AI translation'}
-                      >
-                        <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-                        <span>{language === 'vi' ? 'Bản Dịch AI' : 'AI Translation'}</span>
-                      </button>
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 w-full lg:w-auto justify-start lg:justify-end">
+                    <div className="flex items-center justify-between sm:justify-start gap-2">
+                      {/* View Mode Switch: Original vs AI Translated */}
+                      <div className="flex items-center p-0.5 rounded-xl neu-inset-sm text-xs font-semibold">
+                        <button
+                          onClick={() => setReadmeMode('original')}
+                          className={`px-3 py-1 rounded-lg transition-all cursor-pointer ${
+                            readmeMode === 'original'
+                              ? 'bg-[var(--primary)] text-white shadow-xs font-bold'
+                              : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
+                          }`}
+                          title={language === 'vi' ? 'Xem tài liệu gốc từ GitHub' : 'View original README'}
+                        >
+                          {language === 'vi' ? 'Bản Gốc' : 'Original'}
+                        </button>
+                        <button
+                          onClick={handleSwitchToTranslated}
+                          className={`px-3 py-1 rounded-lg transition-all flex items-center gap-1.5 cursor-pointer ${
+                            readmeMode === 'translated'
+                              ? 'bg-[var(--primary)] text-white shadow-xs font-bold'
+                              : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
+                          }`}
+                          title={language === 'vi' ? 'Xem bản dịch AI' : 'View AI translation'}
+                        >
+                          <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                          <span>{language === 'vi' ? 'Bản Dịch AI' : 'AI Translation'}</span>
+                        </button>
+                      </div>
+
+                      {/* Utility Actions (Mobile) */}
+                      <div className="flex items-center gap-1 sm:hidden">
+                        <button
+                          onClick={handleCopyReadme}
+                          className="p-1.5 rounded-xl neu-btn text-[var(--text-muted)] hover:text-emerald-500 transition-all cursor-pointer"
+                          title={language === 'vi' ? 'Sao chép nội dung Markdown' : 'Copy markdown'}
+                          aria-label="Copy Markdown"
+                        >
+                          {copiedReadme ? (
+                            <Check className="w-3.5 h-3.5 text-emerald-500" />
+                          ) : (
+                            <Copy className="w-3.5 h-3.5" />
+                          )}
+                        </button>
+                      </div>
                     </div>
 
                     {/* Translation Settings (Visible in Translated Mode) */}
                     {readmeMode === 'translated' && (
-                      <>
+                      <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap w-full sm:w-auto">
                         {/* Target Language Dropdown */}
-                        <NeuSelect
-                          value={targetLanguage}
-                          onChange={(val) => handleTargetLanguageChange(String(val))}
-                          options={languageOptions}
-                          size="sm"
-                          variant="inset"
-                          align="right"
-                          dropdownClassName="z-[80] min-w-[150px]"
-                          title={language === 'vi' ? 'Ngôn ngữ đích' : 'Target language'}
-                        />
+                        <div className="shrink-0">
+                          <NeuSelect
+                            value={targetLanguage}
+                            onChange={(val) => handleTargetLanguageChange(String(val))}
+                            options={languageOptions}
+                            size="sm"
+                            variant="inset"
+                            align="auto"
+                            direction="auto"
+                            dropdownClassName="z-[90] min-w-[140px]"
+                            title={language === 'vi' ? 'Ngôn ngữ đích' : 'Target language'}
+                          />
+                        </div>
 
                         {/* AI Provider / Engine Selector */}
-                        <NeuSelect
-                          value={selectedProvider}
-                          onChange={(val) => handleProviderChange(String(val))}
-                          options={providerOptions}
-                          size="sm"
-                          variant="inset"
-                          align="right"
-                          dropdownClassName="z-[80] min-w-[210px]"
-                          title={language === 'vi' ? 'Mô hình dịch' : 'Translation engine'}
-                        />
+                        <div className="flex-1 sm:flex-none min-w-0">
+                          <NeuSelect
+                            value={selectedProvider}
+                            onChange={(val) => handleProviderChange(String(val))}
+                            options={providerOptions}
+                            size="sm"
+                            variant="inset"
+                            align="auto"
+                            direction="auto"
+                            fullWidth={true}
+                            dropdownClassName="z-[90] min-w-[220px]"
+                            title={language === 'vi' ? 'Mô hình dịch' : 'Translation engine'}
+                          />
+                        </div>
 
                         {/* Re-translate Button */}
                         <button
                           onClick={() => handleTranslateReadme(true)}
                           disabled={isTranslating}
-                          className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl neu-btn text-xs font-semibold text-[var(--primary)] hover:neu-flat transition-all cursor-pointer ${
+                          className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl neu-btn text-xs font-semibold text-[var(--primary)] hover:neu-flat transition-all cursor-pointer shrink-0 ${
                             isTranslating ? 'opacity-50 cursor-wait' : ''
                           }`}
                           title={language === 'vi' ? 'Dịch lại tài liệu với mô hình đã chọn' : 'Re-translate with selected model'}
@@ -1461,13 +1492,13 @@ export const SkillDetailModal: React.FC<SkillDetailModalProps> = ({
                           <RefreshCw className={`w-3.5 h-3.5 ${isTranslating ? 'animate-spin text-amber-500' : ''}`} />
                           <span className="hidden sm:inline">{language === 'vi' ? 'Dịch lại' : 'Re-translate'}</span>
                         </button>
-                      </>
+                      </div>
                     )}
 
                     <div className="h-4 w-px bg-[var(--border)] mx-0.5 hidden sm:block" />
 
-                    {/* Utility Actions */}
-                    <div className="flex items-center gap-1">
+                    {/* Utility Actions (Desktop) */}
+                    <div className="hidden sm:flex items-center gap-1">
                       {/* Copy Markdown Button */}
                       <button
                         onClick={handleCopyReadme}
@@ -1482,7 +1513,7 @@ export const SkillDetailModal: React.FC<SkillDetailModalProps> = ({
                         )}
                       </button>
 
-                      {/* Sync from GitHub Button with distinct Download icon */}
+                      {/* Sync from GitHub Button */}
                       <button
                         onClick={handleRefreshReadme}
                         disabled={isRefreshingReadme || isLoadingReadme}

@@ -58,7 +58,7 @@ export const AgentChatPage: React.FC<AgentChatPageProps> = ({
   const [activeSessionId, setActiveSessionId] = useState<string>('');
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(() => {
     if (typeof window !== 'undefined') {
-      return window.innerWidth >= 1024;
+      return window.innerWidth >= 1280;
     }
     return true;
   });
@@ -231,7 +231,7 @@ export const AgentChatPage: React.FC<AgentChatPageProps> = ({
   };
 
   const handleCreateNewSession = () => {
-    if (window.innerWidth < 1024) {
+    if (window.innerWidth < 1280) {
       setIsSidebarOpen(false);
     }
     // If current session is already empty draft, just focus input
@@ -249,7 +249,7 @@ export const AgentChatPage: React.FC<AgentChatPageProps> = ({
 
   const handleSelectSession = async (id: string) => {
     setActiveSessionId(id);
-    if (window.innerWidth < 1024) {
+    if (window.innerWidth < 1280) {
       setIsSidebarOpen(false);
     }
     setAnimatingMessageId(null);
@@ -486,7 +486,7 @@ export const AgentChatPage: React.FC<AgentChatPageProps> = ({
       {/* Mobile/Tablet Backdrop Overlay for History Sidebar */}
       {isSidebarOpen && (
         <div
-          className="lg:hidden absolute inset-0 bg-black/40 backdrop-blur-xs z-30 transition-opacity"
+          className="xl:hidden absolute inset-0 bg-black/50 backdrop-blur-xs z-30 transition-opacity animate-fade-in"
           onClick={() => setIsSidebarOpen(false)}
           aria-hidden="true"
         />
@@ -495,8 +495,10 @@ export const AgentChatPage: React.FC<AgentChatPageProps> = ({
       {/* LEFT CHAT SESSIONS SIDEBAR */}
       <div
         className={`${
-          isSidebarOpen ? 'translate-x-0 w-72 sm:w-80' : '-translate-x-full lg:translate-x-0 lg:w-0'
-        } transition-all duration-300 ease-in-out absolute lg:relative z-40 lg:z-auto h-full bg-[var(--bg)] flex flex-col shrink-0 border-r border-slate-200/50 dark:border-zinc-800/50`}
+          isSidebarOpen
+            ? 'translate-x-0 w-72 sm:w-80 shadow-2xl xl:shadow-none'
+            : '-translate-x-full xl:translate-x-0 xl:w-0'
+        } transition-all duration-300 ease-in-out absolute xl:relative z-40 xl:z-auto h-full bg-[var(--bg)] flex flex-col shrink-0 border-r border-slate-200/50 dark:border-zinc-800/50`}
       >
         {/* Sidebar Header */}
         <div className="p-3.5 flex items-center justify-between gap-2 border-b border-slate-200/40 dark:border-zinc-800/40">
@@ -598,7 +600,7 @@ export const AgentChatPage: React.FC<AgentChatPageProps> = ({
         )}
       </div>
 
-      <div className="hidden lg:block w-[1px] bg-gradient-to-b from-transparent via-[var(--shadow-dark)] to-transparent shrink-0 opacity-40" />
+      <div className="hidden xl:block w-[1px] bg-gradient-to-b from-transparent via-[var(--shadow-dark)] to-transparent shrink-0 opacity-40" />
 
       {/* RIGHT MAIN CHAT AREA */}
       <div className="flex-1 flex flex-col min-w-0 bg-[var(--bg)]">
