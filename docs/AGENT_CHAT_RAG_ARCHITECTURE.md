@@ -159,7 +159,7 @@ graph TD
    - `is_featured` (+5 điểm).
 
 ### Tầng 3: Tổng Hợp Nội Dung Trực Diện (Augmented Generation)
-- **Primary Engine**: Google Gemini API (`gemini-3.5-flash` và `gemini-3.6-flash`). System prompt được cấu hình nghiêm ngặt cấm văn mẫu dập khuôn, đi thẳng vào phân tích kiến trúc, chỉ ra điểm mạnh của từng skill và cách kết hợp thực tế.
+- **Primary Engine**: Google Gemini API với cơ chế xếp tầng tự thích ứng (Adaptive Model Cascade): ưu tiên lần lượt `gemini-3.9-flash` (tự động đón đầu ngay khi Google kích hoạt endpoint), `gemini-3.8-flash`, `gemini-3.7-flash`, `gemini-3.6-flash`, `gemini-3.5-flash`. System prompt được cấu hình nghiêm ngặt cấm văn mẫu dập khuôn, đi thẳng vào phân tích kiến trúc, chỉ ra điểm mạnh của từng skill và cách kết hợp thực tế.
 - **Zero-Downtime Fallback Engine**: Nếu gặp lỗi quota (429) hoặc mất mạng, hệ thống tự động kích hoạt `_synthesize_local_rag_response` với các mở đầu thông minh theo chuyên ngành (UI/UX, Backend, Security...), đảm bảo dịch vụ không bao giờ bị gián đoạn.
 
 ### Tầng 4: Trình Diễn Client & Typewriter An Toàn

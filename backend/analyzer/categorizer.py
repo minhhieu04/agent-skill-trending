@@ -101,8 +101,8 @@ class Categorizer:
             """
             
             response = None
-            used_model = "gemini-3.6-flash"
-            for candidate_model in ["gemini-3.6-flash", "gemini-3.5-flash-lite", "gemini-flash-latest", "gemini-3.1-flash-lite"]:
+            used_model = "gemini-3.8-flash"
+            for candidate_model in ["gemini-3.9-flash", "gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.6-flash", "gemini-3.5-flash", "gemini-flash-latest"]:
                 try:
                     response = client.models.generate_content(
                         model=candidate_model,
