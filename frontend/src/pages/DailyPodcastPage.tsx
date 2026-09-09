@@ -38,23 +38,19 @@ import { copyToClipboard } from '../utils/clipboard';
 
 // Curated AI Voices Fallback
 const DEFAULT_PODCAST_VOICES: VoiceOption[] = [
-  // Google AI Studio - Gemini 2.5 Flash Native Audio (Expressive & Bilingual)
-  { id: 'gemini-Aoede', name: 'Gemini AI Studio - Aoede (Nữ - Truyền Cảm, Chuẩn Song Ngữ)', provider: 'gemini_audio', language: 'multi', gender: 'female', style: 'Gemini 2.5 Multimodal Expressive Voice', preview_text: '', badge: 'GOOGLE AI STUDIO' },
-  { id: 'gemini-Puck', name: 'Gemini AI Studio - Puck (Nam - Năng Động, Chuẩn Tech)', provider: 'gemini_audio', language: 'multi', gender: 'male', style: 'Gemini 2.5 Multimodal Expressive Voice', preview_text: '', badge: 'GOOGLE AI STUDIO' },
-  { id: 'gemini-Charon', name: 'Gemini AI Studio - Charon (Nam - Trầm Ấm, Chuyên Gia)', provider: 'gemini_audio', language: 'multi', gender: 'male', style: 'Gemini 2.5 Multimodal Expressive Voice', preview_text: '', badge: 'GOOGLE AI STUDIO' },
-  { id: 'gemini-Kore', name: 'Gemini AI Studio - Kore (Nữ - Trong Trẻo, Tự Nhiên)', provider: 'gemini_audio', language: 'multi', gender: 'female', style: 'Gemini 2.5 Multimodal Expressive Voice', preview_text: '', badge: 'GOOGLE AI STUDIO' },
-  { id: 'gemini-Fenrir', name: 'Gemini AI Studio - Fenrir (Nam - Bản Lĩnh, Khí Chất)', provider: 'gemini_audio', language: 'multi', gender: 'male', style: 'Gemini 2.5 Multimodal Expressive Voice', preview_text: '', badge: 'GOOGLE AI STUDIO' },
-  // Vietnamese Standard (Edge-TTS & Google WaveNet)
-  { id: 'vi-VN-NamMinhNeural', name: 'Minh Hiếu (Nam - Trầm Ấm)', provider: 'edge_tts', language: 'vi-VN', gender: 'male', style: 'Tech Radar, Thời Sự', preview_text: '', badge: 'EDGE-TTS' },
-  { id: 'vi-VN-HoaiMyNeural', name: 'Diểm Phúc (Nữ - Truyền Cảm)', provider: 'edge_tts', language: 'vi-VN', gender: 'female', style: 'Viral Reviewer, TikTok Hot', preview_text: '', badge: 'HOT' },
-  { id: 'vi-VN-Wavenet-A', name: 'Google WaveNet (Nữ - Chuẩn Studio)', provider: 'google_tts', language: 'vi-VN', gender: 'female', style: 'Google Cloud WaveNet', preview_text: '', badge: 'GOOGLE CLOUD' },
-  { id: 'vi-VN-Wavenet-B', name: 'Google WaveNet (Nam - Phát Thanh)', provider: 'google_tts', language: 'vi-VN', gender: 'male', style: 'Google Studio Broadcast', preview_text: '', badge: 'GOOGLE CLOUD' },
-  // English & Global Studio
-  { id: 'en-US-Journey-F', name: 'Google Journey (Female - Expressive)', provider: 'google_tts', language: 'en-US', gender: 'female', style: 'DeepMind Next-Gen Journey', preview_text: '', badge: 'GOOGLE CLOUD' },
-  { id: 'en-US-ChristopherNeural', name: 'Christopher (Male - Keynote)', provider: 'edge_tts', language: 'en-US', gender: 'male', style: 'Apple Keynote, Silicon Valley', preview_text: '', badge: 'STUDIO' },
-  { id: 'en-US-JennyNeural', name: 'Jenny (Female - Dynamic Tech Host)', provider: 'edge_tts', language: 'en-US', gender: 'female', style: 'Silicon Valley Tech Host', preview_text: '', badge: 'HOT' },
-  { id: 'en-US-GuyNeural', name: 'Alex (Male - Casual Silicon Valley)', provider: 'edge_tts', language: 'en-US', gender: 'male', style: 'Casual Founder & Hacker', preview_text: '', badge: 'CASUAL' },
-  { id: 'en-GB-SoniaNeural', name: 'Sonia (Female - British Accent)', provider: 'edge_tts', language: 'en-GB', gender: 'female', style: 'BBC Tech Reporter', preview_text: '', badge: 'UK ACCENT' },
+  // Google AI Studio - Gemini 3.1 Live Native Audio (Top Community Choice ⭐)
+  { id: 'gemini-Aoede', name: '⭐ Aoede (Nữ - Siêu Tự Nhiên, Chuẩn Song Ngữ Anh-Việt)', provider: 'gemini_audio', language: 'multi', gender: 'female', style: 'Gemini 3.1 Multimodal Expressive Voice', preview_text: '', badge: '⭐ TOP 1 CỘNG ĐỒNG' },
+  { id: 'gemini-Puck', name: '🔥 Puck (Nam - Năng Động, Chuẩn Tech Reviewer)', provider: 'gemini_audio', language: 'multi', gender: 'male', style: 'Gemini 3.1 Multimodal Expressive Voice', preview_text: '', badge: '🔥 VIRAL REVIEW' },
+  { id: 'gemini-Charon', name: '💎 Charon (Nam - Trầm Ấm, Chuyên Gia Kiến Trúc)', provider: 'gemini_audio', language: 'multi', gender: 'male', style: 'Gemini 3.1 Multimodal Expressive Voice', preview_text: '', badge: '💎 CHUYÊN GIA PRO' },
+  { id: 'gemini-Kore', name: '✨ Kore (Nữ - Trong Trẻo, Host Hướng Dẫn)', provider: 'gemini_audio', language: 'multi', gender: 'female', style: 'Gemini 3.1 Multimodal Expressive Voice', preview_text: '', badge: '✨ TUTORIAL HOST' },
+  { id: 'gemini-Fenrir', name: '🚀 Fenrir (Nam - Bản Lĩnh, Keynote Leader)', provider: 'gemini_audio', language: 'multi', gender: 'male', style: 'Gemini 3.1 Multimodal Expressive Voice', preview_text: '', badge: '🚀 KEYNOTE PRO' },
+  // Tiêu Chuẩn Giọng Đọc Việt Nam Được Giữ Lại (Diểm Phúc & Minh Hiếu)
+  { id: 'vi-VN-HoaiMyNeural', name: '⚡ Diểm Phúc (Nữ - Truyền Cảm, TikTok Hot)', provider: 'edge_tts', language: 'vi-VN', gender: 'female', style: 'Viral Reviewer, TikTok Hot', preview_text: '', badge: '⚡ TIKTOK VIRAL' },
+  { id: 'vi-VN-NamMinhNeural', name: '🎙️ Minh Hiếu (Nam - Trầm Ấm, Radar Tech)', provider: 'edge_tts', language: 'vi-VN', gender: 'male', style: 'Tech Radar, Thời Sự', preview_text: '', badge: '🎙️ RADAR TECH' },
+  // Tiếng Anh Quốc Tế (Silicon Valley & DeepMind)
+  { id: 'en-US-Journey-F', name: '👑 Google Journey (Female - Expressive)', provider: 'google_tts', language: 'en-US', gender: 'female', style: 'DeepMind Next-Gen Journey', preview_text: '', badge: '👑 DEEPMIND' },
+  { id: 'en-US-ChristopherNeural', name: '🌐 Christopher (Male - Silicon Valley Keynote)', provider: 'edge_tts', language: 'en-US', gender: 'male', style: 'Tech Podcast & Keynote', preview_text: '', badge: '🌐 SILICON VALLEY' },
+  { id: 'en-US-JennyNeural', name: '⚡ Jenny (Female - Dynamic Tech Host)', provider: 'edge_tts', language: 'en-US', gender: 'female', style: 'Tutorial & Explainer', preview_text: '', badge: '⚡ DYNAMIC HOST' },
 ];
 
 interface DailyPodcastPageProps {

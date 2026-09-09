@@ -15,124 +15,100 @@ from config import settings
 
 logger = logging.getLogger("TTSService")
 
-# Curated Hot AI Voices: Google AI Studio Gemini 2.5 Flash TTS + Google WaveNet + Edge-TTS
+# Curated Hot AI Voices: Google AI Studio Gemini 3.1 Flash TTS + Diểm Phúc & Minh Hiếu + Christopher
 CURATED_VOICES = [
-    # --- Google AI Studio - Gemini High Quality Multimodal Audio (Bilingual & Natural) ---
+    # --- Google AI Studio - Gemini 3.1 Live Native Audio (Top Community Choice ⭐) ---
     {
         "id": "gemini-Aoede",
-        "name": "Gemini AI Studio - Aoede (Nữ - Truyền Cảm, Chuẩn Song Ngữ)",
+        "name": "⭐ Aoede (Nữ - Siêu Tự Nhiên, Chuẩn Song Ngữ Anh-Việt)",
         "provider": "gemini_audio",
         "language": "multi",
         "gender": "female",
-        "style": "Gemini 2.5 Multimodal Expressive Voice",
-        "description": "Giọng nữ Google AI Studio siêu tự nhiên, nhả chữ mượt mà, phát âm từ vựng tiếng Anh công nghệ cực chuẩn.",
+        "style": "Gemini 3.1 Multimodal Expressive Voice",
+        "description": "Giọng nữ Google AI Studio được cộng đồng yêu thích nhất: nhả chữ tự nhiên như người thật, phát âm thuật ngữ tiếng Anh chuẩn xác 100%.",
         "preview_text": "Xin chào anh Hiếu! Tôi là Aoede từ Google AI Studio, sẵn sàng cùng anh điểm tin công nghệ hôm nay.",
         "recommended_preset": "hype",
-        "badge": "GOOGLE AI STUDIO"
+        "badge": "⭐ TOP 1 CỘNG ĐỒNG"
     },
     {
         "id": "gemini-Puck",
-        "name": "Gemini AI Studio - Puck (Nam - Năng Động, Chuẩn Tech)",
+        "name": "🔥 Puck (Nam - Năng Động, Chuẩn Tech Reviewer)",
         "provider": "gemini_audio",
         "language": "multi",
         "gender": "male",
-        "style": "Gemini 2.5 Multimodal Expressive Voice",
-        "description": "Giọng nam trẻ trung, dứt khoát, năng động, phát âm tên framework và thuật ngữ tiếng Anh bản xứ.",
+        "style": "Gemini 3.1 Multimodal Expressive Voice",
+        "description": "Giọng nam trẻ trung, dứt khoát, năng động, chuẩn phong cách reviewer công nghệ bóc tách code & framework.",
         "preview_text": "Chào anh em developers! Puck đây, cùng khám phá những agent skills đột phá nhất hôm nay.",
         "recommended_preset": "hype",
-        "badge": "GOOGLE AI STUDIO"
+        "badge": "🔥 VIRAL REVIEW"
     },
     {
         "id": "gemini-Charon",
-        "name": "Gemini AI Studio - Charon (Nam - Trầm Ấm, Chuyên Gia)",
+        "name": "💎 Charon (Nam - Trầm Ấm, Chuyên Gia Kiến Trúc)",
         "provider": "gemini_audio",
         "language": "multi",
         "gender": "male",
-        "style": "Gemini 2.5 Multimodal Expressive Voice",
-        "description": "Giọng nam trầm ấm, bản lĩnh, mang phong thái chuyên gia công nghệ phân tích kiến trúc hệ thống.",
+        "style": "Gemini 3.1 Multimodal Expressive Voice",
+        "description": "Giọng nam trầm ấm, bản lĩnh, mang phong thái chuyên gia công nghệ phân tích kiến trúc hệ thống và AI Agents.",
         "preview_text": "Chào mừng anh Hiếu quay trở lại. Hôm nay chúng ta sẽ cùng mổ xẻ những kiến trúc AI agent hàng đầu.",
         "recommended_preset": "professional",
-        "badge": "GOOGLE AI STUDIO"
+        "badge": "💎 CHUYÊN GIA PRO"
     },
     {
         "id": "gemini-Kore",
-        "name": "Gemini AI Studio - Kore (Nữ - Trong Trẻo, Tự Nhiên)",
+        "name": "✨ Kore (Nữ - Trong Trẻo, Host Hướng Dẫn)",
         "provider": "gemini_audio",
         "language": "multi",
         "gender": "female",
-        "style": "Gemini 2.5 Multimodal Expressive Voice",
-        "description": "Giọng nữ thanh thoát, trong trẻo, mang lại cảm giác thân thiện khi nghe podcast hoặc bản tin.",
+        "style": "Gemini 3.1 Multimodal Expressive Voice",
+        "description": "Giọng nữ thanh thoát, trong trẻo, mang lại cảm giác thân thiện khi nghe podcast hoặc video tutorial.",
         "preview_text": "Chào các bạn! Tôi là Kore từ Google AI Studio, đồng hành cùng bạn trong bản tin công nghệ hôm nay.",
         "recommended_preset": "professional",
-        "badge": "GOOGLE AI STUDIO"
+        "badge": "✨ TUTORIAL HOST"
     },
     {
         "id": "gemini-Fenrir",
-        "name": "Gemini AI Studio - Fenrir (Nam - Bản Lĩnh, Khí Chất)",
+        "name": "🚀 Fenrir (Nam - Bản Lĩnh, Keynote Leader)",
         "provider": "gemini_audio",
         "language": "multi",
         "gender": "male",
-        "style": "Gemini 2.5 Multimodal Expressive Voice",
-        "description": "Giọng nam đĩnh đạc, uy lực, rất thích hợp cho bài phát biểu Keynote và thông cáo công nghệ lớn.",
+        "style": "Gemini 3.1 Multimodal Expressive Voice",
+        "description": "Giọng nam đĩnh đạc, uy lực, rất thích hợp cho bài thuyết trình Keynote và công bố tính năng lớn.",
         "preview_text": "Cùng khám phá kỷ nguyên tự động hóa mới cùng hệ sinh thái AI Agents và Google AI Studio.",
         "recommended_preset": "hype",
-        "badge": "GOOGLE AI STUDIO"
+        "badge": "🚀 KEYNOTE PRO"
     },
 
-    # --- Vietnamese Voices (Edge-TTS & Google Cloud WaveNet) ---
+    # --- Tiêu Chuẩn Giọng Đọc Việt Nam Được Giữ Lại (Diểm Phúc & Minh Hiếu) ---
     {
         "id": "vi-VN-HoaiMyNeural",
-        "name": "Diểm Phúc (Nữ - Truyền Cảm)",
+        "name": "⚡ Diểm Phúc (Nữ - Truyền Cảm, TikTok Hot)",
         "provider": "edge_tts",
         "language": "vi-VN",
         "gender": "female",
         "style": "Viral Reviewer, TikTok Hot",
-        "description": "Giọng đọc truyền cảm, giàu năng lượng, rất quen thuộc trên các kênh review công nghệ triệu view.",
+        "description": "Giọng đọc truyền cảm, giàu năng lượng quen thuộc của Edge-TTS trên các kênh review công nghệ ngắn.",
         "preview_text": "Chào các bạn! Tôi là Diểm Phúc - cùng khám phá công nghệ AI cực kỳ bùng nổ trong năm 2026.",
         "recommended_preset": "hype",
-        "badge": "HOT"
+        "badge": "⚡ TIKTOK VIRAL"
     },
     {
         "id": "vi-VN-NamMinhNeural",
-        "name": "Minh Hiếu (Nam - Trầm Ấm)",
+        "name": "🎙️ Minh Hiếu (Nam - Trầm Ấm, Radar Tech)",
         "provider": "edge_tts",
         "language": "vi-VN",
         "gender": "male",
         "style": "Tech Radar, Thời Sự",
         "description": "Giọng nam trầm ấm, chuyên nghiệp, chuẩn phong cách bản tin công nghệ và podcast chuyên sâu.",
-        "preview_text": "Điểm tin công nghệ AI hôm nay: Tôi là Minh Hiếu - Google Antigravity vừa ra mắt tiêu chuẩn subagent mới.",
+        "preview_text": "Điểm tin công nghệ AI hôm nay: Tôi là Minh Hiếu - cùng cập nhật các xu hướng phát triển mới nhất.",
         "recommended_preset": "professional",
-        "badge": "STUDIO"
-    },
-    {
-        "id": "vi-VN-Wavenet-A",
-        "name": "Google WaveNet (Nữ - Chuẩn Studio)",
-        "provider": "google_tts",
-        "language": "vi-VN",
-        "gender": "female",
-        "style": "Google Cloud DeepMind WaveNet",
-        "description": "Giọng đọc công nghệ WaveNet độc quyền của Google với ngữ điệu tự nhiên, chuẩn âm chuẩn thanh điệu.",
-        "preview_text": "Xin chào! Đây là giọng đọc nhân tạo Google WaveNet chất lượng cao phục vụ video công nghệ.",
-        "recommended_preset": "professional",
-        "badge": "GOOGLE AI"
-    },
-    {
-        "id": "vi-VN-Wavenet-B",
-        "name": "Google WaveNet (Nam - Phát Thanh)",
-        "provider": "google_tts",
-        "language": "vi-VN",
-        "gender": "male",
-        "style": "Google Studio Broadcast",
-        "description": "Giọng nam phát thanh viên Google DeepMind rõ ràng, mạch lạc, rất thích hợp cho video hướng dẫn lập trình.",
-        "preview_text": "Google Cloud Text to Speech mang đến trải nghiệm âm thanh sống động cho ứng dụng của bạn.",
-        "recommended_preset": "professional",
-        "badge": "GOOGLE AI"
+        "badge": "🎙️ RADAR TECH"
     },
 
-    # --- English & International Voices ---
+    # --- Tiếng Anh Quốc Tế (Silicon Valley & DeepMind) ---
     {
         "id": "en-US-Journey-F",
-        "name": "Google Journey (Female - Expressive)",
+        "name": "👑 Google Journey (Female - Expressive)",
         "provider": "google_tts",
         "language": "en-US",
         "gender": "female",
@@ -140,11 +116,11 @@ CURATED_VOICES = [
         "description": "Google's most advanced expressive voice model with human-like breathing and natural pauses.",
         "preview_text": "Hey developers, let's explore how Google Antigravity is reshaping modern software architecture.",
         "recommended_preset": "hype",
-        "badge": "GOOGLE AI"
+        "badge": "👑 DEEPMIND"
     },
     {
         "id": "en-US-ChristopherNeural",
-        "name": "Christopher (Male - Keynote)",
+        "name": "🌐 Christopher (Male - Silicon Valley Keynote)",
         "provider": "edge_tts",
         "language": "en-US",
         "gender": "male",
@@ -152,11 +128,11 @@ CURATED_VOICES = [
         "description": "Clear, authoritative American tech voice suitable for developer showcases and system design walkthroughs.",
         "preview_text": "Welcome back developers! In today's episode, we are diving deep into autonomous agent workflows.",
         "recommended_preset": "professional",
-        "badge": "PRO"
+        "badge": "🌐 SILICON VALLEY"
     },
     {
         "id": "en-US-JennyNeural",
-        "name": "Jenny (Female - Energetic)",
+        "name": "⚡ Jenny (Female - Dynamic Tech Host)",
         "provider": "edge_tts",
         "language": "en-US",
         "gender": "female",
@@ -164,32 +140,8 @@ CURATED_VOICES = [
         "description": "Energetic, crisp and friendly voice ideal for quick tutorials, SaaS demos and product highlights.",
         "preview_text": "Here is how this agent skill can support a real developer workflow with source-backed guidance.",
         "recommended_preset": "hype",
-        "badge": "HOT"
+        "badge": "⚡ DYNAMIC HOST"
     },
-    {
-        "id": "en-GB-SoniaNeural",
-        "name": "Sonia (Female UK - Elegant)",
-        "provider": "edge_tts",
-        "language": "en-GB",
-        "gender": "female",
-        "style": "Documentary & Story",
-        "description": "Refined British accent for high-end tech documentaries and architecture deep dives.",
-        "preview_text": "Let us analyze the profound impact of Model Context Protocol on modern software engineering.",
-        "recommended_preset": "deep_dive",
-        "badge": "UK"
-    },
-    {
-        "id": "ja-JP-NanamiNeural",
-        "name": "Nanami (Female JP - Anime)",
-        "provider": "edge_tts",
-        "language": "ja-JP",
-        "gender": "female",
-        "style": "Anime & Tech Review",
-        "description": "Expressive Japanese voice popular for developer anime recaps and Asia tech trends.",
-        "preview_text": "みなさん、こんにちは！最新のAIエージェントのトレンドを見ていきましょう。",
-        "recommended_preset": "hype",
-        "badge": "JP"
-    }
 ]
 
 
