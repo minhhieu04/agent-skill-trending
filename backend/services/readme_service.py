@@ -172,92 +172,173 @@ class ReadmeService:
 
         return normalized_readme
 
+    _cached_ollama_url: Optional[str] = None
+
+    @classmethod
+    async def get_active_ollama_url(cls) -> Optional[Tuple[str, str]]:
+        """
+        Detects active Ollama instance across configured host, host.docker.internal, and localhost.
+        Returns (working_url, model_name) if available, else None.
+        """
+        candidate_urls: List[str] = []
+        configured = getattr(settings, "OLLAMA_HOST", "").rstrip("/")
+        if configured:
+            candidate_urls.append(configured)
+
+        for fallback in ["http://host.docker.internal:11434", "http://localhost:11434", "http://127.0.0.1:11434"]:
+            if fallback not in candidate_urls:
+                candidate_urls.append(fallback)
+
+        if cls._cached_ollama_url and cls._cached_ollama_url in candidate_urls:
+            candidate_urls.remove(cls._cached_ollama_url)
+            candidate_urls.insert(0, cls._cached_ollama_url)
+
+        for url in candidate_urls:
+            try:
+                async with httpx.AsyncClient(timeout=2.0) as client:
+                    resp = await client.get(f"{url}/api/tags")
+                    if resp.status_code == 200:
+                        data = resp.json()
+                        models = data.get("models", [])
+                        if models:
+                            model_name = models[0].get("name", "qwen2.5:7b")
+                            for m in models:
+                                m_name = m.get("name", "")
+                                if "qwen" in m_name or "llama" in m_name:
+                                    model_name = m_name
+                                    break
+                            cls._cached_ollama_url = url
+                            return url, model_name
+            except Exception:
+                continue
+
+        cls._cached_ollama_url = None
+        return None
+
     @classmethod
     async def check_ollama_status(cls) -> Tuple[bool, Optional[str]]:
         """Checks if local/remote Ollama instance is active and returns (available, model_name)."""
-        ollama_url = getattr(settings, "OLLAMA_HOST", "http://localhost:11434").rstrip("/")
-        try:
-            async with httpx.AsyncClient(timeout=2.0) as client:
-                resp = await client.get(f"{ollama_url}/api/tags")
-                if resp.status_code == 200:
-                    data = resp.json()
-                    models = data.get("models", [])
-                    if models:
-                        model_name = models[0].get("name", "qwen2.5:7b")
-                        for m in models:
-                            m_name = m.get("name", "")
-                            if "qwen" in m_name or "llama" in m_name:
-                                model_name = m_name
-                                break
-                        return True, model_name
-        except Exception:
-            pass
+        active = await cls.get_active_ollama_url()
+        if active:
+            return True, active[1]
         return False, None
 
     @classmethod
     async def get_available_providers(cls) -> List[Dict[str, Any]]:
-        """Returns list of translation providers with live availability status."""
+        """Returns streamlined list of translation providers with live availability status."""
         has_gemini = bool(settings.GEMINI_API_KEY)
         has_ollama, ollama_model = await cls.check_ollama_status()
 
         return [
             {
                 "id": "auto",
-                "name": "⚡ Tự động thông minh (Auto Cascade)",
-                "description": "Tự động ưu tiên Gemini 3.8 Flash -> Local Ollama -> Translation Engine",
+                "name": "⚡ Tự động thông minh (Auto)",
+                "description": "Tự động ưu tiên Gemini / Local Ollama -> Web Engine",
                 "available": True,
                 "badge": "Khuyên dùng",
                 "category": "auto"
             },
             {
-                "id": "gemini-3.8-flash",
-                "name": "⚡ Google Gemini 3.8 Flash",
-                "description": "Mô hình AI mới nhất, dịch thuật ngữ kỹ thuật chuẩn xác",
-                "available": has_gemini,
-                "badge": "Cloud AI",
-                "category": "gemini"
-            },
-            {
-                "id": "gemini-3.7-flash",
-                "name": "⚡ Google Gemini 3.7 Flash",
-                "description": "Mô hình Flash tốc độ cao và ổn định",
-                "available": has_gemini,
-                "badge": "Cloud AI",
-                "category": "gemini"
-            },
-            {
-                "id": "gemini-3.6-flash",
-                "name": "⚡ Google Gemini 3.6 Flash",
-                "description": "Mô hình tiêu chuẩn ổn định cho production",
-                "available": has_gemini,
-                "badge": "Cloud AI",
-                "category": "gemini"
-            },
-            {
-                "id": "gemini-3.5-flash",
-                "name": "⚡ Google Gemini 3.5 Flash",
-                "description": "Mô hình Flash tốc độ cao, độ trễ cực thấp",
-                "available": has_gemini,
-                "badge": "Cloud AI",
-                "category": "gemini"
-            },
-            {
                 "id": "local_llm",
                 "name": f"🖥️ Local LLM (Ollama{f': {ollama_model}' if ollama_model else ''})",
-                "description": "Chạy mô hình nội bộ trên máy (Chỉ dùng khi dev local, không chạy trên cloud deploy)",
+                "description": "Chạy trực tiếp mô hình AI trên máy cá nhân (Offline, bảo mật, miễn phí 100%)",
                 "available": has_ollama,
-                "badge": "Local Only" if has_ollama else "Offline / Not Deployed",
+                "badge": "Sẵn sàng" if has_ollama else "Chưa bật Ollama",
                 "category": "local"
+            },
+            {
+                "id": "gemini",
+                "name": "⚡ Google Gemini Cloud",
+                "description": "Mô hình Flash tốc độ cao của Google",
+                "available": has_gemini,
+                "badge": "Cloud AI",
+                "category": "gemini"
             },
             {
                 "id": "translation_engine",
                 "name": "🌐 Translation Engine (Web)",
-                "description": "Engine dịch thuật tự do, hoạt động mọi môi trường không cần API key",
+                "description": "Dịch nhanh dự phòng không cần AI API key",
                 "available": True,
-                "badge": "Web Engine",
+                "badge": "Miễn phí",
                 "category": "engine"
             }
         ]
+
+    @classmethod
+    async def _translate_via_ollama(
+        cls,
+        content: str,
+        ollama_url: str,
+        ollama_model: str,
+        system_instruction: str,
+        target_lang: str = "vi",
+    ) -> Optional[str]:
+        """Translates markdown content via Ollama, splitting large docs into section chunks if needed."""
+        # For documents under 6000 chars, translate in one shot
+        if len(content) <= 6000:
+            prompt = f"""[System Instructions]\n{system_instruction}\n\n[Original Markdown Content]\n{content}\n"""
+            async with httpx.AsyncClient(timeout=60.0) as gen_client:
+                gen_resp = await gen_client.post(
+                    f"{ollama_url}/api/generate",
+                    json={
+                        "model": ollama_model,
+                        "prompt": prompt,
+                        "stream": False,
+                        "options": {"temperature": 0.3}
+                    }
+                )
+                if gen_resp.status_code == 200:
+                    text = gen_resp.json().get("response", "").strip()
+                    if text:
+                        return text
+            return None
+
+        # For large documents (>6000 chars), split by Markdown sections (## ) to prevent timeout & context cutoff
+        raw_sections = re.split(r"(?=\n##\s+)", content)
+        translated_sections: List[str] = []
+
+        chunks: List[str] = []
+        curr = ""
+        for sec in raw_sections:
+            if len(curr) + len(sec) < 4500:
+                curr += sec
+            else:
+                if curr:
+                    chunks.append(curr)
+                curr = sec
+        if curr:
+            chunks.append(curr)
+
+        max_chunks = 4
+        async with httpx.AsyncClient(timeout=60.0) as gen_client:
+            for idx, chunk in enumerate(chunks[:max_chunks]):
+                prompt = f"""[System Instructions]\n{system_instruction}\n\n[Markdown Chunk {idx+1}/{min(len(chunks), max_chunks)}]\n{chunk}\n"""
+                try:
+                    gen_resp = await gen_client.post(
+                        f"{ollama_url}/api/generate",
+                        json={
+                            "model": ollama_model,
+                            "prompt": prompt,
+                            "stream": False,
+                            "options": {"temperature": 0.3}
+                        }
+                    )
+                    if gen_resp.status_code == 200:
+                        chunk_text = gen_resp.json().get("response", "").strip()
+                        translated_sections.append(chunk_text if chunk_text else chunk)
+                    else:
+                        translated_sections.append(chunk)
+                except Exception as chunk_err:
+                    logger.warning(f"Ollama chunk {idx+1} translation error: {chunk_err}")
+                    translated_sections.append(chunk)
+
+        if len(chunks) > max_chunks:
+            translated_sections.append(
+                "\n\n---\n*(Phần nội dung chi tiết phía sau quá dài, xem nguyên bản trên GitHub)*\n\n"
+                + "".join(chunks[max_chunks:])
+            )
+
+        return "\n".join(translated_sections)
 
     @classmethod
     async def translate_markdown_content(
@@ -324,39 +405,33 @@ CÁC NGUYÊN TẮC BẮT BUỘC:
         # Direct Local LLM (Ollama) if specifically requested
         # -------------------------------------------------------------
         if preferred_provider == "local_llm":
-            has_ollama, ollama_model = await cls.check_ollama_status()
-            if not has_ollama or not ollama_model:
+            active = await cls.get_active_ollama_url()
+            if not active:
                 return {
                     "success": False,
                     "translated_text": content,
                     "provider": "local_llm",
                     "model_used": "none",
                     "target_language": target_lang,
-                    "error": "Local LLM (Ollama) không khả dụng trên môi trường hiện tại (môi trường deploy cloud không chạy Ollama). Vui lòng chọn Gemini 3.8 Flash hoặc Translation Engine."
+                    "error": "Local LLM (Ollama) không phản hồi. Vui lòng đảm bảo ứng dụng Ollama đang chạy trên máy (cổng 11434)."
                 }
+            ollama_url, ollama_model = active
             try:
-                ollama_url = getattr(settings, "OLLAMA_HOST", "http://localhost:11434").rstrip("/")
-                ollama_prompt = f"""[System Instructions]\n{system_instruction}\n\n[Original Markdown Content]\n{content}\n"""
-                async with httpx.AsyncClient(timeout=45.0) as gen_client:
-                    gen_resp = await gen_client.post(
-                        f"{ollama_url}/api/generate",
-                        json={
-                            "model": ollama_model,
-                            "prompt": ollama_prompt,
-                            "stream": False,
-                            "options": {"temperature": 0.3}
-                        }
-                    )
-                    if gen_resp.status_code == 200:
-                        local_text = gen_resp.json().get("response", "").strip()
-                        if local_text:
-                            return {
-                                "success": True,
-                                "translated_text": local_text,
-                                "provider": "local_llm",
-                                "model_used": f"Local Ollama ({ollama_model})",
-                                "target_language": target_lang
-                            }
+                translated_local = await cls._translate_via_ollama(
+                    content=content,
+                    ollama_url=ollama_url,
+                    ollama_model=ollama_model,
+                    system_instruction=system_instruction,
+                    target_lang=target_lang
+                )
+                if translated_local:
+                    return {
+                        "success": True,
+                        "translated_text": translated_local,
+                        "provider": "local_llm",
+                        "model_used": f"Local Ollama ({ollama_model})",
+                        "target_language": target_lang
+                    }
             except Exception as ollama_err:
                 return {
                     "success": False,
@@ -366,27 +441,37 @@ CÁC NGUYÊN TẮC BẮT BUỘC:
                     "target_language": target_lang,
                     "error": f"Lỗi thực thi Local Ollama: {ollama_err}"
                 }
+            return {
+                "success": False,
+                "translated_text": content,
+                "provider": "local_llm",
+                "model_used": "none",
+                "target_language": target_lang,
+                "error": "Local LLM không thể dịch nội dung này."
+            }
 
         # -------------------------------------------------------------
         # Tier 1: Google Gemini Flash (Auto Cascade or specific model)
         # -------------------------------------------------------------
-        if settings.GEMINI_API_KEY and preferred_provider in ("auto", "gemini", "gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.6-flash", "gemini-3.5-flash"):
+        if settings.GEMINI_API_KEY and (preferred_provider in ("auto", "gemini") or preferred_provider.startswith("gemini-")):
             try:
                 from google import genai
                 client = genai.Client(api_key=settings.GEMINI_API_KEY)
                 prompt_content = f"{system_instruction}\n\n---\nNỘI DUNG MARKDOWN CẦN DỊCH:\n\n{content}"
 
                 candidate_models = [
+                    "gemini-3.7-flash",
+                    "gemini-3-flash-preview",
+                    "gemini-3.8-flash",
                     "gemini-3.5-flash",
                     "gemini-3.6-flash",
-                    "gemini-3.8-flash",
-                    "gemini-3.7-flash",
                     "gemini-flash-latest",
                 ]
 
                 # If user selected a specific model, prioritize it first
-                if preferred_provider.startswith("gemini-") and preferred_provider in candidate_models:
-                    candidate_models.remove(preferred_provider)
+                if preferred_provider.startswith("gemini-"):
+                    if preferred_provider in candidate_models:
+                        candidate_models.remove(preferred_provider)
                     candidate_models.insert(0, preferred_provider)
 
                 def _call_gemini_sync():
@@ -417,36 +502,41 @@ CÁC NGUYÊN TẮC BẮT BUỘC:
             except Exception as gemini_err:
                 logger.warning(f"Gemini translation failed: {gemini_err}. Checking next tier...")
 
+            # If user explicitly requested Gemini and it failed, report clean error
+            if preferred_provider in ("gemini", "gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.6-flash", "gemini-3.5-flash"):
+                return {
+                    "success": False,
+                    "translated_text": content,
+                    "provider": "gemini",
+                    "model_used": "none",
+                    "target_language": target_lang,
+                    "error": "Google Gemini hiện đang quá tải hoặc vượt giới hạn quota (429 RESOURCE_EXHAUSTED). Vui lòng chọn Local Ollama hoặc Web Engine."
+                }
+
         # -------------------------------------------------------------
         # Tier 2: Local AI LLM (Ollama) in Auto Cascade
         # -------------------------------------------------------------
         if preferred_provider == "auto":
             try:
-                has_ollama, ollama_model = await cls.check_ollama_status()
-                if has_ollama and ollama_model:
-                    ollama_url = getattr(settings, "OLLAMA_HOST", "http://localhost:11434").rstrip("/")
-                    ollama_prompt = f"""[System Instructions]\n{system_instruction}\n\n[Original Markdown Content]\n{content}\n"""
-                    async with httpx.AsyncClient(timeout=40.0) as gen_client:
-                        gen_resp = await gen_client.post(
-                            f"{ollama_url}/api/generate",
-                            json={
-                                "model": ollama_model,
-                                "prompt": ollama_prompt,
-                                "stream": False,
-                                "options": {"temperature": 0.3}
-                            }
-                        )
-                        if gen_resp.status_code == 200:
-                            local_text = gen_resp.json().get("response", "").strip()
-                            if local_text:
-                                logger.info(f"README translated successfully via Local Ollama ({ollama_model})")
-                                return {
-                                    "success": True,
-                                    "translated_text": local_text,
-                                    "provider": "local_llm",
-                                    "model_used": f"Local Ollama ({ollama_model})",
-                                    "target_language": target_lang
-                                }
+                active = await cls.get_active_ollama_url()
+                if active:
+                    ollama_url, ollama_model = active
+                    translated_local = await cls._translate_via_ollama(
+                        content=content,
+                        ollama_url=ollama_url,
+                        ollama_model=ollama_model,
+                        system_instruction=system_instruction,
+                        target_lang=target_lang
+                    )
+                    if translated_local:
+                        logger.info(f"README translated successfully via Local Ollama ({ollama_model})")
+                        return {
+                            "success": True,
+                            "translated_text": translated_local,
+                            "provider": "local_llm",
+                            "model_used": f"Local Ollama ({ollama_model})",
+                            "target_language": target_lang
+                        }
             except Exception as ollama_err:
                 logger.warning(f"Local Ollama auto-fallback failed: {ollama_err}")
 
@@ -552,12 +642,12 @@ CÁC NGUYÊN TẮC BẮT BUỘC:
 
 Nội dung: {text}"""
 
-        # Tier 1: Gemini Flash (3.5 -> 3.6 -> 3.8)
+        # Tier 1: Gemini Flash (3.7 -> 3-preview -> 3.8 -> 3.5)
         if settings.GEMINI_API_KEY:
             try:
                 from google import genai
                 client = genai.Client(api_key=settings.GEMINI_API_KEY)
-                for m in ["gemini-3.5-flash", "gemini-3.6-flash", "gemini-3.8-flash", "gemini-flash-latest"]:
+                for m in ["gemini-3.7-flash", "gemini-3-flash-preview", "gemini-3.8-flash", "gemini-3.5-flash", "gemini-flash-latest"]:
                     try:
                         resp = await asyncio.to_thread(
                             client.models.generate_content,
@@ -575,9 +665,9 @@ Nội dung: {text}"""
 
         # Tier 2: Local Ollama if running
         try:
-            has_ollama, ollama_model = await cls.check_ollama_status()
-            if has_ollama and ollama_model:
-                ollama_url = getattr(settings, "OLLAMA_HOST", "http://localhost:11434").rstrip("/")
+            active = await cls.get_active_ollama_url()
+            if active:
+                ollama_url, ollama_model = active
                 async with httpx.AsyncClient(timeout=15.0) as client:
                     resp = await client.post(
                         f"{ollama_url}/api/generate",
@@ -603,4 +693,6 @@ Nội dung: {text}"""
         except Exception:
             pass
 
+        if cjk_regex.search(text):
+            return ""
         return text

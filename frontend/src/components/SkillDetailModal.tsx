@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { 
   X, 
   ExternalLink, 
@@ -39,6 +39,7 @@ import { ExportModal } from './ExportModal';
 import { SecurityBadge } from './SecurityBadge';
 import { TechLogo } from './TechLogo';
 import { MarkdownRenderer } from './MarkdownRenderer';
+import { NeuSelect, NeuSelectOption } from './NeuSelect';
 import { api } from '../api/client';
 
 interface SkillDetailModalProps {
@@ -256,6 +257,117 @@ export const SkillDetailModal: React.FC<SkillDetailModalProps> = ({
     setCopiedReadme(true);
     showToast(language === 'vi' ? 'Đã sao chép nội dung Markdown!' : 'Copied Markdown to clipboard!', 'success');
     setTimeout(() => setCopiedReadme(false), 2000);
+  };
+
+  const languageOptions: NeuSelectOption<string>[] = useMemo(() => [
+    { value: 'vi', label: 'Tiếng Việt', sublabel: 'Vietnamese', icon: <span className="text-sm">🇻🇳</span> },
+    { value: 'en', label: 'English', sublabel: 'Tiếng Anh', icon: <span className="text-sm">🇬🇧</span> },
+    { value: 'ja', label: '日本語', sublabel: 'Japanese', icon: <span className="text-sm">🇯🇵</span> },
+    { value: 'zh', label: '简体中文', sublabel: 'Simplified Chinese', icon: <span className="text-sm">🇨🇳</span> },
+    { value: 'ko', label: '한국어', sublabel: 'Korean', icon: <span className="text-sm">🇰🇷</span> },
+  ], []);
+
+  const providerOptions: NeuSelectOption<string>[] = useMemo(() => {
+    const rawList = providers.length > 0 ? providers : [
+      {
+        id: 'auto',
+        name: 'Tự động thông minh (Auto)',
+        description: 'Tự động ưu tiên Gemini / Local Ollama -> Web Engine',
+        available: true,
+        badge: 'Khuyên dùng',
+        category: 'auto'
+      },
+      {
+        id: 'local_llm',
+        name: 'Local LLM (Ollama)',
+        description: 'Chạy trực tiếp trên máy cá nhân (Offline, bảo mật, miễn phí)',
+        available: true,
+        badge: 'Local AI',
+        category: 'local'
+      },
+      {
+        id: 'gemini',
+        name: 'Google Gemini Cloud',
+        description: 'Mô hình Cloud AI tốc độ cao của Google',
+        available: true,
+        badge: 'Cloud AI',
+        category: 'gemini'
+      },
+      {
+        id: 'translation_engine',
+        name: 'Web Translation Engine',
+        description: 'Dịch nhanh dự phòng không cần AI API key',
+        available: true,
+        badge: 'Miễn phí',
+        category: 'fallback'
+      }
+    ];
+
+    return rawList.map((p) => {
+      const isLocal = p.id === 'local_llm';
+      const cleanName = p.name.replace(/^⚡\s*/, '').replace(/^🖥️\s*/, '').replace(/^🌐\s*/, '');
+      let icon = <Sparkles className="w-3.5 h-3.5 text-blue-500" />;
+      if (p.id === 'auto') {
+        icon = <Zap className="w-3.5 h-3.5 text-amber-500" />;
+      } else if (isLocal) {
+        icon = <Cpu className="w-3.5 h-3.5 text-purple-500" />;
+      } else if (p.id === 'translation_engine') {
+        icon = <Languages className="w-3.5 h-3.5 text-emerald-500" />;
+      }
+
+      return {
+        value: p.id,
+        label: cleanName,
+        sublabel: p.description,
+        badge: p.badge,
+        icon,
+        disabled: false,
+      };
+    });
+  }, [providers]);
+
+  const handleTargetLanguageChange = (newLang: string) => {
+    setTargetLanguage(newLang);
+    if (readmeMode === 'translated' && skill) {
+      if (translations[newLang]?.content) {
+        setActiveTranslationMeta({
+          model_used: translations[newLang].model_used,
+          provider: translations[newLang].provider,
+        });
+      } else {
+        setIsTranslating(true);
+        api.translateSkillReadme(skill.id, newLang, false, selectedProvider)
+          .then((res) => {
+            if (res.translated_text) {
+              setTranslations((prev) => ({
+                ...prev,
+                [newLang]: {
+                  content: res.translated_text,
+                  model_used: res.model_used,
+                  provider: res.provider,
+                }
+              }));
+              setActiveTranslationMeta({
+                model_used: res.model_used,
+                provider: res.provider,
+              });
+            }
+          })
+          .catch((err) => {
+            showToast(err.message || 'Lỗi dịch thuật', 'error');
+          })
+          .finally(() => {
+            setIsTranslating(false);
+          });
+      }
+    }
+  };
+
+  const handleProviderChange = (newProvider: string) => {
+    setSelectedProvider(newProvider);
+    if (readmeMode === 'translated') {
+      handleTranslateReadme(true, newProvider);
+    }
   };
 
   if (!skill) return null;
@@ -1244,7 +1356,8 @@ export const SkillDetailModal: React.FC<SkillDetailModalProps> = ({
               {/* Official Repository README with Multi-Tier AI Translation */}
               <div className="p-5 sm:p-6 rounded-2xl neu-flat space-y-4">
                 {/* Header & Controls Bar */}
-                <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-3 pb-2 border-b border-[var(--border)]">
+                <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-3 pb-3 border-b border-[var(--border)]">
+                  {/* Left: Title & Status Badge */}
                   <div className="flex items-center gap-2.5">
                     <div className="p-2 rounded-xl neu-inset-sm text-[var(--primary)] shrink-0">
                       <FileText className="w-4 h-4" />
@@ -1252,257 +1365,154 @@ export const SkillDetailModal: React.FC<SkillDetailModalProps> = ({
                     <div>
                       <div className="flex items-center gap-2 flex-wrap">
                         <h4 className="text-sm font-bold text-[var(--text-main)]">
-                          {language === 'vi' ? 'Tài Liệu Gốc / Official README' : 'Official Repository README'}
+                          {language === 'vi' ? 'Tài Liệu README' : 'Repository README'}
                         </h4>
-                        <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-lg neu-inset-sm text-[var(--primary)]">
-                          {readmeMode === 'translated' ? 'AI TRANSLATED' : 'RAW MARKDOWN'}
-                        </span>
+                        {readmeMode === 'original' ? (
+                          <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-lg neu-inset-sm text-[var(--text-muted)]">
+                            RAW MARKDOWN
+                          </span>
+                        ) : isTranslating ? (
+                          <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-lg neu-inset-sm text-amber-500 flex items-center gap-1">
+                            <Loader2 className="w-3 h-3 animate-spin" />
+                            <span>{language === 'vi' ? 'ĐANG DỊCH...' : 'TRANSLATING...'}</span>
+                          </span>
+                        ) : (
+                          <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-lg neu-inset-sm text-[var(--primary)] flex items-center gap-1">
+                            {activeTranslationMeta?.provider === 'local_llm' ? '🖥️ ' : activeTranslationMeta?.provider === 'translation_engine' ? '🌐 ' : '⚡ '}
+                            <span>{activeTranslationMeta?.model_used || (language === 'vi' ? 'ĐÃ DỊCH AI' : 'AI TRANSLATED')}</span>
+                          </span>
+                        )}
                       </div>
                       <p className="text-xs text-[var(--text-muted)]">
                         {language === 'vi' 
-                          ? 'Trích xuất nguyên bản từ kho mã nguồn repository • Hỗ trợ dịch đa tầng bằng AI' 
-                          : 'Directly extracted from source repository • Multi-tier AI translation supported'}
+                          ? 'Trích xuất nguyên bản từ GitHub • Hỗ trợ dịch Local LLM & Cloud AI' 
+                          : 'Extracted from GitHub • Local LLM & Cloud AI translation'}
                       </p>
                     </div>
                   </div>
 
-                  {/* Actions & Language Toolbar */}
+                  {/* Right: Streamlined Actions Toolbar */}
                   <div className="flex items-center gap-2 flex-wrap w-full lg:w-auto justify-start lg:justify-end">
-                    {/* View Mode Toggle: Original vs Translated */}
+                    {/* View Mode Switch: Original vs AI Translated */}
                     <div className="flex items-center p-0.5 rounded-xl neu-inset-sm text-xs font-semibold">
                       <button
                         onClick={() => setReadmeMode('original')}
-                        className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
+                        className={`px-3 py-1 rounded-lg transition-all cursor-pointer ${
                           readmeMode === 'original'
                             ? 'bg-[var(--primary)] text-white shadow-xs font-bold'
                             : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
                         }`}
-                        title="Xem tài liệu nguyên bản từ GitHub"
+                        title={language === 'vi' ? 'Xem tài liệu gốc từ GitHub' : 'View original README'}
                       >
                         {language === 'vi' ? 'Bản Gốc' : 'Original'}
                       </button>
                       <button
                         onClick={() => {
                           setReadmeMode('translated');
-                          // If no translation exists for current target language, trigger it
                           if (!translations[targetLanguage]?.content) {
                             handleTranslateReadme(false);
                           }
                         }}
-                        className={`px-2.5 py-1 rounded-lg transition-all flex items-center gap-1 cursor-pointer ${
+                        className={`px-3 py-1 rounded-lg transition-all flex items-center gap-1.5 cursor-pointer ${
                           readmeMode === 'translated'
                             ? 'bg-[var(--primary)] text-white shadow-xs font-bold'
                             : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
                         }`}
-                        title="Xem bản dịch AI"
+                        title={language === 'vi' ? 'Xem bản dịch AI' : 'View AI translation'}
                       >
-                        <Sparkles className="w-3 h-3" />
-                        <span>{language === 'vi' ? 'Bản Dịch AI' : 'AI Translated'}</span>
+                        <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                        <span>{language === 'vi' ? 'Bản Dịch AI' : 'AI Translation'}</span>
                       </button>
                     </div>
 
-                    {/* Target Language Dropdown */}
-                    <div className="relative inline-flex items-center gap-1">
-                      <Languages className="w-3.5 h-3.5 text-[var(--text-muted)] shrink-0" />
-                      <select
-                        value={targetLanguage}
-                        onChange={(e) => {
-                          const newLang = e.target.value;
-                          setTargetLanguage(newLang);
-                          if (readmeMode === 'translated') {
-                            if (translations[newLang]?.content) {
-                              setActiveTranslationMeta({
-                                model_used: translations[newLang].model_used,
-                                provider: translations[newLang].provider,
-                              });
-                            } else {
-                              // Trigger translation for new language
-                              setIsTranslating(true);
-                              api.translateSkillReadme(skill.id, newLang, false, selectedProvider)
-                                .then((res) => {
-                                  if (res.translated_text) {
-                                    setTranslations((prev) => ({
-                                      ...prev,
-                                      [newLang]: {
-                                        content: res.translated_text,
-                                        model_used: res.model_used,
-                                        provider: res.provider,
-                                      }
-                                    }));
-                                    setActiveTranslationMeta({
-                                      model_used: res.model_used,
-                                      provider: res.provider,
-                                    });
-                                  }
-                                })
-                                .catch((err) => {
-                                  showToast(err.message || 'Lỗi dịch thuật', 'error');
-                                })
-                                .finally(() => {
-                                  setIsTranslating(false);
-                                });
-                            }
-                          }
-                        }}
-                        className="px-2.5 py-1.5 rounded-xl neu-inset-sm text-xs font-medium text-[var(--text-main)] bg-[var(--bg)] focus:outline-none cursor-pointer"
-                        title={language === 'vi' ? 'Chọn ngôn ngữ đích' : 'Select target language'}
-                      >
-                        <option value="vi">🇻🇳 Tiếng Việt</option>
-                        <option value="en">🇬🇧 English</option>
-                        <option value="ja">🇯🇵 日本語</option>
-                        <option value="zh">🇨🇳 简体中文</option>
-                        <option value="ko">🇰🇷 한국어</option>
-                      </select>
-                    </div>
+                    {/* Translation Settings (Visible in Translated Mode) */}
+                    {readmeMode === 'translated' && (
+                      <>
+                        {/* Target Language Dropdown */}
+                        <NeuSelect
+                          value={targetLanguage}
+                          onChange={(val) => handleTargetLanguageChange(String(val))}
+                          options={languageOptions}
+                          size="sm"
+                          variant="inset"
+                          align="right"
+                          dropdownClassName="z-[80] min-w-[170px]"
+                          title={language === 'vi' ? 'Ngôn ngữ đích' : 'Target language'}
+                        />
 
-                    {/* AI Model / Provider Selector */}
-                    <div className="relative inline-flex items-center gap-1">
-                      <Cpu className="w-3.5 h-3.5 text-[var(--text-muted)] shrink-0" />
-                      <select
-                        value={selectedProvider}
-                        onChange={(e) => {
-                          const newProvider = e.target.value;
-                          setSelectedProvider(newProvider);
-                          if (readmeMode === 'translated') {
-                            handleTranslateReadme(true, newProvider);
-                          }
-                        }}
-                        className="px-2.5 py-1.5 rounded-xl neu-inset-sm text-xs font-medium text-[var(--text-main)] bg-[var(--bg)] focus:outline-none cursor-pointer max-w-[170px] sm:max-w-none truncate"
-                        title={language === 'vi' ? 'Chọn mô hình / AI Provider dịch' : 'Select AI Model / Provider'}
-                      >
-                        {providers.length > 0 ? (
-                          providers.map((p) => {
-                            const isLocal = p.id === 'local_llm';
-                            const note = !p.available 
-                              ? (isLocal ? ' (Chỉ khi dev local)' : ' (Chưa sẵn sàng)')
-                              : (p.id === 'auto' ? ' (Tối ưu)' : '');
-                            return (
-                              <option 
-                                key={p.id} 
-                                value={p.id}
-                                disabled={!p.available && isLocal}
-                              >
-                                {p.name.replace(/^⚡\s*/, '').replace(/^🖥️\s*/, '').replace(/^🌐\s*/, '')}{note}
-                              </option>
-                            );
-                          })
-                        ) : (
-                          <>
-                            <option value="auto">⚡ Tự động tối ưu (Auto Cascade)</option>
-                            <option value="gemini-3.8-flash">Google Gemini 3.8 Flash</option>
-                            <option value="gemini-3.7-flash">Google Gemini 3.7 Flash</option>
-                            <option value="gemini-3.6-flash">Google Gemini 3.6 Flash</option>
-                            <option value="local_llm" disabled>Local Ollama (Chỉ khi dev local)</option>
-                            <option value="translation_engine">Translation Engine (Web)</option>
-                          </>
-                        )}
-                      </select>
-                    </div>
+                        {/* AI Provider / Engine Selector */}
+                        <NeuSelect
+                          value={selectedProvider}
+                          onChange={(val) => handleProviderChange(String(val))}
+                          options={providerOptions}
+                          size="sm"
+                          variant="inset"
+                          align="right"
+                          dropdownClassName="z-[80] min-w-[240px]"
+                          title={language === 'vi' ? 'Mô hình dịch' : 'Translation engine'}
+                        />
 
-                    {/* AI Translate Trigger Button */}
-                    <button
-                      onClick={() => handleTranslateReadme(Boolean(translations[targetLanguage]?.content))}
-                      disabled={isTranslating}
-                      className={`flex items-center gap-1 px-3 py-1.5 rounded-xl neu-btn text-xs font-bold transition-all cursor-pointer ${
-                        isTranslating ? 'opacity-70 cursor-wait' : 'text-[var(--primary)] hover:neu-flat'
-                      }`}
-                      title={language === 'vi' ? 'Bấm để dịch tài liệu bằng mô hình đã chọn' : 'Translate README with selected model'}
-                    >
-                      {isTranslating ? (
-                        <>
-                          <Loader2 className="w-3.5 h-3.5 animate-spin text-[var(--primary)]" />
-                          <span>{language === 'vi' ? 'Đang dịch...' : 'Translating...'}</span>
-                        </>
-                      ) : (
-                        <>
-                          <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                          <span>
-                            {translations[targetLanguage]?.content 
-                              ? (language === 'vi' ? 'Dịch lại' : 'Re-translate')
-                              : (language === 'vi' ? 'Dịch bằng AI' : 'Translate AI')}
-                          </span>
-                        </>
-                      )}
-                    </button>
-
-                    {/* Sync from GitHub Button */}
-                    <button
-                      onClick={handleRefreshReadme}
-                      disabled={isRefreshingReadme || isLoadingReadme}
-                      className={`p-1.5 rounded-xl neu-btn text-[var(--text-muted)] hover:text-[var(--primary)] transition-all cursor-pointer ${
-                        isRefreshingReadme ? 'opacity-70 cursor-wait' : ''
-                      }`}
-                      title={language === 'vi' ? 'Đồng bộ lại README từ GitHub' : 'Re-fetch latest README from GitHub'}
-                      aria-label="Refresh README"
-                    >
-                      <RefreshCw className={`w-3.5 h-3.5 ${isRefreshingReadme ? 'animate-spin text-[var(--primary)]' : ''}`} />
-                    </button>
-
-                    {/* Copy Markdown Button */}
-                    <button
-                      onClick={handleCopyReadme}
-                      className="p-1.5 rounded-xl neu-btn text-[var(--text-muted)] hover:text-emerald-500 transition-all cursor-pointer"
-                      title={language === 'vi' ? 'Sao chép nội dung Markdown' : 'Copy Markdown'}
-                      aria-label="Copy Markdown"
-                    >
-                      {copiedReadme ? (
-                        <Check className="w-3.5 h-3.5 text-emerald-500" />
-                      ) : (
-                        <Copy className="w-3.5 h-3.5" />
-                      )}
-                    </button>
-
-                    {/* View on GitHub */}
-                    {skill.repository_url && (
-                      <a
-                        href={skill.repository_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-xs font-semibold text-[var(--primary)] hover:underline flex items-center gap-1 shrink-0 p-1.5 rounded-xl neu-btn"
-                        title={language === 'vi' ? 'Mở trên GitHub' : 'Open on GitHub'}
-                      >
-                        <ExternalLink className="w-3.5 h-3.5" />
-                      </a>
+                        {/* Single Re-translate Button */}
+                        <button
+                          onClick={() => handleTranslateReadme(true)}
+                          disabled={isTranslating}
+                          className={`p-1.5 rounded-xl neu-btn text-[var(--primary)] hover:neu-flat transition-all cursor-pointer ${
+                            isTranslating ? 'opacity-50 cursor-wait' : ''
+                          }`}
+                          title={language === 'vi' ? 'Dịch lại tài liệu với mô hình đã chọn' : 'Re-translate with selected model'}
+                          aria-label="Re-translate"
+                        >
+                          <RefreshCw className={`w-3.5 h-3.5 ${isTranslating ? 'animate-spin text-amber-500' : ''}`} />
+                        </button>
+                      </>
                     )}
+
+                    <div className="h-4 w-px bg-[var(--border)] mx-0.5 hidden sm:block" />
+
+                    {/* Utility Actions */}
+                    <div className="flex items-center gap-1">
+                      {/* Copy Markdown Button */}
+                      <button
+                        onClick={handleCopyReadme}
+                        className="p-1.5 rounded-xl neu-btn text-[var(--text-muted)] hover:text-emerald-500 transition-all cursor-pointer"
+                        title={language === 'vi' ? 'Sao chép nội dung' : 'Copy markdown'}
+                        aria-label="Copy Markdown"
+                      >
+                        {copiedReadme ? (
+                          <Check className="w-3.5 h-3.5 text-emerald-500" />
+                        ) : (
+                          <Copy className="w-3.5 h-3.5" />
+                        )}
+                      </button>
+
+                      {/* Sync from GitHub Button */}
+                      <button
+                        onClick={handleRefreshReadme}
+                        disabled={isRefreshingReadme || isLoadingReadme}
+                        className={`p-1.5 rounded-xl neu-btn text-[var(--text-muted)] hover:text-[var(--primary)] transition-all cursor-pointer ${
+                          isRefreshingReadme ? 'opacity-70 cursor-wait' : ''
+                        }`}
+                        title={language === 'vi' ? 'Đồng bộ lại README từ GitHub' : 'Re-fetch latest README from GitHub'}
+                        aria-label="Refresh README"
+                      >
+                        <RefreshCw className={`w-3.5 h-3.5 ${isRefreshingReadme ? 'animate-spin text-[var(--primary)]' : ''}`} />
+                      </button>
+
+                      {/* View on GitHub */}
+                      {skill.repository_url && (
+                        <a
+                          href={skill.repository_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="p-1.5 rounded-xl neu-btn text-[var(--text-muted)] hover:text-[var(--primary)] transition-all flex items-center shrink-0"
+                          title={language === 'vi' ? 'Mở trên GitHub' : 'Open on GitHub'}
+                        >
+                          <ExternalLink className="w-3.5 h-3.5" />
+                        </a>
+                      )}
+                    </div>
                   </div>
                 </div>
-
-                {/* AI Translation Info Banner (Displayed when in translated mode) */}
-                {readmeMode === 'translated' && (
-                  <div className="p-3 rounded-xl neu-inset-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-xs">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-bold text-[var(--text-main)] flex items-center gap-1.5">
-                        <Sparkles className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                        {language === 'vi' ? 'Mô hình đã dịch' : 'Translation Model'}:
-                      </span>
-                      <span className="neu-flat px-2 py-0.5 rounded-lg font-mono font-bold text-[var(--primary)] flex items-center gap-1">
-                        {activeTranslationMeta?.provider === 'gemini' && '⚡ '}
-                        {activeTranslationMeta?.provider === 'local_llm' && '🖥️ '}
-                        {activeTranslationMeta?.provider === 'translation_engine' && '🌐 '}
-                        {activeTranslationMeta?.model_used || selectedProvider}
-                      </span>
-                      <span className="text-[var(--text-muted)] text-[11px]">
-                        {activeTranslationMeta?.provider === 'local_llm' 
-                          ? (language === 'vi' ? '• Chạy cục bộ offline qua Ollama' : '• Running locally via Ollama')
-                          : activeTranslationMeta?.provider === 'translation_engine'
-                          ? (language === 'vi' ? '• Dịch tự động qua Web Engine' : '• Web Engine Translation')
-                          : (language === 'vi' ? '• Cloud AI (Bảo toàn cú pháp & code)' : '• Cloud AI (Preserving code blocks)')}
-                      </span>
-                    </div>
-
-                    <div className="flex items-center gap-2 self-end sm:self-auto">
-                      <button
-                        onClick={() => handleTranslateReadme(true)}
-                        disabled={isTranslating}
-                        className="text-[11px] font-bold text-[var(--primary)] hover:underline cursor-pointer flex items-center gap-1"
-                        title={language === 'vi' ? 'Dịch lại tài liệu bằng mô hình đã chọn' : 'Re-translate with selected model'}
-                      >
-                        <RefreshCw className={`w-3 h-3 ${isTranslating ? 'animate-spin' : ''}`} />
-                        <span>{language === 'vi' ? 'Dịch lại' : 'Re-translate'}</span>
-                      </button>
-                    </div>
-                  </div>
-                )}
 
                 {/* Main Content Area */}
                 <div className="p-4 sm:p-5 rounded-2xl neu-inset max-w-full overflow-hidden min-h-[140px]">
@@ -1518,8 +1528,8 @@ export const SkillDetailModal: React.FC<SkillDetailModalProps> = ({
                       <Loader2 className="w-6 h-6 animate-spin text-amber-500" />
                       <p className="text-xs font-mono font-medium text-[var(--text-main)]">
                         {language === 'vi' 
-                          ? 'AI đang dịch tài liệu Markdown (ưu tiên Gemini 3.8 Flash / Local Ollama)...' 
-                          : 'AI is translating Markdown (Gemini 3.8 Flash / Local Ollama)...'}
+                          ? 'AI đang dịch tài liệu Markdown (Local Ollama / Google Gemini)...' 
+                          : 'AI is translating Markdown (Local Ollama / Google Gemini)...'}
                       </p>
                       <p className="text-[11px] text-[var(--text-muted)]">
                         {language === 'vi' 

@@ -177,7 +177,7 @@ Link bài viết: ${postUrl}
     <article
       id={`post-${post.skill_id}`}
       data-skill-id={post.skill_id}
-      className="rounded-3xl neu-flat transition-all overflow-hidden flex flex-col justify-between text-[var(--text-main)] scroll-mt-24"
+      className="rounded-3xl neu-flat border border-white/60 dark:border-white/5 transition-all overflow-hidden flex flex-col justify-between text-[var(--text-main)] scroll-mt-24"
     >
       {/* 1. AUTHOR & POST HEADER */}
       <div className="p-4 sm:p-5 flex items-start justify-between gap-4 bg-[var(--bg)]">

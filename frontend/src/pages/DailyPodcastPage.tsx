@@ -1225,334 +1225,355 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
             </div>
 
             {/* Cột sidebar cố định (bên phải, sticky top-6, w-80 hoặc w-96 trên desktop) */}
-            <aside className="hidden lg:block w-80 xl:w-96 shrink-0 sticky top-6 max-h-[calc(100vh-4.5rem)] overflow-y-auto scrollbar-none pr-0.5 space-y-4">
-              {/* 1. Danh sách các bài viết hôm nay (Today's Digest Posts) */}
-              <div className="rounded-3xl neu-flat p-4 sm:p-5 space-y-3">
-                <div className="flex items-center justify-between gap-2 pb-2 border-b border-[var(--shadow-dark)]/20">
-                  <div className="flex items-center gap-2">
-                    <div className="w-7 h-7 rounded-xl neu-inset text-[var(--primary)] flex items-center justify-center font-bold text-xs shrink-0 shadow-inner">
-                      <FileText className="w-3.5 h-3.5" />
-                    </div>
-                    <div>
-                      <h4 className="text-xs font-bold text-[var(--text-main)] uppercase tracking-wider font-mono">
-                        Bản Tin Hôm Nay
-                      </h4>
-                      <span className="text-[10px] text-[var(--text-muted)] font-mono">
-                        {filteredSkills.length} bài phân tích
-                      </span>
-                    </div>
-                  </div>
-                  <span className="px-2.5 py-0.5 rounded-full neu-inset-sm text-[10px] font-mono text-[var(--primary)] font-bold">
-                    {selectedDate ? selectedDate.split('-').slice(1).reverse().join('/') : 'TODAY'}
-                  </span>
-                </div>
-
-                {/* Danh sách bài viết click chuyển nhanh */}
-                <div className="space-y-1.5 max-h-[250px] overflow-y-auto pr-1 scrollbar-none">
-                  {filteredSkills.map((item, idx) => {
-                    const isCurrentActive = item.skill_id === activePostSkillId;
-                    return (
-                      <button
-                        key={item.skill_id}
-                        type="button"
-                        onClick={() => handleJumpToPost(item.skill_id)}
-                        className={`w-full text-left p-2 rounded-xl transition-all duration-200 cursor-pointer flex items-center gap-2.5 relative group ${
-                          isCurrentActive
-                            ? 'neu-inset text-[var(--primary)] font-medium shadow-inner'
-                            : 'hover:neu-flat-sm text-[var(--text-muted)] hover:text-[var(--text-main)]'
-                        }`}
-                      >
-                        {isCurrentActive && (
-                          <div className="absolute left-0 top-1.5 bottom-1.5 w-1 bg-[var(--primary)] rounded-r" />
-                        )}
-                        <span
-                          className={`w-5 h-5 rounded-lg flex items-center justify-center text-[10px] font-mono font-bold shrink-0 transition-colors ${
-                            isCurrentActive
-                              ? 'bg-[var(--primary)] text-white shadow-sm'
-                              : 'neu-inset-sm text-[var(--text-muted)] group-hover:text-[var(--text-main)]'
-                          }`}
-                        >
-                          {idx + 1}
-                        </span>
-                        <div className="min-w-0 flex-1">
-                          <div
-                            className={`text-xs truncate ${
-                              isCurrentActive
-                                ? 'font-bold text-[var(--primary)]'
-                                : 'font-semibold text-[var(--text-main)]'
-                            }`}
-                          >
-                            {item.title}
-                          </div>
-                          <div className="flex items-center gap-2 text-[10px] font-mono text-[var(--text-muted)] truncate mt-0.5">
-                            <span className="truncate">{item.name}</span>
-                            <span>•</span>
-                            <span className="text-amber-500 flex items-center gap-0.5 shrink-0 font-medium">
-                              <Star className="w-2.5 h-2.5 fill-current" />
-                              {item.stars.toLocaleString()}
-                            </span>
-                          </div>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* 2. Mục lục bài viết (Editorial Tree Outline) */}
-              {activeSummary && activePost && (
-                <div className="rounded-3xl neu-flat p-4 sm:p-5 space-y-3">
-                  <div className="flex items-center justify-between gap-2 pb-2 border-b border-[var(--shadow-dark)]/20">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <div className="w-7 h-7 rounded-xl neu-inset text-amber-500 flex items-center justify-center font-bold text-xs shrink-0 shadow-inner">
-                        <Compass className="w-3.5 h-3.5" />
+            <aside className="hidden lg:block w-80 xl:w-96 shrink-0 sticky top-6 max-h-[calc(100vh-4.5rem)] overflow-y-auto scrollbar-none pr-0.5">
+              {/* MASTER COMPANION CARD: Khối thống nhất, shadow chuẩn đồng bộ với card chính, bố cục chiều sâu 3 tầng */}
+              <div className="rounded-3xl neu-flat p-4 sm:p-5 space-y-4 border border-white/60 dark:border-white/5 transition-all">
+                {/* 1. HEADER & DANH SÁCH BÀI HÔM NAY */}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="w-8 h-8 rounded-xl neu-inset text-[var(--primary)] flex items-center justify-center font-bold text-xs shrink-0 shadow-inner">
+                        <FileText className="w-4 h-4" />
                       </div>
                       <div className="min-w-0">
-                        <h4 className="text-xs font-bold text-[var(--text-main)] uppercase tracking-wider font-mono">
-                          Mục Lục Bài Viết
+                        <h4 className="text-xs font-bold text-[var(--text-main)] uppercase tracking-wider font-mono truncate">
+                          Bản Tin Hôm Nay
                         </h4>
-                        <span className="text-[10px] text-[var(--text-muted)] truncate block max-w-[200px]">
-                          {activeSummary.title}
+                        <span className="text-[10px] text-[var(--text-muted)] font-mono block truncate">
+                          {filteredSkills.length} bài phân tích chuyên sâu
                         </span>
                       </div>
                     </div>
+                    <span className="px-2.5 py-0.5 rounded-full neu-inset-sm text-[10px] font-mono text-[var(--primary)] font-bold shrink-0">
+                      {selectedDate ? selectedDate.split('-').slice(1).reverse().join('/') : 'TODAY'}
+                    </span>
                   </div>
 
-                  {/* Sleek tree rail outline */}
-                  <div className="relative pl-3 border-l-2 border-[var(--shadow-dark)]/25 ml-2 space-y-1 text-xs py-0.5">
-                    <button
-                      type="button"
-                      onClick={() => handleJumpToSection(`post-${activePost.skill_id}-hook`)}
-                      className="w-full text-left px-2.5 py-1.5 rounded-lg text-[var(--text-muted)] hover:text-[var(--primary)] hover:bg-[var(--primary)]/10 flex items-center gap-2 transition-all cursor-pointer group"
-                    >
-                      <Sparkles className="w-3.5 h-3.5 text-[var(--primary)] shrink-0 group-hover:scale-110 transition-transform" />
-                      <span className="truncate group-hover:translate-x-0.5 transition-transform font-medium">
-                        Điểm nhấn & Hook
-                      </span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => handleJumpToSection(`post-${activePost.skill_id}-story`)}
-                      className="w-full text-left px-2.5 py-1.5 rounded-lg text-[var(--text-muted)] hover:text-rose-500 hover:bg-rose-500/10 flex items-center gap-2 transition-all cursor-pointer group"
-                    >
-                      <AlertTriangle className="w-3.5 h-3.5 text-rose-500 shrink-0 group-hover:scale-110 transition-transform" />
-                      <span className="truncate group-hover:translate-x-0.5 transition-transform font-medium">
-                        Nỗi đau & Trải nghiệm
-                      </span>
-                    </button>
-
-                    {activePost.core_mechanism && (
-                      <button
-                        type="button"
-                        onClick={() => handleJumpToSection(`post-${activePost.skill_id}-mechanism`)}
-                        className="w-full text-left px-2.5 py-1.5 rounded-lg text-[var(--text-muted)] hover:text-blue-500 hover:bg-blue-500/10 flex items-center gap-2 transition-all cursor-pointer group"
-                      >
-                        <Cpu className="w-3.5 h-3.5 text-blue-500 shrink-0 group-hover:scale-110 transition-transform" />
-                        <span className="truncate group-hover:translate-x-0.5 transition-transform font-medium">
-                          Kiến trúc & Cơ chế
-                        </span>
-                      </button>
-                    )}
-
-                    {activePost.key_features && activePost.key_features.length > 0 && (
-                      <button
-                        type="button"
-                        onClick={() => handleJumpToSection(`post-${activePost.skill_id}-features`)}
-                        className="w-full text-left px-2.5 py-1.5 rounded-lg text-[var(--text-muted)] hover:text-amber-500 hover:bg-amber-500/10 flex items-center gap-2 transition-all cursor-pointer group"
-                      >
-                        <Zap className="w-3.5 h-3.5 text-amber-500 shrink-0 group-hover:scale-110 transition-transform" />
-                        <span className="truncate group-hover:translate-x-0.5 transition-transform font-medium">
-                          Tính năng nổi bật
-                        </span>
-                      </button>
-                    )}
-
-                    {activePost.code_example?.code && (
-                      <button
-                        type="button"
-                        onClick={() => handleJumpToSection(`post-${activePost.skill_id}-code`)}
-                        className="w-full text-left px-2.5 py-1.5 rounded-lg text-[var(--text-muted)] hover:text-emerald-500 hover:bg-emerald-500/10 flex items-center gap-2 transition-all cursor-pointer group"
-                      >
-                        <Terminal className="w-3.5 h-3.5 text-emerald-500 shrink-0 group-hover:scale-110 transition-transform" />
-                        <span className="truncate group-hover:translate-x-0.5 transition-transform font-medium">
-                          Code mẫu ({activePost.code_example.filename || activePost.code_example.language})
-                        </span>
-                      </button>
-                    )}
-
-                    {activePost.pros_and_cons && (
-                      <button
-                        type="button"
-                        onClick={() => handleJumpToSection(`post-${activePost.skill_id}-proscons`)}
-                        className="w-full text-left px-2.5 py-1.5 rounded-lg text-[var(--text-muted)] hover:text-teal-500 hover:bg-teal-500/10 flex items-center gap-2 transition-all cursor-pointer group"
-                      >
-                        <Check className="w-3.5 h-3.5 text-teal-500 shrink-0 group-hover:scale-110 transition-transform" />
-                        <span className="truncate group-hover:translate-x-0.5 transition-transform font-medium">
-                          Ưu điểm & Lưu ý
-                        </span>
-                      </button>
-                    )}
-
-                    <button
-                      type="button"
-                      onClick={() => handleJumpToSection(`post-${activePost.skill_id}-audience`)}
-                      className="w-full text-left px-2.5 py-1.5 rounded-lg text-[var(--text-muted)] hover:text-indigo-500 hover:bg-indigo-500/10 flex items-center gap-2 transition-all cursor-pointer group"
-                    >
-                      <Target className="w-3.5 h-3.5 text-indigo-500 shrink-0 group-hover:scale-110 transition-transform" />
-                      <span className="truncate group-hover:translate-x-0.5 transition-transform font-medium">
-                        Đối tượng phù hợp
-                      </span>
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* 3. Thao tác nhanh (Quick Actions Deck - 2x2 Grid + CTA) */}
-              {activeSummary && (
-                <div className="rounded-3xl neu-flat p-4 sm:p-5 space-y-3">
-                  <div className="flex items-center gap-2 pb-2 border-b border-[var(--shadow-dark)]/20">
-                    <div className="w-7 h-7 rounded-xl neu-inset text-emerald-500 flex items-center justify-center font-bold text-xs shrink-0 shadow-inner">
-                      <Zap className="w-3.5 h-3.5" />
-                    </div>
-                    <div>
-                      <h4 className="text-xs font-bold text-[var(--text-main)] uppercase tracking-wider font-mono">
-                        Thao Tác Nhanh
-                      </h4>
-                      <span className="text-[10px] text-[var(--text-muted)] font-mono">
-                        Công cụ & Tương tác
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-2">
-                    {/* 1. Nghe Audio */}
-                    <button
-                      type="button"
-                      onClick={() =>
-                        handleReadSkillSegment(
-                          activeSummary.podcast_snippet ||
-                            `${activeSummary.title}. ${activeSummary.what_it_does}. Nỗi đau giải quyết: ${activeSummary.pain_point_solved}`
-                        )
-                      }
-                      className="p-2.5 rounded-2xl neu-flat-sm hover:neu-inset-sm flex flex-col items-start gap-1.5 transition-all text-left group cursor-pointer"
-                      title="Nghe giọng AI đọc tóm tắt công cụ này"
-                    >
-                      <div className="w-7 h-7 rounded-xl bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 flex items-center justify-center group-hover:scale-105 transition-transform shadow-xs">
-                        <Headphones className="w-3.5 h-3.5" />
-                      </div>
-                      <div>
-                        <span className="text-xs font-bold text-[var(--text-main)] block leading-tight">
-                          Nghe Audio
-                        </span>
-                        <span className="text-[9px] font-mono text-[var(--text-muted)]">
-                          TTS Voice
-                        </span>
-                      </div>
-                    </button>
-
-                    {/* 2. Hỏi Agent Chat */}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (onOpenAgentChat) {
-                          onOpenAgentChat(
-                            `Phân tích kỹ năng ${activeSummary.title} (${activeSummary.name}) và hướng dẫn tôi áp dụng vào dự án thực tế.`
-                          );
-                        } else {
-                          showToast(`Hãy mở tab Agent Chat và hỏi về ${activeSummary.title}`, 'info');
-                        }
-                      }}
-                      className="p-2.5 rounded-2xl neu-flat-sm hover:neu-inset-sm flex flex-col items-start gap-1.5 transition-all text-left group cursor-pointer"
-                      title="Hỏi cố vấn RAG AI về kỹ năng này"
-                    >
-                      <div className="w-7 h-7 rounded-xl bg-[var(--primary)]/15 text-[var(--primary)] flex items-center justify-center group-hover:scale-105 transition-transform shadow-xs">
-                        <Sparkles className="w-3.5 h-3.5" />
-                      </div>
-                      <div>
-                        <span className="text-xs font-bold text-[var(--text-main)] block leading-tight">
-                          Hỏi AI Chat
-                        </span>
-                        <span className="text-[9px] font-mono text-[var(--primary)] font-semibold">
-                          RAG Assistant
-                        </span>
-                      </div>
-                    </button>
-
-                    {/* 3. Bookmark */}
-                    {onToggleBookmark && (
-                      <button
-                        type="button"
-                        onClick={() => onToggleBookmark(activeSummary.skill_id)}
-                        className={`p-2.5 rounded-2xl flex flex-col items-start gap-1.5 transition-all text-left group cursor-pointer ${
-                          bookmarkedSkillIds.has(activeSummary.skill_id)
-                            ? 'neu-inset text-[var(--primary)] shadow-inner'
-                            : 'neu-flat-sm hover:neu-inset-sm text-[var(--text-muted)]'
-                        }`}
-                        title={
-                          bookmarkedSkillIds.has(activeSummary.skill_id)
-                            ? 'Bỏ lưu bookmark'
-                            : 'Lưu bài viết này'
-                        }
-                      >
-                        <div
-                          className={`w-7 h-7 rounded-xl flex items-center justify-center group-hover:scale-105 transition-transform shadow-xs ${
-                            bookmarkedSkillIds.has(activeSummary.skill_id)
-                              ? 'bg-[var(--primary)] text-white shadow-sm'
-                              : 'bg-indigo-500/15 text-indigo-500'
+                  {/* Feed Switcher List (Recessed Tray with Sleek Interactive Pills) */}
+                  <div className="p-1.5 rounded-2xl neu-inset-sm space-y-1 max-h-[210px] overflow-y-auto scrollbar-none bg-black/[0.015] dark:bg-white/[0.015] border border-[var(--shadow-dark)]/15">
+                    {filteredSkills.map((item, idx) => {
+                      const isCurrentActive = item.skill_id === activePostSkillId;
+                      return (
+                        <button
+                          key={item.skill_id}
+                          type="button"
+                          onClick={() => handleJumpToPost(item.skill_id)}
+                          className={`w-full text-left p-2 rounded-xl transition-all duration-200 cursor-pointer flex items-center gap-2.5 group relative ${
+                            isCurrentActive
+                              ? 'bg-[var(--primary)]/10 text-[var(--primary)] border border-[var(--primary)]/30 font-semibold shadow-xs'
+                              : 'hover:bg-[var(--shadow-dark)]/15 text-[var(--text-muted)] hover:text-[var(--text-main)]'
                           }`}
                         >
-                          <Bookmark
-                            className={`w-3.5 h-3.5 ${
-                              bookmarkedSkillIds.has(activeSummary.skill_id) ? 'fill-current' : ''
+                          <span
+                            className={`w-5 h-5 rounded-lg flex items-center justify-center text-[10px] font-mono font-bold shrink-0 transition-all ${
+                              isCurrentActive
+                                ? 'bg-[var(--primary)] text-white shadow-xs scale-105'
+                                : 'neu-inset-sm text-[var(--text-muted)] group-hover:text-[var(--text-main)]'
                             }`}
-                          />
-                        </div>
-                        <div>
-                          <span className="text-xs font-bold text-[var(--text-main)] block leading-tight">
-                            {bookmarkedSkillIds.has(activeSummary.skill_id) ? 'Đã Lưu' : 'Bookmark'}
+                          >
+                            {idx + 1}
                           </span>
-                          <span className="text-[9px] font-mono text-[var(--text-muted)]">
-                            {bookmarkedSkillIds.has(activeSummary.skill_id) ? 'ĐÃ LƯU' : 'Lưu lại'}
-                          </span>
-                        </div>
-                      </button>
-                    )}
+                          <div className="min-w-0 flex-1">
+                            <div
+                              className={`text-xs truncate ${
+                                isCurrentActive
+                                  ? 'font-bold text-[var(--primary)]'
+                                  : 'font-medium text-[var(--text-main)]'
+                              }`}
+                            >
+                              {item.title}
+                            </div>
+                            <div className="flex items-center gap-2 text-[10px] font-mono text-[var(--text-muted)] truncate mt-0.5">
+                              <span className="truncate">{item.name}</span>
+                              <span>•</span>
+                              <span className="text-amber-500 flex items-center gap-0.5 shrink-0 font-medium">
+                                <Star className="w-2.5 h-2.5 fill-current" />
+                                {item.stars.toLocaleString()}
+                              </span>
+                            </div>
+                          </div>
+                          {isCurrentActive && (
+                            <div className="w-1.5 h-1.5 rounded-full bg-[var(--primary)] animate-pulse shrink-0" />
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
 
-                    {/* 4. Share Post */}
-                    <button
-                      type="button"
-                      onClick={handleShareActivePost}
-                      className="p-2.5 rounded-2xl neu-flat-sm hover:neu-inset-sm flex flex-col items-start gap-1.5 transition-all text-left group cursor-pointer"
-                      title="Sao chép liên kết chia sẻ bài viết"
-                    >
-                      <div className="w-7 h-7 rounded-xl bg-amber-500/15 text-amber-500 flex items-center justify-center group-hover:scale-105 transition-transform shadow-xs">
-                        <Share2 className="w-3.5 h-3.5" />
+                <div className="neu-divider" />
+
+                {/* 2. MỤC LỤC BÀI VIẾT (Editorial Outline Deck with Connected Tree Rail) */}
+                {activeSummary && activePost && (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div className="w-7 h-7 rounded-lg neu-inset text-amber-500 flex items-center justify-center font-bold text-xs shrink-0 shadow-inner">
+                          <Compass className="w-3.5 h-3.5" />
+                        </div>
+                        <div className="min-w-0">
+                          <h4 className="text-xs font-bold text-[var(--text-main)] uppercase tracking-wider font-mono">
+                            Mục Lục Bài Viết
+                          </h4>
+                          <span className="text-[10px] text-[var(--text-muted)] truncate block max-w-[190px]">
+                            {activeSummary.title}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Recessed Tray with Stepper Tree Rail */}
+                    <div className="p-3 rounded-2xl neu-inset-sm bg-black/[0.015] dark:bg-white/[0.015] border border-[var(--shadow-dark)]/15">
+                      <div className="relative pl-3 border-l-2 border-[var(--primary)]/30 ml-1.5 space-y-1 text-xs">
+                        <button
+                          type="button"
+                          onClick={() => handleJumpToSection(`post-${activePost.skill_id}-hook`)}
+                          className="w-full text-left px-2.5 py-1.5 rounded-xl text-[var(--text-muted)] hover:text-[var(--primary)] hover:bg-[var(--primary)]/10 flex items-center justify-between transition-all cursor-pointer group"
+                        >
+                          <div className="flex items-center gap-2 min-w-0">
+                            <Sparkles className="w-3.5 h-3.5 text-[var(--primary)] shrink-0 group-hover:scale-110 transition-transform" />
+                            <span className="truncate font-medium">Điểm nhấn & Hook</span>
+                          </div>
+                          <ChevronRight className="w-3 h-3 text-[var(--primary)] opacity-0 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all shrink-0" />
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleJumpToSection(`post-${activePost.skill_id}-story`)}
+                          className="w-full text-left px-2.5 py-1.5 rounded-xl text-[var(--text-muted)] hover:text-rose-500 hover:bg-rose-500/10 flex items-center justify-between transition-all cursor-pointer group"
+                        >
+                          <div className="flex items-center gap-2 min-w-0">
+                            <AlertTriangle className="w-3.5 h-3.5 text-rose-500 shrink-0 group-hover:scale-110 transition-transform" />
+                            <span className="truncate font-medium">Nỗi đau & Trải nghiệm</span>
+                          </div>
+                          <ChevronRight className="w-3 h-3 text-rose-500 opacity-0 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all shrink-0" />
+                        </button>
+
+                        {activePost.core_mechanism && (
+                          <button
+                            type="button"
+                            onClick={() => handleJumpToSection(`post-${activePost.skill_id}-mechanism`)}
+                            className="w-full text-left px-2.5 py-1.5 rounded-xl text-[var(--text-muted)] hover:text-blue-500 hover:bg-blue-500/10 flex items-center justify-between transition-all cursor-pointer group"
+                          >
+                            <div className="flex items-center gap-2 min-w-0">
+                              <Cpu className="w-3.5 h-3.5 text-blue-500 shrink-0 group-hover:scale-110 transition-transform" />
+                              <span className="truncate font-medium">Kiến trúc & Cơ chế</span>
+                            </div>
+                            <ChevronRight className="w-3 h-3 text-blue-500 opacity-0 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all shrink-0" />
+                          </button>
+                        )}
+
+                        {activePost.key_features && activePost.key_features.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => handleJumpToSection(`post-${activePost.skill_id}-features`)}
+                            className="w-full text-left px-2.5 py-1.5 rounded-xl text-[var(--text-muted)] hover:text-amber-500 hover:bg-amber-500/10 flex items-center justify-between transition-all cursor-pointer group"
+                          >
+                            <div className="flex items-center gap-2 min-w-0">
+                              <Zap className="w-3.5 h-3.5 text-amber-500 shrink-0 group-hover:scale-110 transition-transform" />
+                              <span className="truncate font-medium">Tính năng nổi bật</span>
+                            </div>
+                            <ChevronRight className="w-3 h-3 text-amber-500 opacity-0 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all shrink-0" />
+                          </button>
+                        )}
+
+                        {activePost.code_example?.code && (
+                          <button
+                            type="button"
+                            onClick={() => handleJumpToSection(`post-${activePost.skill_id}-code`)}
+                            className="w-full text-left px-2.5 py-1.5 rounded-xl text-[var(--text-muted)] hover:text-emerald-500 hover:bg-emerald-500/10 flex items-center justify-between transition-all cursor-pointer group"
+                          >
+                            <div className="flex items-center gap-2 min-w-0">
+                              <Terminal className="w-3.5 h-3.5 text-emerald-500 shrink-0 group-hover:scale-110 transition-transform" />
+                              <span className="truncate font-medium">
+                                Code mẫu ({activePost.code_example.filename || activePost.code_example.language})
+                              </span>
+                            </div>
+                            <ChevronRight className="w-3 h-3 text-emerald-500 opacity-0 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all shrink-0" />
+                          </button>
+                        )}
+
+                        {activePost.pros_and_cons && (
+                          <button
+                            type="button"
+                            onClick={() => handleJumpToSection(`post-${activePost.skill_id}-proscons`)}
+                            className="w-full text-left px-2.5 py-1.5 rounded-xl text-[var(--text-muted)] hover:text-teal-500 hover:bg-teal-500/10 flex items-center justify-between transition-all cursor-pointer group"
+                          >
+                            <div className="flex items-center gap-2 min-w-0">
+                              <Check className="w-3.5 h-3.5 text-teal-500 shrink-0 group-hover:scale-110 transition-transform" />
+                              <span className="truncate font-medium">Ưu điểm & Lưu ý</span>
+                            </div>
+                            <ChevronRight className="w-3 h-3 text-teal-500 opacity-0 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all shrink-0" />
+                          </button>
+                        )}
+
+                        <button
+                          type="button"
+                          onClick={() => handleJumpToSection(`post-${activePost.skill_id}-audience`)}
+                          className="w-full text-left px-2.5 py-1.5 rounded-xl text-[var(--text-muted)] hover:text-indigo-500 hover:bg-indigo-500/10 flex items-center justify-between transition-all cursor-pointer group"
+                        >
+                          <div className="flex items-center gap-2 min-w-0">
+                            <Target className="w-3.5 h-3.5 text-indigo-500 shrink-0 group-hover:scale-110 transition-transform" />
+                            <span className="truncate font-medium">Đối tượng phù hợp</span>
+                          </div>
+                          <ChevronRight className="w-3 h-3 text-indigo-500 opacity-0 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all shrink-0" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                <div className="neu-divider" />
+
+                {/* 3. THAO TÁC NHANH (Tactile Quick Actions Deck) */}
+                {activeSummary && (
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <div className="w-7 h-7 rounded-lg neu-inset text-emerald-500 flex items-center justify-center font-bold text-xs shrink-0 shadow-inner">
+                        <Zap className="w-3.5 h-3.5" />
                       </div>
                       <div>
-                        <span className="text-xs font-bold text-[var(--text-main)] block leading-tight">
-                          Chia Sẻ
-                        </span>
-                        <span className="text-[9px] font-mono text-[var(--text-muted)]">
-                          Copy Link
+                        <h4 className="text-xs font-bold text-[var(--text-main)] uppercase tracking-wider font-mono">
+                          Thao Tác Nhanh
+                        </h4>
+                        <span className="text-[10px] text-[var(--text-muted)] font-mono">
+                          Công cụ & Tương tác
                         </span>
                       </div>
-                    </button>
-                  </div>
+                    </div>
 
-                  {/* 5. Cấu hình & Tích hợp (Primary CTA) */}
-                  {onSelectSkillById && (
-                    <button
-                      type="button"
-                      onClick={() => onSelectSkillById(activeSummary.skill_id)}
-                      className="w-full px-4 py-2.5 rounded-2xl neu-primary text-xs font-bold text-white flex items-center justify-center gap-2 transition-all active:scale-95 cursor-pointer shadow-md mt-1 group"
-                    >
-                      <span>Cấu hình & Tích hợp Skill</span>
-                      <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
-                    </button>
-                  )}
-                </div>
-              )}
+                    {/* Recessed Control Deck for Buttons */}
+                    <div className="p-3 rounded-2xl neu-inset-sm space-y-2.5 bg-black/[0.015] dark:bg-white/[0.015] border border-[var(--shadow-dark)]/15">
+                      <div className="grid grid-cols-2 gap-2">
+                        {/* 1. Nghe Audio */}
+                        <button
+                          type="button"
+                          onClick={() =>
+                            handleReadSkillSegment(
+                              activeSummary.podcast_snippet ||
+                                `${activeSummary.title}. ${activeSummary.what_it_does}. Nỗi đau giải quyết: ${activeSummary.pain_point_solved}`
+                            )
+                          }
+                          className="p-2.5 rounded-xl neu-btn flex items-center gap-2 text-left group cursor-pointer border border-white/60 dark:border-white/5 transition-all"
+                          title="Nghe giọng AI đọc tóm tắt công cụ này"
+                        >
+                          <div className="w-7 h-7 rounded-lg bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform shadow-xs">
+                            <Headphones className="w-3.5 h-3.5" />
+                          </div>
+                          <div className="min-w-0">
+                            <span className="text-xs font-bold text-[var(--text-main)] block leading-tight truncate">
+                              Nghe Audio
+                            </span>
+                            <span className="text-[9px] font-mono text-[var(--text-muted)] block truncate">
+                              TTS Voice
+                            </span>
+                          </div>
+                        </button>
+
+                        {/* 2. Hỏi Agent Chat */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (onOpenAgentChat) {
+                              onOpenAgentChat(
+                                `Phân tích kỹ năng ${activeSummary.title} (${activeSummary.name}) và hướng dẫn tôi áp dụng vào dự án thực tế.`
+                              );
+                            } else {
+                              showToast(`Hãy mở tab Agent Chat và hỏi về ${activeSummary.title}`, 'info');
+                            }
+                          }}
+                          className="p-2.5 rounded-xl neu-btn flex items-center gap-2 text-left group cursor-pointer border border-white/60 dark:border-white/5 transition-all"
+                          title="Hỏi cố vấn RAG AI về kỹ năng này"
+                        >
+                          <div className="w-7 h-7 rounded-lg bg-[var(--primary)]/15 text-[var(--primary)] flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform shadow-xs">
+                            <Sparkles className="w-3.5 h-3.5" />
+                          </div>
+                          <div className="min-w-0">
+                            <span className="text-xs font-bold text-[var(--text-main)] block leading-tight truncate">
+                              Hỏi AI Chat
+                            </span>
+                            <span className="text-[9px] font-mono text-[var(--primary)] font-semibold block truncate">
+                              RAG Assistant
+                            </span>
+                          </div>
+                        </button>
+
+                        {/* 3. Bookmark */}
+                        {onToggleBookmark && (
+                          <button
+                            type="button"
+                            onClick={() => onToggleBookmark(activeSummary.skill_id)}
+                            className={`p-2.5 rounded-xl flex items-center gap-2 text-left group cursor-pointer transition-all ${
+                              bookmarkedSkillIds.has(activeSummary.skill_id)
+                                ? 'neu-inset text-[var(--primary)] border border-[var(--primary)]/30 font-semibold shadow-inner'
+                                : 'neu-btn text-[var(--text-muted)] border border-white/60 dark:border-white/5'
+                            }`}
+                            title={
+                              bookmarkedSkillIds.has(activeSummary.skill_id)
+                                ? 'Bỏ lưu bookmark'
+                                : 'Lưu bài viết này'
+                            }
+                          >
+                            <div
+                              className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform shadow-xs ${
+                                bookmarkedSkillIds.has(activeSummary.skill_id)
+                                  ? 'bg-[var(--primary)] text-white shadow-xs'
+                                  : 'bg-indigo-500/15 text-indigo-500'
+                              }`}
+                            >
+                              <Bookmark
+                                className={`w-3.5 h-3.5 ${
+                                  bookmarkedSkillIds.has(activeSummary.skill_id) ? 'fill-current' : ''
+                                }`}
+                              />
+                            </div>
+                            <div className="min-w-0">
+                              <span className="text-xs font-bold text-[var(--text-main)] block leading-tight truncate">
+                                {bookmarkedSkillIds.has(activeSummary.skill_id) ? 'Đã Lưu' : 'Bookmark'}
+                              </span>
+                              <span className="text-[9px] font-mono text-[var(--text-muted)] block truncate">
+                                {bookmarkedSkillIds.has(activeSummary.skill_id) ? 'ĐÃ LƯU' : 'Lưu lại'}
+                              </span>
+                            </div>
+                          </button>
+                        )}
+
+                        {/* 4. Share Post */}
+                        <button
+                          type="button"
+                          onClick={handleShareActivePost}
+                          className="p-2.5 rounded-xl neu-btn flex items-center gap-2 text-left group cursor-pointer border border-white/60 dark:border-white/5 transition-all"
+                          title="Sao chép liên kết chia sẻ bài viết"
+                        >
+                          <div className="w-7 h-7 rounded-lg bg-amber-500/15 text-amber-500 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform shadow-xs">
+                            <Share2 className="w-3.5 h-3.5" />
+                          </div>
+                          <div className="min-w-0">
+                            <span className="text-xs font-bold text-[var(--text-main)] block leading-tight truncate">
+                              Chia Sẻ
+                            </span>
+                            <span className="text-[9px] font-mono text-[var(--text-muted)] block truncate">
+                              Copy Link
+                            </span>
+                          </div>
+                        </button>
+                      </div>
+
+                      {/* 5. Cấu hình & Tích hợp (Primary CTA inside Deck) */}
+                      {onSelectSkillById && (
+                        <button
+                          type="button"
+                          onClick={() => onSelectSkillById(activeSummary.skill_id)}
+                          className="w-full px-3 py-2.5 rounded-xl neu-primary text-xs font-bold text-white flex items-center justify-center gap-2 transition-all active:scale-95 cursor-pointer shadow-md group mt-1"
+                        >
+                          <span>Cấu hình & Tích hợp Skill</span>
+                          <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
             </aside>
           </div>
         ) : (
