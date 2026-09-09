@@ -25,6 +25,7 @@ export interface NeuSelectProps<T = string | number> {
   searchPlaceholder?: string;
   disabled?: boolean;
   align?: 'left' | 'right' | 'auto';
+  direction?: 'auto' | 'up' | 'down';
   title?: string;
   fullWidth?: boolean;
   renderOption?: (option: NeuSelectOption<T>, isSelected: boolean) => React.ReactNode;
@@ -44,6 +45,7 @@ export function NeuSelect<T extends string | number>({
   searchPlaceholder = 'Tìm kiếm nhanh...',
   disabled = false,
   align = 'auto',
+  direction = 'auto',
   title,
   fullWidth = false,
   renderOption,
@@ -55,6 +57,7 @@ export function NeuSelect<T extends string | number>({
   const containerRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const [computedAlign, setComputedAlign] = useState<'left' | 'right'>(align === 'right' ? 'right' : 'left');
+  const [computedDirection, setComputedDirection] = useState<'up' | 'down'>(direction === 'up' ? 'up' : 'down');
 
   // Handle open and close transitions
   useEffect(() => {
@@ -73,35 +76,55 @@ export function NeuSelect<T extends string | number>({
     }
   }, [isOpen]);
 
-  // Compute smart alignment to avoid viewport overflow
+  // Compute smart horizontal alignment & vertical direction to avoid viewport overflow
   useEffect(() => {
     if (!isOpen) return;
+
+    // Horizontal alignment
     if (align === 'right') {
       setComputedAlign('right');
-      return;
-    }
-    if (align === 'left') {
+    } else if (align === 'left') {
       if (containerRef.current) {
         const rect = containerRef.current.getBoundingClientRect();
-        if (rect.left + 220 > window.innerWidth - 16) {
+        const screenWidth = window.innerWidth;
+        if (rect.left + 320 > screenWidth - 16) {
           setComputedAlign('right');
-          return;
+        } else {
+          setComputedAlign('left');
         }
-      }
-      setComputedAlign('left');
-      return;
-    }
-    // Auto alignment:
-    if (containerRef.current) {
-      const rect = containerRef.current.getBoundingClientRect();
-      const screenWidth = window.innerWidth;
-      if (rect.left + 220 > screenWidth - 16 || rect.left > screenWidth * 0.55) {
-        setComputedAlign('right');
       } else {
         setComputedAlign('left');
       }
+    } else {
+      // Auto alignment:
+      if (containerRef.current) {
+        const rect = containerRef.current.getBoundingClientRect();
+        const screenWidth = window.innerWidth;
+        if (rect.left + 320 > screenWidth - 16 || rect.left > screenWidth * 0.48) {
+          setComputedAlign('right');
+        } else {
+          setComputedAlign('left');
+        }
+      }
     }
-  }, [isOpen, align]);
+
+    // Vertical direction (flip upwards if not enough room below)
+    if (direction === 'up') {
+      setComputedDirection('up');
+    } else if (direction === 'down') {
+      setComputedDirection('down');
+    } else if (containerRef.current) {
+      const rect = containerRef.current.getBoundingClientRect();
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const spaceAbove = rect.top;
+      // If space below is less than 250px and there's more room above, flip up
+      if (spaceBelow < 250 && spaceAbove > spaceBelow) {
+        setComputedDirection('up');
+      } else {
+        setComputedDirection('down');
+      }
+    }
+  }, [isOpen, align, direction]);
 
   // Auto-enable search if there are more than 7 options
   const isSearchable = searchable !== undefined ? searchable : options.length > 7;
@@ -196,7 +219,7 @@ export function NeuSelect<T extends string | number>({
   return (
     <div
       ref={containerRef}
-      className={`relative inline-block ${fullWidth ? 'w-full' : ''}`}
+      className={`relative ${fullWidth ? 'w-full' : 'inline-block'} max-w-full min-w-0`}
       title={title}
     >
       {/* Trigger Button */}
@@ -206,7 +229,7 @@ export function NeuSelect<T extends string | number>({
         onClick={() => {
           if (!disabled) setIsOpen(!isOpen);
         }}
-        className={`flex items-center justify-between text-left transition-all duration-200 ease-spring hover:-translate-y-0.5 active:duration-75 active:ease-spring-press active:scale-[0.98] active:translate-y-[1.5px] cursor-pointer font-medium select-none ${
+        className={`flex items-center justify-between text-left transition-all duration-200 ease-spring hover:-translate-y-0.5 active:duration-75 active:ease-spring-press active:scale-[0.98] active:translate-y-[1.5px] cursor-pointer font-medium select-none max-w-full min-w-0 overflow-hidden ${
           sizeStyles[size]
         } ${variantStyles[variant]} ${
           fullWidth ? 'w-full' : ''
@@ -214,18 +237,18 @@ export function NeuSelect<T extends string | number>({
           isOpen ? 'ring-1 ring-[var(--primary)]/40 text-[var(--primary)]' : 'text-[var(--text-main)]'
         } ${disabled ? 'opacity-40 cursor-not-allowed' : ''} ${className}`}
       >
-        <div className="flex items-center gap-2 min-w-0 truncate">
+        <div className="flex items-center gap-2 min-w-0 flex-1 overflow-hidden">
           {icon && (
             <span className="shrink-0 text-[var(--primary)]">{icon}</span>
           )}
           {selectedOption?.icon && !icon && (
             <span className="shrink-0">{selectedOption.icon}</span>
           )}
-          <span className="truncate">
+          <span className="truncate min-w-0 flex-1">
             {selectedOption ? selectedOption.label : placeholder}
           </span>
           {selectedOption?.badge && (
-            <span className="shrink-0 px-1.5 py-0.5 text-[10px] font-mono rounded-md neu-inset-sm text-[var(--primary)] font-bold whitespace-nowrap inline-flex items-center">
+            <span className="shrink-0 px-1.5 py-0.5 text-[10px] font-mono rounded-md neu-inset-sm text-[var(--primary)] font-bold whitespace-nowrap inline-flex items-center max-w-[110px] truncate">
               {selectedOption.badge}
             </span>
           )}
@@ -242,13 +265,19 @@ export function NeuSelect<T extends string | number>({
       {isMounted && (
         <div
           className={`absolute ${
-            computedAlign === 'right' ? 'right-0 origin-top-right' : 'left-0 origin-top-left'
-          } top-full mt-2 z-50 min-w-[210px] max-w-[calc(100vw-32px)] neu-dropdown backdrop-blur-xl bg-[var(--bg)]/98 rounded-2xl p-1.5 shadow-2xl transition-all duration-200 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${
+            computedAlign === 'right' ? 'right-0' : 'left-0'
+          } ${
+            computedDirection === 'up'
+              ? 'bottom-full mb-2 origin-bottom'
+              : 'top-full mt-2 origin-top'
+          } z-50 ${
+            fullWidth ? 'w-full min-w-[260px]' : 'w-max min-w-[220px]'
+          } max-w-[min(480px,calc(100vw-2rem))] neu-dropdown backdrop-blur-xl bg-[var(--bg)]/98 rounded-2xl p-1.5 shadow-2xl transition-all duration-200 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${
             isVisible
               ? 'opacity-100 scale-100 translate-y-0 pointer-events-auto'
+              : computedDirection === 'up'
+              ? 'opacity-0 scale-95 translate-y-1.5 pointer-events-none'
               : 'opacity-0 scale-95 -translate-y-1.5 pointer-events-none'
-          } ${
-            fullWidth ? 'w-full' : ''
           } ${dropdownClassName}`}
           style={{ maxHeight: '340px' }}
         >
