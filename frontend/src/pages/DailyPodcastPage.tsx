@@ -893,8 +893,8 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
         {/* Audio Player Control Deck - Dedicated Soft UI Sunken Panel */}
         <div className="p-4 sm:p-5 rounded-2xl neu-inset-sm space-y-3.5">
           {/* Top of Deck: Voice Selector & Action Buttons */}
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
-            <div className="flex-1 min-w-0">
+          <div className="flex flex-col xl:flex-row items-stretch xl:items-center justify-between gap-3">
+            <div className="w-full xl:max-w-md min-w-0">
               <NeuSelect
                 value={selectedVoice}
                 onChange={(newVoice) => {
@@ -909,13 +909,14 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
                 options={voiceSelectOptions}
                 size="sm"
                 variant="inset"
+                fullWidth={true}
                 searchable={true}
                 searchPlaceholder="Tìm kiếm giọng đọc..."
                 title="Chọn mô hình giọng đọc AI"
               />
             </div>
 
-            <div className="flex items-center gap-2 shrink-0 justify-end flex-wrap">
+            <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap shrink-0 justify-start xl:justify-end">
               {/* Translate Summary (VI / EN) Toggle Button */}
               <button
                 onClick={handleToggleTranslate}
@@ -925,14 +926,14 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
                     ? 'Chuyển về bản gốc Tiếng Việt'
                     : 'Dịch toàn bộ bản tóm tắt và các bài viết sang Tiếng Anh bằng Gemini 3.8 Flash'
                 }
-                className={`px-3 py-2 rounded-xl neu-btn disabled:opacity-50 flex items-center gap-1.5 text-xs font-semibold cursor-pointer transition-all ${
+                className={`flex-1 sm:flex-none justify-center px-3 py-2 rounded-xl neu-btn disabled:opacity-50 flex items-center gap-1.5 text-xs font-semibold cursor-pointer transition-all ${
                   activeDisplayLang === 'en'
                     ? 'neu-inset text-[var(--primary)] font-bold'
                     : 'text-[var(--text-muted)] hover:text-[var(--primary)]'
                 }`}
               >
                 <Globe
-                  className={`w-3.5 h-3.5 ${
+                  className={`w-3.5 h-3.5 shrink-0 ${
                     isTranslating
                       ? 'animate-spin text-[var(--primary)]'
                       : activeDisplayLang === 'en'
@@ -957,9 +958,9 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
                 }}
                 disabled={isAudioLoading || loadingDigest}
                 title="Ép AI tạo lại âm thanh bằng giọng đọc này"
-                className="px-3 py-2 rounded-xl text-[var(--text-muted)] hover:text-[var(--primary)] neu-btn disabled:opacity-50 flex items-center gap-1.5 text-xs font-semibold cursor-pointer"
+                className="flex-1 sm:flex-none justify-center px-3 py-2 rounded-xl text-[var(--text-muted)] hover:text-[var(--primary)] neu-btn disabled:opacity-50 flex items-center gap-1.5 text-xs font-semibold cursor-pointer"
               >
-                <Zap className={`w-3.5 h-3.5 ${isAudioLoading ? 'animate-spin text-[var(--primary)]' : ''}`} />
+                <Zap className={`w-3.5 h-3.5 shrink-0 ${isAudioLoading ? 'animate-spin text-[var(--primary)]' : ''}`} />
                 <span className="text-[11px] whitespace-nowrap">Tạo lại Audio</span>
               </button>
 
@@ -968,10 +969,10 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
                 onClick={() => regenerateMutation.mutate()}
                 disabled={regenerateMutation.isPending || loadingDigest}
                 title={t('podcast_regenerate')}
-                className="px-3 py-2 rounded-xl text-[var(--text-muted)] hover:text-[var(--primary)] neu-btn disabled:opacity-50 flex items-center gap-1.5 text-xs font-semibold cursor-pointer"
+                className="flex-1 sm:flex-none justify-center px-3 py-2 rounded-xl text-[var(--text-muted)] hover:text-[var(--primary)] neu-btn disabled:opacity-50 flex items-center gap-1.5 text-xs font-semibold cursor-pointer"
               >
                 <RotateCcw
-                  className={`w-3.5 h-3.5 ${regenerateMutation.isPending ? 'animate-spin text-[var(--primary)]' : ''}`}
+                  className={`w-3.5 h-3.5 shrink-0 ${regenerateMutation.isPending ? 'animate-spin text-[var(--primary)]' : ''}`}
                 />
                 <span className="text-[11px] whitespace-nowrap">Tái tạo bài</span>
               </button>
@@ -1043,11 +1044,11 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
 
         {/* BOTTOM TABS: SCRIPT VS HIGHLIGHTS */}
         <div className="pt-2 border-t border-[var(--shadow-dark)]/20">
-          <div className="flex flex-wrap items-center justify-between gap-2 mb-2.5">
-            <div className="flex items-center gap-1.5 sm:gap-2">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 mb-2.5">
+            <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto pb-0.5 sm:pb-0 scrollbar-none">
               <button
                 onClick={() => setHeroTab('script')}
-                className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 neu-tab ${
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 neu-tab whitespace-nowrap shrink-0 ${
                   heroTab === 'script'
                     ? 'neu-inset text-[var(--primary)] font-bold'
                     : 'neu-btn text-[var(--text-muted)] hover:text-[var(--text-main)]'
@@ -1059,7 +1060,7 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
               </button>
               <button
                 onClick={() => setHeroTab('highlights')}
-                className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 neu-tab ${
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 neu-tab whitespace-nowrap shrink-0 ${
                   heroTab === 'highlights'
                     ? 'neu-inset text-[var(--primary)] font-bold'
                     : 'neu-btn text-[var(--text-muted)] hover:text-[var(--text-main)]'
@@ -1070,7 +1071,7 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
               </button>
             </div>
 
-            <div className="ml-auto flex items-center gap-1.5">
+            <div className="flex items-center gap-1.5 self-end sm:self-auto shrink-0">
               <NeuSelect
                 value={selectedModel}
                 onChange={(val) => setSelectedModel(String(val))}
@@ -1231,7 +1232,7 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
           </div>
         ) : feedViewMode === 'feed' ? (
           /* SOCIAL MEDIA FEED VIEW: Full viral posts stream with 2-Column Desktop Layout */
-          <div className="lg:flex lg:gap-8 items-start">
+          <div className="xl:flex xl:gap-8 items-start">
             {/* Cột chính (bên trái, chiếm 65-70% trên desktop): Bài phân tích chuyên sâu chi tiết */}
             <div className="flex-1 min-w-0 space-y-6">
               {filteredSkills.map((item, idx) => {
@@ -1250,7 +1251,7 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
             </div>
 
             {/* Cột sidebar cố định (bên phải, sticky top-6, w-80 hoặc w-96 trên desktop) */}
-            <aside className="hidden lg:block w-80 xl:w-96 shrink-0 sticky top-6 pb-12">
+            <aside className="hidden xl:block w-80 2xl:w-96 shrink-0 sticky top-6 pb-12">
               {/* MASTER COMPANION CARD: Khối thống nhất, Soft UI chuẩn, không lồng hộp thừa thãi */}
               <div className="rounded-3xl neu-flat p-5 sm:p-6 pb-6 sm:pb-7 space-y-5 transition-all max-h-[calc(100vh-4.5rem)] overflow-y-auto scrollbar-none">
                 {/* 1. HEADER & DANH SÁCH BÀI HÔM NAY */}

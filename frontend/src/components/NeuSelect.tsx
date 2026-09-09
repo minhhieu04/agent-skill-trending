@@ -83,7 +83,9 @@ export function NeuSelect<T extends string | number>({
     if (align === 'left') {
       if (containerRef.current) {
         const rect = containerRef.current.getBoundingClientRect();
-        if (rect.left + 220 > window.innerWidth - 16) {
+        const screenWidth = window.innerWidth;
+        // Estimated popover width for safety check
+        if (rect.left + 320 > screenWidth - 16) {
           setComputedAlign('right');
           return;
         }
@@ -95,7 +97,8 @@ export function NeuSelect<T extends string | number>({
     if (containerRef.current) {
       const rect = containerRef.current.getBoundingClientRect();
       const screenWidth = window.innerWidth;
-      if (rect.left + 220 > screenWidth - 16 || rect.left > screenWidth * 0.55) {
+      // If button is in the right half of the viewport or expanding 320px would bleed off-screen
+      if (rect.left + 320 > screenWidth - 16 || rect.left > screenWidth * 0.48) {
         setComputedAlign('right');
       } else {
         setComputedAlign('left');
@@ -196,7 +199,7 @@ export function NeuSelect<T extends string | number>({
   return (
     <div
       ref={containerRef}
-      className={`relative inline-block ${fullWidth ? 'w-full' : ''}`}
+      className={`relative ${fullWidth ? 'w-full' : 'inline-block'} max-w-full min-w-0`}
       title={title}
     >
       {/* Trigger Button */}
@@ -206,7 +209,7 @@ export function NeuSelect<T extends string | number>({
         onClick={() => {
           if (!disabled) setIsOpen(!isOpen);
         }}
-        className={`flex items-center justify-between text-left transition-all duration-200 ease-spring hover:-translate-y-0.5 active:duration-75 active:ease-spring-press active:scale-[0.98] active:translate-y-[1.5px] cursor-pointer font-medium select-none ${
+        className={`flex items-center justify-between text-left transition-all duration-200 ease-spring hover:-translate-y-0.5 active:duration-75 active:ease-spring-press active:scale-[0.98] active:translate-y-[1.5px] cursor-pointer font-medium select-none max-w-full min-w-0 overflow-hidden ${
           sizeStyles[size]
         } ${variantStyles[variant]} ${
           fullWidth ? 'w-full' : ''
@@ -214,18 +217,18 @@ export function NeuSelect<T extends string | number>({
           isOpen ? 'ring-1 ring-[var(--primary)]/40 text-[var(--primary)]' : 'text-[var(--text-main)]'
         } ${disabled ? 'opacity-40 cursor-not-allowed' : ''} ${className}`}
       >
-        <div className="flex items-center gap-2 min-w-0 truncate">
+        <div className="flex items-center gap-2 min-w-0 flex-1 overflow-hidden">
           {icon && (
             <span className="shrink-0 text-[var(--primary)]">{icon}</span>
           )}
           {selectedOption?.icon && !icon && (
             <span className="shrink-0">{selectedOption.icon}</span>
           )}
-          <span className="truncate">
+          <span className="truncate min-w-0 flex-1">
             {selectedOption ? selectedOption.label : placeholder}
           </span>
           {selectedOption?.badge && (
-            <span className="shrink-0 px-1.5 py-0.5 text-[10px] font-mono rounded-md neu-inset-sm text-[var(--primary)] font-bold whitespace-nowrap inline-flex items-center">
+            <span className="shrink-0 px-1.5 py-0.5 text-[10px] font-mono rounded-md neu-inset-sm text-[var(--primary)] font-bold whitespace-nowrap inline-flex items-center max-w-[110px] truncate">
               {selectedOption.badge}
             </span>
           )}
@@ -243,12 +246,12 @@ export function NeuSelect<T extends string | number>({
         <div
           className={`absolute ${
             computedAlign === 'right' ? 'right-0 origin-top-right' : 'left-0 origin-top-left'
-          } top-full mt-2 z-50 min-w-[210px] max-w-[calc(100vw-32px)] neu-dropdown backdrop-blur-xl bg-[var(--bg)]/98 rounded-2xl p-1.5 shadow-2xl transition-all duration-200 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${
+          } top-full mt-2 z-50 ${
+            fullWidth ? 'w-full min-w-[260px]' : 'w-max min-w-[220px]'
+          } max-w-[min(480px,calc(100vw-2rem))] neu-dropdown backdrop-blur-xl bg-[var(--bg)]/98 rounded-2xl p-1.5 shadow-2xl transition-all duration-200 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${
             isVisible
               ? 'opacity-100 scale-100 translate-y-0 pointer-events-auto'
               : 'opacity-0 scale-95 -translate-y-1.5 pointer-events-none'
-          } ${
-            fullWidth ? 'w-full' : ''
           } ${dropdownClassName}`}
           style={{ maxHeight: '340px' }}
         >
