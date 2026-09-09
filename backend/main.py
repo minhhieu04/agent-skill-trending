@@ -434,6 +434,18 @@ async def lifespan(app: FastAPI):
     seed_initial_curated_skills()
     if settings.AUTO_SCHEDULE_ENABLED:
         start_scheduler()
+        # Non-blocking startup check: generate today's daily podcast digest if missing
+        try:
+            today_str = datetime.now().strftime("%Y-%m-%d")
+            with SessionLocal() as db_check:
+                from models.daily_digest import DailyDigest
+                has_today_digest = db_check.query(DailyDigest).filter(DailyDigest.digest_date == today_str).first()
+                if not has_today_digest:
+                    from scheduler.jobs import run_daily_podcast_auto_job
+                    logger.info(f"Startup check: Digest for {today_str} missing. Scheduling automatic generation in background...")
+                    asyncio.create_task(run_daily_podcast_auto_job())
+        except Exception as check_err:
+            logger.warning(f"Could not perform startup daily digest check: {check_err}")
     yield
     if settings.AUTO_SCHEDULE_ENABLED:
         stop_scheduler()
