@@ -11,9 +11,9 @@ from pydantic import BaseModel
 from database import get_db
 from models.skill import Skill
 from models.user import User
-from middleware.auth import get_current_user
 from services.daily_digest_service import DailyDigestService
 from services.tts_service import TTSService
+from middleware.auth import get_current_user, get_optional_current_user
 
 logger = logging.getLogger("DailyDigestRouter")
 
@@ -103,7 +103,24 @@ def _normalize_highlights(raw_hl) -> list:
             pass
         lines = [line.strip().lstrip("-*•0123456789. ") for line in raw_hl.split("\n") if line.strip()]
         return lines if lines else [raw_hl.strip()]
-    return [str(raw_hl)]
+def _normalize_skill_summaries(summaries) -> list:
+    if not summaries or not isinstance(summaries, list):
+        return []
+    import re
+    cleaned = []
+    for item in summaries:
+        if isinstance(item, dict):
+            item_copy = dict(item)
+            if "social_post" in item_copy and isinstance(item_copy["social_post"], dict):
+                post_copy = dict(item_copy["social_post"])
+                if "badge" in post_copy and post_copy["badge"]:
+                    # Strip leading emoji/symbols from badge
+                    post_copy["badge"] = re.sub(r'^[^\w\s\u00C0-\u1EF9]+', '', str(post_copy["badge"])).strip()
+                item_copy["social_post"] = post_copy
+            cleaned.append(item_copy)
+        else:
+            cleaned.append(item)
+    return cleaned
 
 
 @router.get("/{date_str}")
@@ -130,10 +147,9 @@ async def get_daily_digest(
             "summary_markdown": digest.summary_markdown,
             "podcast_script": digest.podcast_script,
             "highlights": _normalize_highlights(digest.highlights),
-            "skill_summaries": digest.skill_summaries or [],
+            "skill_summaries": _normalize_skill_summaries(digest.skill_summaries),
             "total_skills_count": digest.total_skills_count,
             "has_audio": has_real_audio,
-            "audio_base64": digest.podcast_audio_base64 if has_real_audio else None,
             "podcast_duration_sec": digest.podcast_duration_sec or 0.0,
             "podcast_voice": digest.podcast_voice,
             "source_model": digest.source_model,
@@ -155,7 +171,10 @@ async def regenerate_daily_digest(
 ):
     """
     Forces AI to re-analyze skills and re-generate the podcast script & practical summary.
+    Requires admin privileges.
     """
+    if not current_user.is_admin:
+        raise HTTPException(status_code=403, detail="Chỉ Admin mới có quyền tái tạo bản tin")
     date_str = validate_and_normalize_date(date_str)
     try:
         digest = await DailyDigestService.generate_digest(
@@ -172,7 +191,7 @@ async def regenerate_daily_digest(
             "summary_markdown": digest.summary_markdown,
             "podcast_script": digest.podcast_script,
             "highlights": _normalize_highlights(digest.highlights),
-            "skill_summaries": digest.skill_summaries or [],
+            "skill_summaries": _normalize_skill_summaries(digest.skill_summaries),
             "total_skills_count": digest.total_skills_count,
             "has_audio": bool(digest.podcast_audio_base64),
             "podcast_duration_sec": digest.podcast_duration_sec or 0.0,
@@ -191,10 +210,12 @@ async def regenerate_daily_digest(
 async def translate_daily_digest(
     date_str: str,
     payload: TranslateDigestRequest = TranslateDigestRequest(),
+    current_user: Optional[User] = Depends(get_optional_current_user),
     db: Session = Depends(get_db)
 ):
     """
     Translates the daily digest and skill summaries to target language (e.g. 'en' or 'vi') using Gemini 3.8 Flash.
+    Available to all users. AI-powered translation is used when logged in.
     """
     date_str = validate_and_normalize_date(date_str)
     try:
@@ -202,8 +223,11 @@ async def translate_daily_digest(
             db=db,
             date_str=date_str,
             target_lang=payload.target_language or "en",
-            model=payload.model or "gemini-3.8-flash"
+            model=payload.model or "gemini-3.8-flash",
+            is_authenticated=bool(current_user)
         )
+        if isinstance(translated, dict) and "skill_summaries" in translated:
+            translated["skill_summaries"] = _normalize_skill_summaries(translated["skill_summaries"])
         return translated
     except HTTPException:
         raise
@@ -222,7 +246,10 @@ async def synthesize_audio(
     """
     Generates TTS audio for the daily podcast episode using Google AI Studio / Gemini / EdgeTTS.
     Returns audio_base64 and duration.
+    Force regeneration requires admin privileges.
     """
+    if payload.force_regenerate and (not current_user or not current_user.is_admin):
+        raise HTTPException(status_code=403, detail="Chỉ Admin mới có quyền ép tạo lại audio")
     date_str = validate_and_normalize_date(date_str)
     try:
         result = await DailyDigestService.synthesize_podcast_audio(

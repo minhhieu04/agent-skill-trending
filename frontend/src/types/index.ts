@@ -211,9 +211,11 @@ export interface AuditLogPageResponse {
   page: number;
   page_size: number;
   total_pages: number;
-  has_next: boolean;
-  has_prev: boolean;
+  has_next?: boolean;
+  has_prev?: boolean;
 }
+
+export type PaginatedAuditLogResponse = AuditLogPageResponse;
 
 export interface DailyActivityStat {
   date: string;
@@ -243,7 +245,7 @@ export interface AuditStatsSummary {
   action_distribution: ActionDistributionStat[];
 }
 
-
+export type AuditLogStats = AuditStatsSummary;
 // Studio & AI Video Interfaces
 export interface VoiceOption {
   id: string;

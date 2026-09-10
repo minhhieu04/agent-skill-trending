@@ -89,6 +89,7 @@ export const api = {
     }
     const data = await res.json();
     localStorage.setItem(AUTH_TOKEN_KEY, data.access_token);
+    localStorage.setItem('agent_trending_user', JSON.stringify(data.user));
     return data;
   },
 
@@ -104,6 +105,7 @@ export const api = {
     }
     const data = await res.json();
     localStorage.setItem(AUTH_TOKEN_KEY, data.access_token);
+    localStorage.setItem('agent_trending_user', JSON.stringify(data.user));
     return data;
   },
 
@@ -111,7 +113,11 @@ export const api = {
     const res = await authFetch(`${API_BASE}/auth/me`, {
       headers: getAuthHeaders(),
     });
-    if (!res.ok) throw new Error('Unauthenticated');
+    if (!res.ok) {
+      const err: any = new Error(res.status === 401 ? 'Unauthenticated' : 'Failed to fetch current user');
+      err.status = res.status;
+      throw err;
+    }
     return res.json();
   },
 
@@ -124,6 +130,7 @@ export const api = {
   },
 
   logout: () => {
+    localStorage.removeItem('agent_trending_user');
     handleUnauthorized();
   },
 
@@ -320,20 +327,24 @@ export const api = {
   getAuditLogs: async (params?: {
     action?: string;
     username?: string;
+    user_id?: number;
     search?: string;
     source?: string;
     page?: number;
     page_size?: number;
     limit?: number;
+    offset?: number;
   }): Promise<AuditLogPageResponse> => {
     const query = new URLSearchParams();
     if (params?.action && params.action !== 'all') query.append('action', params.action);
     if (params?.username && params.username !== 'all') query.append('username', params.username);
+    if (params?.user_id) query.append('user_id', params.user_id.toString());
     if (params?.search && params.search.trim()) query.append('search', params.search.trim());
     if (params?.source && params.source !== 'all') query.append('source', params.source);
     if (params?.page) query.append('page', params.page.toString());
     if (params?.page_size) query.append('page_size', params.page_size.toString());
     if (params?.limit) query.append('limit', params.limit.toString());
+    if (params?.offset) query.append('offset', params.offset.toString());
 
     const res = await authFetch(`${API_BASE}/history/audit-log?${query.toString()}`, {
       headers: getAuthHeaders(),
@@ -361,7 +372,6 @@ export const api = {
     if (!res.ok) throw new Error('Failed to fetch audit stats');
     return res.json();
   },
-
 
   // 1-Click Multi-IDE Exporter
   exportSkillConfig: async (skillId: number, ide: string): Promise<ExportConfig> => {

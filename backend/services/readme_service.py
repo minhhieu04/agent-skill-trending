@@ -582,9 +582,10 @@ CÁC NGUYÊN TẮC BẮT BUỘC:
         }
 
     @classmethod
-    async def _translate_via_engine(cls, text: str, target_lang: str = "vi") -> str:
+    async def _translate_via_engine(cls, text: str, target_lang: str = "vi", source_lang: Optional[str] = None) -> str:
         """
         Translates text chunk-by-chunk using MyMemory API while safeguarding code blocks.
+        Supports both EN -> VI and VI -> EN.
         """
         code_blocks = []
         def _extract_code(match):
@@ -596,9 +597,16 @@ CÁC NGUYÊN TẮC BẮT BUỘC:
         paragraphs = protected_text.split("\n\n")
         translated_paragraphs = []
 
-        cjk_regex = re.compile(r"[\u4e00-\u9fff]")
-        source_lang = "zh-CN" if cjk_regex.search(text) else "en"
-        lang_pair = f"{source_lang}|{target_lang}" if target_lang != source_lang else "en|vi"
+        if not source_lang:
+            cjk_regex = re.compile(r"[\u4e00-\u9fff]")
+            if cjk_regex.search(text):
+                source_lang = "zh-CN"
+            elif target_lang == "en":
+                source_lang = "vi"
+            else:
+                source_lang = "en"
+
+        lang_pair = f"{source_lang}|{target_lang}"
 
         async with httpx.AsyncClient(timeout=10.0) as client:
             for para in paragraphs:

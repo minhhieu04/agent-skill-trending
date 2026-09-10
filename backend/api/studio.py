@@ -401,14 +401,6 @@ async def render_video(
     if not payload.tts_result.audio_base64:
         raise HTTPException(status_code=400, detail="Audio is required before rendering video")
 
-    frontend_dir = Path(__file__).resolve().parents[2] / "frontend"
-    render_script = frontend_dir / "scripts" / "render-skill-video.mjs"
-    if not render_script.exists():
-        raise HTTPException(status_code=503, detail="Remotion render script is not installed")
-
-    render_dir = Path(tempfile.mkdtemp(prefix="agent-skill-video-"))
-    props_path = render_dir / "props.json"
-    output_path = render_dir / "skill-video.mp4"
     storyboard_payload = payload.storyboard.model_dump()
     scene_texts = [str(scene.get("voiceover_text") or "") for scene in storyboard_payload.get("scenes") or []]
     expected_revision = TTSService.narration_revision(
@@ -418,17 +410,24 @@ async def render_video(
         payload.tts_result.pitch,
     )
     if not payload.tts_result.narration_revision:
-        shutil.rmtree(render_dir, ignore_errors=True)
         raise HTTPException(
             status_code=409,
             detail="Narration audio is missing its script revision. Synthesize the voice again before export.",
         )
     if payload.tts_result.narration_revision != expected_revision:
-        shutil.rmtree(render_dir, ignore_errors=True)
         raise HTTPException(
             status_code=409,
             detail="Storyboard or voice settings changed after synthesis. Regenerate narration before export.",
         )
+
+    frontend_dir = Path(__file__).resolve().parents[2] / "frontend"
+    render_script = frontend_dir / "scripts" / "render-skill-video.mjs"
+    if not render_script.exists():
+        raise HTTPException(status_code=503, detail="Remotion render script is not installed")
+
+    render_dir = Path(tempfile.mkdtemp(prefix="agent-skill-video-"))
+    props_path = render_dir / "props.json"
+    output_path = render_dir / "skill-video.mp4"
     storyboard_payload = await _attach_github_captures(storyboard_payload)
     # Never trust stale browser timings during export. Probe the submitted audio
     # again and rebuild every scene boundary before Remotion receives the props.

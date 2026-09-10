@@ -186,6 +186,7 @@ def get_audit_logs(
     if date_to:
         query = query.filter(AuditLog.created_at <= datetime.combine(date_to, datetime.max.time()))
 
+
     # Instant multi-column search
     if search and search.strip():
         s = f"%{search.strip()}%"
