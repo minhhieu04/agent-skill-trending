@@ -63,6 +63,11 @@ export const SocialTechPostCard: React.FC<SocialTechPostCardProps> = ({
       .trim();
   };
 
+  const cleanBadge = (text?: string) => {
+    if (!text) return '';
+    return text.replace(/^[^\p{L}\p{N}]+/u, '').trim();
+  };
+
   const handleToggleLike = () => {
     const nextState = !isLiked;
     setIsLiked(nextState);
@@ -205,9 +210,9 @@ Link bài viết: ${postUrl}
 
         {/* Badges & Actions */}
         <div className="flex items-center gap-2 shrink-0">
-          {post.badge && (
+          {cleanBadge(post.badge) && (
             <span className="hidden sm:inline-flex px-2.5 py-1 rounded-full text-[10px] font-mono uppercase neu-inset-sm text-[var(--text-muted)]">
-              {post.badge}
+              {cleanBadge(post.badge)}
             </span>
           )}
           <div className="flex items-center gap-1 neu-inset-sm text-amber-500 px-2.5 py-1 rounded-full text-xs font-mono font-medium">

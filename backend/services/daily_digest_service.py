@@ -514,19 +514,19 @@ class DailyDigestService:
         name_lower = name.lower()
         full_text = f"{name_lower} {title.lower()} {analysis.get('what_it_does', '').lower()} {cat.lower()}"
 
-        # Distinct badges
+        # Distinct badges (clean text without baked-in emojis)
         if stars > 50000:
-            badge = "🔥 Top Xu Hướng Toàn Cầu"
+            badge = "Top Xu Hướng Toàn Cầu"
         elif stars > 10000:
-            badge = "🚀 Đột Phá Công Nghệ"
+            badge = "Đột Phá Công Nghệ"
         elif "mcp" in full_text:
-            badge = "🔌 Model Context Protocol"
+            badge = "Model Context Protocol"
         elif "browser" in full_text:
-            badge = "🌐 Web Automation & AI"
+            badge = "Web Automation & AI"
         elif "video" in full_text:
-            badge = "🎬 AI Media & Video"
+            badge = "AI Media & Video"
         else:
-            badge = "💡 Đề Xuất Lập Trình Viên"
+            badge = "Đề Xuất Lập Trình Viên"
 
         # Domain-tailored social content
         if "camofox" in full_text or "stealth" in full_text:

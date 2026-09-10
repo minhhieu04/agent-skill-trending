@@ -101,7 +101,24 @@ def _normalize_highlights(raw_hl) -> list:
             pass
         lines = [line.strip().lstrip("-*•0123456789. ") for line in raw_hl.split("\n") if line.strip()]
         return lines if lines else [raw_hl.strip()]
-    return [str(raw_hl)]
+def _normalize_skill_summaries(summaries) -> list:
+    if not summaries or not isinstance(summaries, list):
+        return []
+    import re
+    cleaned = []
+    for item in summaries:
+        if isinstance(item, dict):
+            item_copy = dict(item)
+            if "social_post" in item_copy and isinstance(item_copy["social_post"], dict):
+                post_copy = dict(item_copy["social_post"])
+                if "badge" in post_copy and post_copy["badge"]:
+                    # Strip leading emoji/symbols from badge
+                    post_copy["badge"] = re.sub(r'^[^\w\s\u00C0-\u1EF9]+', '', str(post_copy["badge"])).strip()
+                item_copy["social_post"] = post_copy
+            cleaned.append(item_copy)
+        else:
+            cleaned.append(item)
+    return cleaned
 
 
 @router.get("/{date_str}")
@@ -128,7 +145,7 @@ async def get_daily_digest(
             "summary_markdown": digest.summary_markdown,
             "podcast_script": digest.podcast_script,
             "highlights": _normalize_highlights(digest.highlights),
-            "skill_summaries": digest.skill_summaries or [],
+            "skill_summaries": _normalize_skill_summaries(digest.skill_summaries),
             "total_skills_count": digest.total_skills_count,
             "has_audio": has_real_audio,
             "audio_base64": digest.podcast_audio_base64 if has_real_audio else None,
@@ -169,7 +186,7 @@ async def regenerate_daily_digest(
             "summary_markdown": digest.summary_markdown,
             "podcast_script": digest.podcast_script,
             "highlights": _normalize_highlights(digest.highlights),
-            "skill_summaries": digest.skill_summaries or [],
+            "skill_summaries": _normalize_skill_summaries(digest.skill_summaries),
             "total_skills_count": digest.total_skills_count,
             "has_audio": bool(digest.podcast_audio_base64),
             "podcast_duration_sec": digest.podcast_duration_sec or 0.0,
@@ -201,6 +218,8 @@ async def translate_daily_digest(
             target_lang=payload.target_language or "en",
             model=payload.model or "gemini-3.8-flash"
         )
+        if isinstance(translated, dict) and "skill_summaries" in translated:
+            translated["skill_summaries"] = _normalize_skill_summaries(translated["skill_summaries"])
         return translated
     except HTTPException:
         raise
