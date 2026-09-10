@@ -61,13 +61,6 @@ const DEFAULT_PODCAST_VOICES: VoiceOption[] = [
   { id: 'en-US-JennyNeural', name: 'Jenny (Female - Dynamic Tech Host)', provider: 'edge_tts', language: 'en-US', gender: 'female', style: 'Tutorial & Explainer', preview_text: '', badge: 'DYNAMIC HOST' },
 ];
 
-const AVAILABLE_GEMINI_MODELS = [
-  { id: 'gemini-3.8-flash', name: 'Gemini 3.8 Flash (Mới nhất)' },
-  { id: 'gemini-3-flash-preview', name: 'Gemini 3 Flash' },
-  { id: 'gemini-3.5-flash', name: 'Gemini 3.5 Flash' },
-  { id: 'gemini-3.6-flash', name: 'Gemini 3.6 Flash' },
-  { id: 'gemini-3.1-pro-preview', name: 'Gemini 3.1 Pro' },
-];
 
 const formatModelName = (model?: string) => {
   if (!model) return 'Gemini 3.8 Flash';
@@ -140,8 +133,8 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
   const [isMuted, setIsMuted] = useState<boolean>(false);
   const isSeekingRef = useRef<boolean>(false);
 
-  // Digest Model & Translation State (Gemini 3.8 Flash First)
-  const [selectedModel, setSelectedModel] = useState<string>('gemini-3.8-flash');
+  // Digest Model & Translation State (Gemini 3.8 Flash default)
+  const selectedModel = 'gemini-3.8-flash';
   const [translatedDigest, setTranslatedDigest] = useState<DailyDigest | null>(null);
   const [activeDisplayLang, setActiveDisplayLang] = useState<'vi' | 'en'>('vi');
   const [isTranslating, setIsTranslating] = useState<boolean>(false);
@@ -246,7 +239,6 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
     }
   }, [availableDates, selectedDate]);
 
-  const [isCollecting, setIsCollecting] = useState<boolean>(false);
   const todayLocalStr = React.useMemo(() => {
     const now = new Date();
     const y = now.getFullYear();
@@ -254,23 +246,6 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
     const d = String(now.getDate()).padStart(2, '0');
     return `${y}-${m}-${d}`;
   }, []);
-
-  const handleTriggerCollectionToday = async () => {
-    try {
-      setIsCollecting(true);
-      showToast('Đang kích hoạt cào kỹ năng mới từ GitHub Trending, HackerNews, Reddit...', 'info');
-      await api.triggerCollection();
-      showToast('Bộ thu thập dữ liệu đã bắt đầu! Dữ liệu đang được làm mới...', 'success');
-      setTimeout(() => {
-        queryClient.invalidateQueries({ queryKey: ['dailyDigestDates'] });
-        queryClient.invalidateQueries({ queryKey: ['dailyDigest', selectedDate] });
-        setIsCollecting(false);
-      }, 4000);
-    } catch (err: any) {
-      setIsCollecting(false);
-      showToast(err.message || 'Không thể cào dữ liệu mới lúc này', 'error');
-    }
-  };
 
   // Horizontal Scroll state for available dates
   const datesScrollRef = useRef<HTMLDivElement | null>(null);
@@ -407,23 +382,21 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
       window.speechSynthesis.cancel();
     }
 
-    if (!selectedDate) {
-      showToast('Vui lòng chọn ngày bản tin', 'error');
-      return;
-    }
+    if (!selectedDate || loadingDigest) return;
 
-    // Direct audio streaming URL
-    const streamUrl = api.getPodcastAudioStreamUrl(selectedDate, selectedVoice);
+    // Use the voice that's already cached in DB to avoid re-synthesis
+    // Only use selectedVoice if user explicitly changed it (different from digest)
+    const effectiveVoice = digest?.podcast_voice || selectedVoice;
+    const streamUrl = api.getPodcastAudioStreamUrl(selectedDate, effectiveVoice);
 
     if (audioRef.current) {
-      // Check if current source matches selected date and voice
-      const hasMatchingSrc =
+      // Resume if already loaded and playing the same source
+      if (
         audioRef.current.src &&
-        (audioRef.current.src.includes(encodeURIComponent(selectedDate)) || audioRef.current.src.startsWith('data:audio')) &&
+        !audioRef.current.ended &&
         audioRef.current.currentTime > 0 &&
-        !audioRef.current.ended;
-
-      if (hasMatchingSrc) {
+        (audioRef.current.src.includes(encodeURIComponent(selectedDate)) || audioRef.current.src.startsWith('data:audio'))
+      ) {
         audioRef.current.playbackRate = playbackRate;
         try {
           await audioRef.current.play();
@@ -438,13 +411,14 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
       setIsAudioLoading(true);
       audioRef.current.src = streamUrl;
       audioRef.current.playbackRate = playbackRate;
+      audioRef.current.volume = isMuted ? 0 : volume;
       try {
         await audioRef.current.play();
         setIsPlaying(true);
         setIsAudioLoading(false);
       } catch (err: any) {
         console.error('Playback error or waiting for stream:', err);
-        // Browser might wait for stream buffering, keep isAudioLoading true
+        // Browser buffers stream, keep isAudioLoading true - onPlaying event will clear it
       }
     }
   };
@@ -453,18 +427,17 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
     isSeekingRef.current = true;
   };
 
-  const handleSeekInput = (e: React.ChangeEvent<HTMLInputElement>) => {
-    // Live preview: update displayed time while dragging
+  const handleSeekChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newTime = parseFloat(e.target.value);
     setCurrentTime(newTime);
-  };
-
-  const handleSeekEnd = (e: React.MouseEvent<HTMLInputElement> | React.TouchEvent<HTMLInputElement>) => {
-    isSeekingRef.current = false;
-    const newTime = parseFloat((e.target as HTMLInputElement).value);
-    if (audioRef.current) {
+    // Apply seek immediately to audio element
+    if (audioRef.current && audioRef.current.duration) {
       audioRef.current.currentTime = newTime;
     }
+  };
+
+  const handleSeekEnd = () => {
+    isSeekingRef.current = false;
   };
 
   const cyclePlaybackRate = () => {
@@ -807,19 +780,6 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
               <Calendar className="w-3.5 h-3.5 text-[var(--primary)]" />
               {t('podcast_select_date')}:
             </span>
-            <div className="flex items-center gap-1.5">
-              {isAdmin && (
-                <button
-                  type="button"
-                  onClick={handleTriggerCollectionToday}
-                  disabled={isCollecting}
-                  className="neu-btn-sm px-2.5 py-1 rounded-xl text-xs font-semibold text-[var(--text-main)] hover:text-[var(--primary)] flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-                  title="Cào kỹ năng mới hôm nay từ GitHub Trending, HackerNews, Reddit"
-                >
-                  <Zap className={`w-3.5 h-3.5 text-amber-500 ${isCollecting ? 'animate-spin' : ''}`} />
-                  <span className="hidden sm:inline">Cào dữ liệu hôm nay</span>
-                </button>
-              )}
 
               <div className="flex items-center gap-1 ml-1">
                 <button
@@ -841,7 +801,6 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
                   <ChevronRight className="w-3 h-3" />
                 </button>
               </div>
-            </div>
           </div>
 
           <div
@@ -970,40 +929,40 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
             </div>
 
             <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap shrink-0 justify-start xl:justify-end">
-              {/* Translate Summary (VI / EN) Toggle Button - Logged-in users only */}
-              {isLoggedIn && (
-                <button
-                  onClick={handleToggleTranslate}
-                  disabled={isTranslating || loadingDigest}
-                  title={
-                    activeDisplayLang === 'en'
-                      ? 'Chuyển về bản gốc Tiếng Việt'
-                      : 'Dịch toàn bộ bản tóm tắt và các bài viết sang Tiếng Anh bằng Gemini 3.8 Flash'
-                  }
-                  className={`flex-1 sm:flex-none justify-center px-3 py-2 rounded-xl neu-btn disabled:opacity-50 flex items-center gap-1.5 text-xs font-semibold cursor-pointer transition-all ${
-                    activeDisplayLang === 'en'
-                      ? 'neu-inset text-[var(--primary)] font-bold'
-                      : 'text-[var(--text-muted)] hover:text-[var(--primary)]'
-                  }`}
-                >
-                  <Globe
-                    className={`w-3.5 h-3.5 shrink-0 ${
-                      isTranslating
-                        ? 'animate-spin text-[var(--primary)]'
-                        : activeDisplayLang === 'en'
-                        ? 'text-[var(--primary)]'
-                        : 'text-sky-500'
-                    }`}
-                  />
-                  <span className="text-[11px] whitespace-nowrap">
-                    {isTranslating
-                      ? 'Đang dịch...'
+              {/* Translate Summary (VI / EN) Toggle Button - Available for all */}
+              <button
+                onClick={handleToggleTranslate}
+                disabled={isTranslating || loadingDigest}
+                title={
+                  activeDisplayLang === 'en'
+                    ? 'Chuyển về bản gốc Tiếng Việt'
+                    : isLoggedIn
+                    ? 'Dịch toàn bộ bản tóm tắt sang Tiếng Anh bằng AI (Gemini)'
+                    : 'Dịch tóm tắt sang Tiếng Anh'
+                }
+                className={`flex-1 sm:flex-none justify-center px-3 py-2 rounded-xl neu-btn disabled:opacity-50 flex items-center gap-1.5 text-xs font-semibold cursor-pointer transition-all ${
+                  activeDisplayLang === 'en'
+                    ? 'neu-inset text-[var(--primary)] font-bold'
+                    : 'text-[var(--text-muted)] hover:text-[var(--primary)]'
+                }`}
+              >
+                <Globe
+                  className={`w-3.5 h-3.5 shrink-0 ${
+                    isTranslating
+                      ? 'animate-spin text-[var(--primary)]'
                       : activeDisplayLang === 'en'
-                      ? 'Xem Tiếng Việt'
-                      : 'Dịch tóm tắt (EN)'}
-                  </span>
-                </button>
-              )}
+                      ? 'text-[var(--primary)]'
+                      : 'text-sky-500'
+                  }`}
+                />
+                <span className="text-[11px] whitespace-nowrap">
+                  {isTranslating
+                    ? 'Đang dịch...'
+                    : activeDisplayLang === 'en'
+                    ? 'Xem Tiếng Việt'
+                    : 'Dịch tóm tắt (EN)'}
+                </span>
+              </button>
 
               {/* Force Audio Re-synthesize Button - Admin only */}
               {isAdmin && (
@@ -1042,7 +1001,7 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
           <div className="flex items-center gap-3 sm:gap-4">
             <button
               onClick={togglePlayPodcast}
-              disabled={isAudioLoading || loadingDigest}
+              disabled={isAudioLoading || loadingDigest || loadingDates || !selectedDate}
               className="flex items-center justify-center w-12 h-12 sm:w-14 sm:h-14 rounded-2xl neu-primary text-white transition-all active:scale-95 disabled:opacity-50 shrink-0 cursor-pointer shadow-md"
               aria-label={isPlaying ? 'Tạm dừng' : 'Phát Podcast'}
             >
@@ -1083,7 +1042,7 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
                 value={currentTime}
                 onMouseDown={handleSeekStart}
                 onTouchStart={handleSeekStart}
-                onChange={handleSeekInput}
+                onChange={handleSeekChange}
                 onMouseUp={handleSeekEnd}
                 onTouchEnd={handleSeekEnd}
                 style={{ '--range-progress': `${duration > 0 ? (currentTime / duration) * 100 : 0}%` } as React.CSSProperties}
@@ -1163,26 +1122,6 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
                 <span>Điểm Nhấn Nổi Bật</span>
               </button>
             </div>
-
-            {isAdmin && (
-              <div className="flex items-center gap-1.5 self-end sm:self-auto shrink-0">
-                <NeuSelect
-                  value={selectedModel}
-                  onChange={(val) => setSelectedModel(String(val))}
-                  options={AVAILABLE_GEMINI_MODELS.map((m) => ({
-                    value: m.id,
-                    label: m.name,
-                    badge: m.id === 'gemini-3.8-flash' ? 'HOT' : undefined,
-                    icon: <Sparkles className={`w-3.5 h-3.5 ${m.id === 'gemini-3.8-flash' ? 'text-amber-500' : 'text-[var(--primary)]'}`} />,
-                  }))}
-                  size="sm"
-                  variant="inset"
-                  align="right"
-                  searchable={false}
-                  title="Chọn mô hình Gemini ưu tiên khi phân tích hoặc dịch"
-                />
-              </div>
-            )}
           </div>
 
           <div className="pt-1">

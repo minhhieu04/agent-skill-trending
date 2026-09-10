@@ -211,12 +211,12 @@ async def regenerate_daily_digest(
 async def translate_daily_digest(
     date_str: str,
     payload: TranslateDigestRequest = TranslateDigestRequest(),
-    current_user: User = Depends(get_current_user),
+    current_user: Optional[User] = Depends(get_optional_current_user),
     db: Session = Depends(get_db)
 ):
     """
     Translates the daily digest and skill summaries to target language (e.g. 'en' or 'vi') using Gemini 3.8 Flash.
-    Requires authentication.
+    Available to all users. AI-powered translation is used when logged in.
     """
     date_str = validate_and_normalize_date(date_str)
     try:
