@@ -1300,11 +1300,13 @@ class DailyDigestService:
         db: Session,
         date_str: str,
         target_lang: str = "en",
-        model: Optional[str] = "gemini-3.8-flash"
+        model: Optional[str] = "gemini-3.8-flash",
+        is_authenticated: bool = False
     ) -> Dict[str, Any]:
         """
-        Translates an existing daily digest to target_lang ('en' or 'vi') using Gemini 3.8 Flash.
-        Returns the translated digest payload without overwriting the primary database record.
+        Translates an existing daily digest to target_lang ('en' or 'vi').
+        - Logged-in users: Translated via Gemini 3.8 Flash for professional tech context.
+        - Unauthenticated guests: Translated via free Translation Engine (MyMemory, 0 AI tokens).
         """
         date_str = cls.normalize_date_str(date_str)
         digest = db.query(DailyDigest).filter(DailyDigest.digest_date == date_str).first()
@@ -1323,7 +1325,90 @@ class DailyDigestService:
                 "target_lang": target_lang
             }
 
-        # Prepare compact payload for translation
+        # Guest mode: Use free Translation Engine (0 Gemini tokens)
+        if not is_authenticated:
+            from services.readme_service import ReadmeService
+            used_model = "engine-mymemory"
+            logger.info(f"Translating digest {date_str} via Translation Engine (Guest mode, 0 AI tokens)")
+
+            async def _trans(txt: Optional[str]) -> str:
+                if not txt:
+                    return ""
+                try:
+                    return await ReadmeService._translate_via_engine(txt, target_lang=target_lang, source_lang="vi")
+                except Exception as e:
+                    logger.warning(f"Engine translation fallback for snippet: {e}")
+                    return txt
+
+            translated_title_task = _trans(digest.title)
+            translated_script_task = _trans(digest.podcast_script)
+            hl_tasks = [_trans(h) for h in (digest.highlights or [])]
+
+            orig_summaries = digest.skill_summaries or []
+            summary_tasks = []
+            for s in orig_summaries:
+                summary_tasks.append(_trans(s.get("title") or s.get("name")))
+                summary_tasks.append(_trans(s.get("what_it_does")))
+                summary_tasks.append(_trans(s.get("pain_point_solved")))
+                summary_tasks.append(_trans(s.get("real_world_use")))
+                summary_tasks.append(_trans(s.get("quick_take")))
+
+            all_results = await asyncio.gather(
+                translated_title_task,
+                translated_script_task,
+                *hl_tasks,
+                *summary_tasks,
+                return_exceptions=True
+            )
+
+            trans_title = all_results[0] if isinstance(all_results[0], str) and all_results[0] else digest.title
+            trans_script = all_results[1] if isinstance(all_results[1], str) and all_results[1] else digest.podcast_script
+
+            offset = 2
+            num_hl = len(digest.highlights or [])
+            trans_highlights = [
+                all_results[offset + i] if isinstance(all_results[offset + i], str) and all_results[offset + i] else h
+                for i, h in enumerate(digest.highlights or [])
+            ]
+            offset += num_hl
+
+            translated_summaries = []
+            for s in orig_summaries:
+                s_copy = dict(s)
+                t_title = all_results[offset]
+                t_what = all_results[offset + 1]
+                t_pain = all_results[offset + 2]
+                t_real = all_results[offset + 3]
+                t_quick = all_results[offset + 4]
+                offset += 5
+
+                if isinstance(t_title, str) and t_title:
+                    s_copy["title"] = t_title
+                if isinstance(t_what, str) and t_what:
+                    s_copy["what_it_does"] = t_what
+                if isinstance(t_pain, str) and t_pain:
+                    s_copy["pain_point_solved"] = t_pain
+                if isinstance(t_real, str) and t_real:
+                    s_copy["real_world_use"] = t_real
+                if isinstance(t_quick, str) and t_quick:
+                    s_copy["quick_take"] = t_quick
+
+                translated_summaries.append(s_copy)
+
+            return {
+                "id": digest.id,
+                "digest_date": digest.digest_date,
+                "title": trans_title,
+                "summary_markdown": digest.summary_markdown,
+                "podcast_script": trans_script,
+                "highlights": trans_highlights,
+                "skill_summaries": translated_summaries,
+                "total_skills_count": digest.total_skills_count,
+                "source_model": used_model,
+                "target_lang": target_lang
+            }
+
+        # Authenticated mode: Full high-fidelity AI translation with Gemini 3.8 Flash
         to_translate = {
             "title": digest.title,
             "podcast_script": digest.podcast_script,

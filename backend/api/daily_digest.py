@@ -223,7 +223,8 @@ async def translate_daily_digest(
             db=db,
             date_str=date_str,
             target_lang=payload.target_language or "en",
-            model=payload.model or "gemini-3.8-flash"
+            model=payload.model or "gemini-3.8-flash",
+            is_authenticated=bool(current_user)
         )
         if isinstance(translated, dict) and "skill_summaries" in translated:
             translated["skill_summaries"] = _normalize_skill_summaries(translated["skill_summaries"])

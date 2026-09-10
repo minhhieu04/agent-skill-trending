@@ -1,13 +1,40 @@
-import React from 'react';
-import { AuditLogStats } from '../types';
-import { Activity, CheckCircle2, AlertTriangle, Globe } from 'lucide-react';
+import React, { useMemo } from 'react';
+import { AuditLogStats, AuditLogItem } from '../types';
+import { Activity, CheckCircle2, AlertTriangle, Globe, BarChart3 } from 'lucide-react';
 
 interface AuditLogChartsProps {
   stats: AuditLogStats | undefined;
+  logs: AuditLogItem[];
   isLoading: boolean;
 }
 
-export const AuditLogCharts: React.FC<AuditLogChartsProps> = ({ stats, isLoading }) => {
+export const AuditLogCharts: React.FC<AuditLogChartsProps> = ({ stats, logs, isLoading }) => {
+  // Compute 7-day timeline from logs
+  const timeline = useMemo(() => {
+    const days: { label: string; dateKey: string; success: number; error: number }[] = [];
+    const now = new Date();
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(now);
+      d.setDate(d.getDate() - i);
+      const dateKey = d.toISOString().slice(0, 10); // YYYY-MM-DD
+      const label = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
+      days.push({ label, dateKey, success: 0, error: 0 });
+    }
+    for (const log of logs) {
+      const logDate = (log.created_at.endsWith('Z') ? log.created_at : `${log.created_at}Z`).slice(0, 10);
+      const dayEntry = days.find(d => d.dateKey === logDate);
+      if (dayEntry) {
+        const a = log.action.toLowerCase();
+        if (a.includes('error') || a.includes('failed')) {
+          dayEntry.error++;
+        } else {
+          dayEntry.success++;
+        }
+      }
+    }
+    return days;
+  }, [logs]);
+
   if (isLoading) {
     return (
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 animate-pulse">
@@ -30,11 +57,16 @@ export const AuditLogCharts: React.FC<AuditLogChartsProps> = ({ stats, isLoading
   const actionBreakdown = [
     { label: 'Completed', count: stats.collection_completed_count, color: '#10b981' },
     { label: 'Quota Exceeded', count: stats.quota_exceeded_count, color: '#f59e0b' },
-    { label: 'Failed', count: stats.failed_count - stats.quota_exceeded_count > 0 ? stats.failed_count - stats.quota_exceeded_count : 0, color: '#ef4444' },
+    { label: 'Failed', count: (stats.failed_count - stats.quota_exceeded_count) > 0 ? stats.failed_count - stats.quota_exceeded_count : 0, color: '#ef4444' },
     { label: 'Other', count: Math.max(0, total - stats.collection_completed_count - stats.failed_count), color: '#3b82f6' },
   ].filter(a => a.count > 0);
 
   const maxBarValue = Math.max(...actionBreakdown.map(a => a.count), 1);
+
+  // Timeline chart calculations
+  const maxTimelineValue = Math.max(...timeline.map(d => d.success + d.error), 1);
+  const chartHeight = 120;
+  const barGroupWidth = 400 / 7;
 
   const kpiCards = [
     {
@@ -80,6 +112,68 @@ export const AuditLogCharts: React.FC<AuditLogChartsProps> = ({ stats, isLoading
             <span className={`text-xl font-bold ${kpi.color}`}>{kpi.value}</span>
           </div>
         ))}
+      </div>
+
+      {/* 7-Day Timeline Bar Chart */}
+      <div className="p-4 rounded-2xl neu-flat space-y-3">
+        <h4 className="text-[10px] font-mono uppercase tracking-wider text-[var(--text-muted)] flex items-center gap-1.5">
+          <BarChart3 className="w-3 h-3 text-[var(--primary)]" />
+          Biểu đồ 7 ngày gần nhất
+        </h4>
+
+        <svg viewBox={`0 0 400 ${chartHeight + 30}`} className="w-full" role="img" aria-label="7-day timeline chart">
+          {timeline.map((day, i) => {
+            const x = i * barGroupWidth + barGroupWidth * 0.15;
+            const bw = barGroupWidth * 0.3;
+            const successH = maxTimelineValue > 0 ? (day.success / maxTimelineValue) * chartHeight : 0;
+            const errorH = maxTimelineValue > 0 ? (day.error / maxTimelineValue) * chartHeight : 0;
+
+            return (
+              <g key={i}>
+                {/* Background */}
+                <rect x={x} y={0} width={bw * 2 + 4} height={chartHeight} rx="4" fill="var(--shadow-dark)" opacity="0.08" />
+                {/* Success bar (green) */}
+                <rect x={x} y={chartHeight - successH} width={bw} height={Math.max(successH, 0)} rx="3" fill="#10b981" opacity="0.85">
+                  <animate attributeName="height" from="0" to={Math.max(successH, 0)} dur="0.5s" fill="freeze" />
+                  <animate attributeName="y" from={chartHeight} to={chartHeight - successH} dur="0.5s" fill="freeze" />
+                </rect>
+                {/* Error bar (red) */}
+                <rect x={x + bw + 4} y={chartHeight - errorH} width={bw} height={Math.max(errorH, 0)} rx="3" fill="#ef4444" opacity="0.85">
+                  <animate attributeName="height" from="0" to={Math.max(errorH, 0)} dur="0.5s" fill="freeze" />
+                  <animate attributeName="y" from={chartHeight} to={chartHeight - errorH} dur="0.5s" fill="freeze" />
+                </rect>
+                {/* Success count label */}
+                {day.success > 0 && (
+                  <text x={x + bw / 2} y={chartHeight - successH - 4} textAnchor="middle" fontSize="9" fill="#10b981" fontFamily="monospace" fontWeight="bold">
+                    {day.success}
+                  </text>
+                )}
+                {/* Error count label */}
+                {day.error > 0 && (
+                  <text x={x + bw + 4 + bw / 2} y={chartHeight - errorH - 4} textAnchor="middle" fontSize="9" fill="#ef4444" fontFamily="monospace" fontWeight="bold">
+                    {day.error}
+                  </text>
+                )}
+                {/* Day label */}
+                <text x={x + bw + 2} y={chartHeight + 16} textAnchor="middle" fontSize="10" fill="var(--text-muted)" fontFamily="monospace">
+                  {day.label}
+                </text>
+              </g>
+            );
+          })}
+        </svg>
+
+        {/* Legend */}
+        <div className="flex items-center gap-4 text-[11px]">
+          <div className="flex items-center gap-1.5">
+            <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: '#10b981' }} />
+            <span className="text-[var(--text-muted)] font-mono">Success</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: '#ef4444' }} />
+            <span className="text-[var(--text-muted)] font-mono">Error / Failed</span>
+          </div>
+        </div>
       </div>
 
       {/* Action Breakdown Bar */}

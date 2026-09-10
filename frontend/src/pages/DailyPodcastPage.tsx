@@ -498,11 +498,19 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
 
     try {
       setIsTranslating(true);
-      showToast(`Đang dịch toàn bộ bản tóm tắt sang Tiếng Anh bằng ${formatModelName(selectedModel)}...`, 'info');
+      if (isLoggedIn) {
+        showToast('Đang dịch toàn bộ bản tóm tắt sang Tiếng Anh bằng AI (Gemini 3.8 Flash)...', 'info');
+      } else {
+        showToast('Đang dịch toàn bộ bản tóm tắt sang Tiếng Anh bằng Translation Engine...', 'info');
+      }
       const trans = await api.translateDailyDigest(selectedDate, 'en', selectedModel);
       setTranslatedDigest(trans);
       setActiveDisplayLang('en');
-      showToast('Dịch bản tóm tắt thành công!', 'success');
+      if (isLoggedIn) {
+        showToast('Dịch bản tóm tắt thành công bằng AI (Gemini 3.8 Flash)!', 'success');
+      } else {
+        showToast('Dịch thành công bằng Engine! Đăng nhập để kích hoạt AI Gemini cao cấp.', 'success');
+      }
     } catch (err: any) {
       showToast(err?.message || 'Dịch bản tóm tắt thất bại', 'error');
     } finally {

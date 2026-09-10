@@ -280,7 +280,7 @@ export const HistoryPage: React.FC = () => {
       {subTab === 'audit' && (
         <div className="space-y-4">
           {/* Charts */}
-          <AuditLogCharts stats={auditStats} isLoading={loadingStats} />
+          <AuditLogCharts stats={auditStats} logs={allAuditLogs} isLoading={loadingStats} />
 
           {/* Controls: Filter + Search */}
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
