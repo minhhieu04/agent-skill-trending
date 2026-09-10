@@ -10,8 +10,10 @@ from pydantic import BaseModel
 
 from database import get_db
 from models.skill import Skill
+from models.user import User
 from services.daily_digest_service import DailyDigestService
 from services.tts_service import TTSService
+from middleware.auth import get_current_user, get_optional_current_user
 
 logger = logging.getLogger("DailyDigestRouter")
 
@@ -165,11 +167,15 @@ async def get_daily_digest(
 async def regenerate_daily_digest(
     date_str: str,
     payload: RegenerateRequest = RegenerateRequest(),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
     Forces AI to re-analyze skills and re-generate the podcast script & practical summary.
+    Requires admin privileges.
     """
+    if not current_user.is_admin:
+        raise HTTPException(status_code=403, detail="Chỉ Admin mới có quyền tái tạo bản tin")
     date_str = validate_and_normalize_date(date_str)
     try:
         digest = await DailyDigestService.generate_digest(
@@ -205,10 +211,12 @@ async def regenerate_daily_digest(
 async def translate_daily_digest(
     date_str: str,
     payload: TranslateDigestRequest = TranslateDigestRequest(),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
     Translates the daily digest and skill summaries to target language (e.g. 'en' or 'vi') using Gemini 3.8 Flash.
+    Requires authentication.
     """
     date_str = validate_and_normalize_date(date_str)
     try:
@@ -232,12 +240,16 @@ async def translate_daily_digest(
 async def synthesize_audio(
     date_str: str,
     payload: AudioSynthesizeRequest = AudioSynthesizeRequest(),
+    current_user: Optional[User] = Depends(get_optional_current_user),
     db: Session = Depends(get_db)
 ):
     """
     Generates TTS audio for the daily podcast episode using Google AI Studio / Gemini / EdgeTTS.
     Returns audio_base64 and duration.
+    Force regeneration requires admin privileges.
     """
+    if payload.force_regenerate and (not current_user or not current_user.is_admin):
+        raise HTTPException(status_code=403, detail="Chỉ Admin mới có quyền ép tạo lại audio")
     date_str = validate_and_normalize_date(date_str)
     try:
         result = await DailyDigestService.synthesize_podcast_audio(

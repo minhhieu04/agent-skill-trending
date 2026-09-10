@@ -5,6 +5,8 @@ import {
   Play,
   Pause,
   Volume2,
+  Volume1,
+  VolumeX,
   Sparkles,
   Calendar,
   Star,
@@ -36,6 +38,7 @@ import { api } from '../api/client';
 import { DailyDigest, DailyDigestDateInfo, SkillDigestSummary, SocialMediaPost, VoiceOption } from '../types';
 import { useLanguage } from '../context/LanguageContext';
 import { useToast } from '../context/ToastContext';
+import { useAuth } from '../context/AuthContext';
 import { SocialTechPostCard } from '../components/SocialTechPostCard';
 import { SocialTechPostModal } from '../components/SocialTechPostModal';
 import { NeuSelect } from '../components/NeuSelect';
@@ -118,7 +121,12 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
 }) => {
   const { t, language } = useLanguage();
   const { showToast } = useToast();
+  const { user } = useAuth();
   const queryClient = useQueryClient();
+
+  // Role helpers
+  const isAdmin = user?.is_admin === true;
+  const isLoggedIn = !!user;
 
   // Audio Player State
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -128,6 +136,9 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
   const [playbackRate, setPlaybackRate] = useState<number>(1.0);
   const [selectedVoice, setSelectedVoice] = useState<string>('gemini-Aoede');
   const [isAudioLoading, setIsAudioLoading] = useState<boolean>(false);
+  const [volume, setVolume] = useState<number>(1.0);
+  const [isMuted, setIsMuted] = useState<boolean>(false);
+  const isSeekingRef = useRef<boolean>(false);
 
   // Digest Model & Translation State (Gemini 3.8 Flash First)
   const [selectedModel, setSelectedModel] = useState<string>('gemini-3.8-flash');
@@ -312,7 +323,16 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
   });
   const bookmarkedSkillIds = new Set(bookmarkedSkills.map((s: any) => s.id));
 
-  // Reset audio when date or voice changes
+  // Sync selectedVoice from server to prevent voice mismatch on reload
+  // This fixes the 5-10s delay: without this, selectedVoice defaults to 'gemini-Aoede'
+  // but the server may have cached audio for 'gemini-Puck', causing full re-synthesis
+  useEffect(() => {
+    if (digest?.podcast_voice && digest.podcast_voice !== selectedVoice) {
+      setSelectedVoice(digest.podcast_voice);
+    }
+  }, [digest?.podcast_voice]);
+
+  // Reset audio when date changes
   useEffect(() => {
     if (audioRef.current) {
       audioRef.current.pause();
@@ -326,6 +346,8 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
 
   // Handle HTML5 Audio events
   const handleAudioTimeUpdate = () => {
+    // Skip time updates while user is dragging the seek bar
+    if (isSeekingRef.current) return;
     if (audioRef.current) {
       setCurrentTime(audioRef.current.currentTime);
     }
@@ -427,21 +449,50 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
     }
   };
 
-  const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleSeekStart = () => {
+    isSeekingRef.current = true;
+  };
+
+  const handleSeekInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    // Live preview: update displayed time while dragging
     const newTime = parseFloat(e.target.value);
     setCurrentTime(newTime);
+  };
+
+  const handleSeekEnd = (e: React.MouseEvent<HTMLInputElement> | React.TouchEvent<HTMLInputElement>) => {
+    isSeekingRef.current = false;
+    const newTime = parseFloat((e.target as HTMLInputElement).value);
     if (audioRef.current) {
       audioRef.current.currentTime = newTime;
     }
   };
 
   const cyclePlaybackRate = () => {
-    const rates = [1.0, 1.25, 1.5, 2.0];
-    const nextIdx = (rates.indexOf(playbackRate) + 1) % rates.length;
+    const rates = [0.75, 1.0, 1.25, 1.5, 2.0];
+    const currentIdx = rates.indexOf(playbackRate);
+    const nextIdx = (currentIdx + 1) % rates.length;
     const nextRate = rates[nextIdx];
     setPlaybackRate(nextRate);
     if (audioRef.current) {
       audioRef.current.playbackRate = nextRate;
+    }
+  };
+
+  const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newVol = parseFloat(e.target.value);
+    setVolume(newVol);
+    setIsMuted(newVol === 0);
+    if (audioRef.current) {
+      audioRef.current.volume = newVol;
+      audioRef.current.muted = newVol === 0;
+    }
+  };
+
+  const toggleMute = () => {
+    const newMuted = !isMuted;
+    setIsMuted(newMuted);
+    if (audioRef.current) {
+      audioRef.current.muted = newMuted;
     }
   };
 
@@ -757,16 +808,18 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
               {t('podcast_select_date')}:
             </span>
             <div className="flex items-center gap-1.5">
-              <button
-                type="button"
-                onClick={handleTriggerCollectionToday}
-                disabled={isCollecting}
-                className="neu-btn-sm px-2.5 py-1 rounded-xl text-xs font-semibold text-[var(--text-main)] hover:text-[var(--primary)] flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-                title="Cào kỹ năng mới hôm nay từ GitHub Trending, HackerNews, Reddit"
-              >
-                <Zap className={`w-3.5 h-3.5 text-amber-500 ${isCollecting ? 'animate-spin' : ''}`} />
-                <span className="hidden sm:inline">Cào dữ liệu hôm nay</span>
-              </button>
+              {isAdmin && (
+                <button
+                  type="button"
+                  onClick={handleTriggerCollectionToday}
+                  disabled={isCollecting}
+                  className="neu-btn-sm px-2.5 py-1 rounded-xl text-xs font-semibold text-[var(--text-main)] hover:text-[var(--primary)] flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  title="Cào kỹ năng mới hôm nay từ GitHub Trending, HackerNews, Reddit"
+                >
+                  <Zap className={`w-3.5 h-3.5 text-amber-500 ${isCollecting ? 'animate-spin' : ''}`} />
+                  <span className="hidden sm:inline">Cào dữ liệu hôm nay</span>
+                </button>
+              )}
 
               <div className="flex items-center gap-1 ml-1">
                 <button
@@ -917,65 +970,71 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
             </div>
 
             <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap shrink-0 justify-start xl:justify-end">
-              {/* Translate Summary (VI / EN) Toggle Button */}
-              <button
-                onClick={handleToggleTranslate}
-                disabled={isTranslating || loadingDigest}
-                title={
-                  activeDisplayLang === 'en'
-                    ? 'Chuyển về bản gốc Tiếng Việt'
-                    : 'Dịch toàn bộ bản tóm tắt và các bài viết sang Tiếng Anh bằng Gemini 3.8 Flash'
-                }
-                className={`flex-1 sm:flex-none justify-center px-3 py-2 rounded-xl neu-btn disabled:opacity-50 flex items-center gap-1.5 text-xs font-semibold cursor-pointer transition-all ${
-                  activeDisplayLang === 'en'
-                    ? 'neu-inset text-[var(--primary)] font-bold'
-                    : 'text-[var(--text-muted)] hover:text-[var(--primary)]'
-                }`}
-              >
-                <Globe
-                  className={`w-3.5 h-3.5 shrink-0 ${
-                    isTranslating
-                      ? 'animate-spin text-[var(--primary)]'
-                      : activeDisplayLang === 'en'
-                      ? 'text-[var(--primary)]'
-                      : 'text-sky-500'
+              {/* Translate Summary (VI / EN) Toggle Button - Logged-in users only */}
+              {isLoggedIn && (
+                <button
+                  onClick={handleToggleTranslate}
+                  disabled={isTranslating || loadingDigest}
+                  title={
+                    activeDisplayLang === 'en'
+                      ? 'Chuyển về bản gốc Tiếng Việt'
+                      : 'Dịch toàn bộ bản tóm tắt và các bài viết sang Tiếng Anh bằng Gemini 3.8 Flash'
+                  }
+                  className={`flex-1 sm:flex-none justify-center px-3 py-2 rounded-xl neu-btn disabled:opacity-50 flex items-center gap-1.5 text-xs font-semibold cursor-pointer transition-all ${
+                    activeDisplayLang === 'en'
+                      ? 'neu-inset text-[var(--primary)] font-bold'
+                      : 'text-[var(--text-muted)] hover:text-[var(--primary)]'
                   }`}
-                />
-                <span className="text-[11px] whitespace-nowrap">
-                  {isTranslating
-                    ? 'Đang dịch...'
-                    : activeDisplayLang === 'en'
-                    ? 'Xem Tiếng Việt'
-                    : 'Dịch tóm tắt (EN)'}
-                </span>
-              </button>
+                >
+                  <Globe
+                    className={`w-3.5 h-3.5 shrink-0 ${
+                      isTranslating
+                        ? 'animate-spin text-[var(--primary)]'
+                        : activeDisplayLang === 'en'
+                        ? 'text-[var(--primary)]'
+                        : 'text-sky-500'
+                    }`}
+                  />
+                  <span className="text-[11px] whitespace-nowrap">
+                    {isTranslating
+                      ? 'Đang dịch...'
+                      : activeDisplayLang === 'en'
+                      ? 'Xem Tiếng Việt'
+                      : 'Dịch tóm tắt (EN)'}
+                  </span>
+                </button>
+              )}
 
-              {/* Force Audio Re-synthesize Button */}
-              <button
-                onClick={() => {
-                  setIsAudioLoading(true);
-                  audioMutation.mutate(true);
-                }}
-                disabled={isAudioLoading || loadingDigest}
-                title="Ép AI tạo lại âm thanh bằng giọng đọc này"
-                className="flex-1 sm:flex-none justify-center px-3 py-2 rounded-xl text-[var(--text-muted)] hover:text-[var(--primary)] neu-btn disabled:opacity-50 flex items-center gap-1.5 text-xs font-semibold cursor-pointer"
-              >
-                <Zap className={`w-3.5 h-3.5 shrink-0 ${isAudioLoading ? 'animate-spin text-[var(--primary)]' : ''}`} />
-                <span className="text-[11px] whitespace-nowrap">Tạo lại Audio</span>
-              </button>
+              {/* Force Audio Re-synthesize Button - Admin only */}
+              {isAdmin && (
+                <button
+                  onClick={() => {
+                    setIsAudioLoading(true);
+                    audioMutation.mutate(true);
+                  }}
+                  disabled={isAudioLoading || loadingDigest}
+                  title="Ép AI tạo lại âm thanh bằng giọng đọc này"
+                  className="flex-1 sm:flex-none justify-center px-3 py-2 rounded-xl text-[var(--text-muted)] hover:text-[var(--primary)] neu-btn disabled:opacity-50 flex items-center gap-1.5 text-xs font-semibold cursor-pointer"
+                >
+                  <Zap className={`w-3.5 h-3.5 shrink-0 ${isAudioLoading ? 'animate-spin text-[var(--primary)]' : ''}`} />
+                  <span className="text-[11px] whitespace-nowrap">Tạo lại Audio</span>
+                </button>
+              )}
 
-              {/* AI Regenerate Digest Button */}
-              <button
-                onClick={() => regenerateMutation.mutate()}
-                disabled={regenerateMutation.isPending || loadingDigest}
-                title={t('podcast_regenerate')}
-                className="flex-1 sm:flex-none justify-center px-3 py-2 rounded-xl text-[var(--text-muted)] hover:text-[var(--primary)] neu-btn disabled:opacity-50 flex items-center gap-1.5 text-xs font-semibold cursor-pointer"
-              >
-                <RotateCcw
-                  className={`w-3.5 h-3.5 shrink-0 ${regenerateMutation.isPending ? 'animate-spin text-[var(--primary)]' : ''}`}
-                />
-                <span className="text-[11px] whitespace-nowrap">Tái tạo bài</span>
-              </button>
+              {/* AI Regenerate Digest Button - Admin only */}
+              {isAdmin && (
+                <button
+                  onClick={() => regenerateMutation.mutate()}
+                  disabled={regenerateMutation.isPending || loadingDigest}
+                  title={t('podcast_regenerate')}
+                  className="flex-1 sm:flex-none justify-center px-3 py-2 rounded-xl text-[var(--text-muted)] hover:text-[var(--primary)] neu-btn disabled:opacity-50 flex items-center gap-1.5 text-xs font-semibold cursor-pointer"
+                >
+                  <RotateCcw
+                    className={`w-3.5 h-3.5 shrink-0 ${regenerateMutation.isPending ? 'animate-spin text-[var(--primary)]' : ''}`}
+                  />
+                  <span className="text-[11px] whitespace-nowrap">Tái tạo bài</span>
+                </button>
+              )}
             </div>
           </div>
 
@@ -1020,8 +1079,13 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
                 type="range"
                 min="0"
                 max={duration || 100}
+                step="0.1"
                 value={currentTime}
-                onChange={handleSeek}
+                onMouseDown={handleSeekStart}
+                onTouchStart={handleSeekStart}
+                onChange={handleSeekInput}
+                onMouseUp={handleSeekEnd}
+                onTouchEnd={handleSeekEnd}
                 style={{ '--range-progress': `${duration > 0 ? (currentTime / duration) * 100 : 0}%` } as React.CSSProperties}
                 className="w-full h-2 neu-inset rounded-lg appearance-none cursor-pointer accent-[var(--primary)] my-0"
               />
@@ -1029,9 +1093,38 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
               <div className="flex items-center justify-between text-[11px] font-mono text-[var(--text-muted)]">
                 <span>{formatSeconds(currentTime)}</span>
                 <div className="flex items-center gap-2">
+                  {/* Volume Control */}
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={toggleMute}
+                      className="p-0.5 rounded-md hover:text-[var(--primary)] cursor-pointer"
+                      title={isMuted ? 'Bật âm thanh' : 'Tắt tiếng'}
+                    >
+                      {isMuted || volume === 0 ? (
+                        <VolumeX className="w-3.5 h-3.5" />
+                      ) : volume < 0.5 ? (
+                        <Volume1 className="w-3.5 h-3.5" />
+                      ) : (
+                        <Volume2 className="w-3.5 h-3.5" />
+                      )}
+                    </button>
+                    <input
+                      type="range"
+                      min="0"
+                      max="1"
+                      step="0.05"
+                      value={isMuted ? 0 : volume}
+                      onChange={handleVolumeChange}
+                      className="w-16 sm:w-20 h-1.5 neu-inset rounded-full appearance-none cursor-pointer accent-[var(--primary)]"
+                      title={`Âm lượng: ${Math.round((isMuted ? 0 : volume) * 100)}%`}
+                    />
+                  </div>
+                  <span className="text-[var(--shadow-dark)]">•</span>
+                  {/* Playback Speed */}
                   <button
                     onClick={cyclePlaybackRate}
                     className="px-2 py-0.5 rounded-lg neu-btn-sm text-[var(--text-muted)] font-mono font-bold text-[10px] hover:text-[var(--primary)] cursor-pointer"
+                    title={`Tốc độ phát: ${playbackRate}x (Nhấn để đổi)`}
                   >
                     {playbackRate}x
                   </button>
@@ -1071,23 +1164,25 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
               </button>
             </div>
 
-            <div className="flex items-center gap-1.5 self-end sm:self-auto shrink-0">
-              <NeuSelect
-                value={selectedModel}
-                onChange={(val) => setSelectedModel(String(val))}
-                options={AVAILABLE_GEMINI_MODELS.map((m) => ({
-                  value: m.id,
-                  label: m.name,
-                  badge: m.id === 'gemini-3.8-flash' ? 'HOT' : undefined,
-                  icon: <Sparkles className={`w-3.5 h-3.5 ${m.id === 'gemini-3.8-flash' ? 'text-amber-500' : 'text-[var(--primary)]'}`} />,
-                }))}
-                size="sm"
-                variant="inset"
-                align="right"
-                searchable={false}
-                title="Chọn mô hình Gemini ưu tiên khi phân tích hoặc dịch"
-              />
-            </div>
+            {isAdmin && (
+              <div className="flex items-center gap-1.5 self-end sm:self-auto shrink-0">
+                <NeuSelect
+                  value={selectedModel}
+                  onChange={(val) => setSelectedModel(String(val))}
+                  options={AVAILABLE_GEMINI_MODELS.map((m) => ({
+                    value: m.id,
+                    label: m.name,
+                    badge: m.id === 'gemini-3.8-flash' ? 'HOT' : undefined,
+                    icon: <Sparkles className={`w-3.5 h-3.5 ${m.id === 'gemini-3.8-flash' ? 'text-amber-500' : 'text-[var(--primary)]'}`} />,
+                  }))}
+                  size="sm"
+                  variant="inset"
+                  align="right"
+                  searchable={false}
+                  title="Chọn mô hình Gemini ưu tiên khi phân tích hoặc dịch"
+                />
+              </div>
+            )}
           </div>
 
           <div className="pt-1">
