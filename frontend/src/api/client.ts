@@ -8,6 +8,7 @@ import {
   User, 
   CollectionRun, 
   AuditLogItem,
+  AuditLogStats,
   ExportConfig,
   SecurityReport,
   SkillBundle,
@@ -52,6 +53,7 @@ export const api = {
     }
     const data = await res.json();
     localStorage.setItem('agent_trending_token', data.access_token);
+    localStorage.setItem('agent_trending_user', JSON.stringify(data.user));
     return data;
   },
 
@@ -67,6 +69,7 @@ export const api = {
     }
     const data = await res.json();
     localStorage.setItem('agent_trending_token', data.access_token);
+    localStorage.setItem('agent_trending_user', JSON.stringify(data.user));
     return data;
   },
 
@@ -74,7 +77,11 @@ export const api = {
     const res = await fetch(`${API_BASE}/auth/me`, {
       headers: getAuthHeaders(),
     });
-    if (!res.ok) throw new Error('Unauthenticated');
+    if (!res.ok) {
+      const err: any = new Error(res.status === 401 ? 'Unauthenticated' : 'Failed to fetch current user');
+      err.status = res.status;
+      throw err;
+    }
     return res.json();
   },
 
@@ -88,6 +95,7 @@ export const api = {
 
   logout: () => {
     localStorage.removeItem('agent_trending_token');
+    localStorage.removeItem('agent_trending_user');
   },
 
   // Skills
@@ -280,14 +288,26 @@ export const api = {
     return res.json();
   },
 
-  getAuditLogs: async (params?: { action?: string; username?: string; limit?: number }): Promise<AuditLogItem[]> => {
+  getAuditLogs: async (params?: { action?: string; user_id?: number; limit?: number; offset?: number; search?: string; source?: string }): Promise<AuditLogItem[]> => {
     const query = new URLSearchParams();
     if (params?.action) query.append('action', params.action);
-    if (params?.username) query.append('username', params.username);
+    if (params?.user_id) query.append('user_id', params.user_id.toString());
     if (params?.limit) query.append('limit', params.limit.toString());
+    if (params?.offset) query.append('offset', params.offset.toString());
+    if (params?.source) query.append('source', params.source);
 
-    const res = await fetch(`${API_BASE}/history/audit-log?${query.toString()}`);
+    const res = await fetch(`${API_BASE}/history/audit-log?${query.toString()}`, {
+      headers: getAuthHeaders(),
+    });
     if (!res.ok) throw new Error('Failed to fetch audit logs');
+    return res.json();
+  },
+
+  getAuditStats: async (days: number = 7): Promise<AuditLogStats> => {
+    const res = await fetch(`${API_BASE}/history/audit-log/stats?days=${days}`, {
+      headers: getAuthHeaders(),
+    });
+    if (!res.ok) throw new Error('Failed to fetch audit stats');
     return res.json();
   },
 

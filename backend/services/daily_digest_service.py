@@ -63,9 +63,12 @@ class DailyDigestService:
             .all()
         )
 
-        # Fetch existing digests
-        digests = db.query(DailyDigest.digest_date, DailyDigest.podcast_audio_base64).all()
-        digest_map = {d.digest_date: bool(d.podcast_audio_base64) for d in digests}
+        # Fetch existing digests - ONLY check if audio exists, don't load the actual base64 data
+        digests = db.query(
+            DailyDigest.digest_date,
+            (DailyDigest.podcast_audio_base64 != None).label("has_audio")
+        ).all()
+        digest_map = {d.digest_date: bool(d.has_audio) for d in digests}
 
         date_list = []
         for d, count in skill_dates:

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { Bot, LogIn, UserPlus, ArrowRight } from 'lucide-react';
+import { Bot, LogIn, UserPlus, ArrowRight, Eye, EyeOff } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
 
 interface LoginPageProps {
@@ -13,6 +13,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onSuccess }) => {
   const [isRegister, setIsRegister] = useState(false);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [displayName, setDisplayName] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -129,14 +130,25 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onSuccess }) => {
             <label className="block text-xs font-semibold text-[var(--text-muted)] mb-1.5">
               {t('field_password')}
             </label>
-            <input
-              type="password"
-              required
-              placeholder="••••••••"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-2.5 text-xs neu-inset rounded-xl text-[var(--text-main)] outline-none transition-all font-mono placeholder-[var(--text-muted)]/50"
-            />
+            <div className="relative flex items-center">
+              <input
+                type={showPassword ? 'text' : 'password'}
+                required
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full pl-4 pr-10 py-2.5 text-xs neu-inset rounded-xl text-[var(--text-main)] outline-none transition-all font-mono placeholder-[var(--text-muted)]/50"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-2.5 p-1 text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors cursor-pointer rounded-lg hover:bg-black/5 dark:hover:bg-white/5"
+                title={showPassword ? (t('hide_password') || 'Ẩn mật khẩu') : (t('show_password') || 'Xem mật khẩu')}
+                aria-label={showPassword ? 'Ẩn mật khẩu' : 'Xem mật khẩu'}
+              >
+                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
           </div>
 
           <button

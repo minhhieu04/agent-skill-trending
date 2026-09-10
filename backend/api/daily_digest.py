@@ -150,7 +150,6 @@ async def get_daily_digest(
             "skill_summaries": _normalize_skill_summaries(digest.skill_summaries),
             "total_skills_count": digest.total_skills_count,
             "has_audio": has_real_audio,
-            "audio_base64": digest.podcast_audio_base64 if has_real_audio else None,
             "podcast_duration_sec": digest.podcast_duration_sec or 0.0,
             "podcast_voice": digest.podcast_voice,
             "source_model": digest.source_model,

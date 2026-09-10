@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../api/client';
-import { CollectionRun, AuditLog } from '../types';
+import { CollectionRun, AuditLogItem, AuditLogStats } from '../types';
 import { TableSkeleton } from '../components/Skeleton';
+import { AuditLogCharts } from '../components/AuditLogCharts';
+import { AuditLogDetailModal } from '../components/AuditLogDetailModal';
 import { 
   History, 
   ShieldCheck, 
@@ -11,7 +13,11 @@ import {
   RefreshCw, 
   Activity,
   Calendar,
-  Filter
+  Filter,
+  Search,
+  ChevronLeft,
+  ChevronRight,
+  Eye
 } from 'lucide-react';
 import { NeuSelect } from '../components/NeuSelect';
 import { useLanguage } from '../context/LanguageContext';
@@ -19,22 +25,76 @@ import { useLanguage } from '../context/LanguageContext';
 export const HistoryPage: React.FC = () => {
   const [subTab, setSubTab] = useState<'runs' | 'audit'>('runs');
   const [actionFilter, setActionFilter] = useState<string>('all');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
+  const [searchInput, setSearchInput] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [selectedLog, setSelectedLog] = useState<AuditLogItem | null>(null);
   const { t } = useLanguage();
+
+  // Debounce search input
+  const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    searchTimerRef.current = setTimeout(() => {
+      setDebouncedSearch(searchInput);
+      setPage(1); // Reset to page 1 on new search
+    }, 350);
+    return () => {
+      if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    };
+  }, [searchInput]);
+
+  // Reset page when action filter changes
+  useEffect(() => {
+    setPage(1);
+  }, [actionFilter]);
 
   const { data: runs = [], isLoading: loadingRuns, refetch: refetchRuns } = useQuery<CollectionRun[]>({
     queryKey: ['collectionRuns'],
     queryFn: () => api.getCollectionRuns(50),
   });
 
-  const { data: auditLogs = [], isLoading: loadingAudit } = useQuery<AuditLog[]>({
+  // Fetch a large batch and paginate client-side (backend doesn't have pagination envelope)
+  const { data: allAuditLogs = [], isLoading: loadingAudit } = useQuery<AuditLogItem[]>({
     queryKey: ['auditLogs', actionFilter],
-    queryFn: () => api.getAuditLogs({ action: actionFilter === 'all' ? undefined : actionFilter, limit: 100 }),
+    queryFn: () => api.getAuditLogs({ 
+      action: actionFilter === 'all' ? undefined : actionFilter, 
+      limit: 200 
+    }),
   });
+
+  const { data: auditStats, isLoading: loadingStats } = useQuery<AuditLogStats>({
+    queryKey: ['auditStats'],
+    queryFn: () => api.getAuditStats(7),
+  });
+
+  // Client-side search filtering
+  const filteredAuditLogs = useMemo(() => {
+    if (!debouncedSearch.trim()) return allAuditLogs;
+    const q = debouncedSearch.toLowerCase().trim();
+    return allAuditLogs.filter((log) => {
+      const matchUsername = (log.username || '').toLowerCase().includes(q);
+      const matchIP = (log.ip_address || '').toLowerCase().includes(q);
+      const matchAction = log.action.toLowerCase().includes(q);
+      const matchDetail = JSON.stringify(log.detail).toLowerCase().includes(q);
+      const matchTarget = (log.target_type || '').toLowerCase().includes(q);
+      return matchUsername || matchIP || matchAction || matchDetail || matchTarget;
+    });
+  }, [allAuditLogs, debouncedSearch]);
+
+  // Pagination calculations
+  const totalFiltered = filteredAuditLogs.length;
+  const totalPages = Math.max(1, Math.ceil(totalFiltered / pageSize));
+  const safePage = Math.min(page, totalPages);
+  const paginatedLogs = useMemo(() => {
+    const start = (safePage - 1) * pageSize;
+    return filteredAuditLogs.slice(start, start + pageSize);
+  }, [filteredAuditLogs, safePage, pageSize]);
 
   const formatDate = (isoString: string) => {
     if (!isoString) return '';
     try {
-      // Ensure UTC string has Z if missing
       const utcString = isoString.endsWith('Z') ? isoString : `${isoString}Z`;
       const d = new Date(utcString);
       return d.toLocaleString('vi-VN', {
@@ -51,24 +111,24 @@ export const HistoryPage: React.FC = () => {
   };
 
   const getActionBadge = (action: string) => {
-    switch (action) {
-      case 'login':
-        return <span className="px-2.5 py-0.5 rounded-lg neu-inset-sm text-[var(--primary)] text-[11px] font-mono font-semibold whitespace-nowrap shrink-0 inline-flex items-center">login</span>;
-      case 'register':
-        return <span className="px-2.5 py-0.5 rounded-lg neu-inset-sm text-emerald-500 text-[11px] font-mono font-semibold whitespace-nowrap shrink-0 inline-flex items-center">register</span>;
-      case 'bookmark':
-        return <span className="px-2.5 py-0.5 rounded-lg neu-primary text-white text-[11px] font-mono font-bold whitespace-nowrap shrink-0 inline-flex items-center">bookmark</span>;
-      case 'unbookmark':
-        return <span className="px-2.5 py-0.5 rounded-lg neu-inset-sm text-[var(--text-muted)] text-[11px] font-mono whitespace-nowrap shrink-0 inline-flex items-center">unbookmark</span>;
-      case 'trigger_collection':
-        return <span className="px-2.5 py-0.5 rounded-lg neu-inset-sm text-[var(--primary)] text-[11px] font-mono font-semibold whitespace-nowrap shrink-0 inline-flex items-center">trigger_collection</span>;
-      case 'update_preferences':
-        return <span className="px-2.5 py-0.5 rounded-lg neu-inset-sm text-[var(--primary)] text-[11px] font-mono font-semibold whitespace-nowrap shrink-0 inline-flex items-center">update_preferences</span>;
-      case 'collection_completed':
-        return <span className="px-2.5 py-0.5 rounded-lg neu-inset-sm text-emerald-500 text-[11px] font-mono font-semibold whitespace-nowrap shrink-0 inline-flex items-center">collection_completed</span>;
-      default:
-        return <span className="px-2.5 py-0.5 rounded-lg neu-inset-sm text-[var(--text-muted)] font-mono text-[11px] whitespace-nowrap shrink-0 inline-flex items-center">{action}</span>;
+    const a = action.toLowerCase();
+    let colorClass = 'text-[var(--text-muted)]'; // default
+
+    if (a === 'login' || a === 'register' || a.includes('success') || a === 'bookmark' || a === 'collection_completed' || a === 'gemini_generation_success') {
+      colorClass = 'text-emerald-500';
+    } else if (a === 'update_preferences' || a.includes('quota')) {
+      colorClass = 'text-amber-500';
+    } else if (a.includes('error') || a.includes('failed')) {
+      colorClass = 'text-rose-500';
+    } else if (a === 'trigger_collection' || a === 'unbookmark') {
+      colorClass = 'text-[var(--primary)]';
     }
+
+    return (
+      <span className={`px-2.5 py-0.5 rounded-lg neu-inset-sm ${colorClass} text-[11px] font-mono font-semibold whitespace-nowrap shrink-0 inline-flex items-center`}>
+        {action}
+      </span>
+    );
   };
 
   return (
@@ -107,7 +167,7 @@ export const HistoryPage: React.FC = () => {
                 : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
             }`}
           >
-            {t('subtab_audit')} ({auditLogs.length})
+            {t('subtab_audit')} ({totalFiltered})
           </button>
         </div>
       </div>
@@ -219,78 +279,186 @@ export const HistoryPage: React.FC = () => {
       {/* Subtab 2: Audit Logs */}
       {subTab === 'audit' && (
         <div className="space-y-4">
+          {/* Charts */}
+          <AuditLogCharts stats={auditStats} isLoading={loadingStats} />
+
+          {/* Controls: Filter + Search */}
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
             <h3 className="text-xs font-mono uppercase tracking-wider text-[var(--text-muted)] flex items-center gap-1.5">
               <ShieldCheck className="w-3.5 h-3.5 text-[var(--primary)]" />
               {t('audit_trail')}
             </h3>
 
-            {/* Filter Actions */}
-            <NeuSelect
-              value={actionFilter}
-              onChange={(val) => setActionFilter(String(val))}
-              options={[
-                { value: 'all', label: t('all_actions') },
-                { value: 'login', label: 'Login' },
-                { value: 'register', label: 'Register' },
-                { value: 'bookmark', label: 'Bookmark' },
-                { value: 'trigger_collection', label: 'Trigger Collection' },
-                { value: 'update_preferences', label: 'Update Preferences' },
-              ]}
-              icon={<Filter className="w-3.5 h-3.5" />}
-              size="sm"
-              variant="inset"
-              searchable={false}
-              title={t('all_actions')}
-            />
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2.5 w-full sm:w-auto">
+              {/* Search input */}
+              <div className="relative w-full sm:w-56">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[var(--text-muted)] pointer-events-none" />
+                <input
+                  type="text"
+                  value={searchInput}
+                  onChange={(e) => setSearchInput(e.target.value)}
+                  placeholder="Tìm IP, username, keyword..."
+                  className="w-full pl-8 pr-3 py-1.5 text-xs rounded-xl neu-inset-sm text-[var(--text-main)] placeholder-[var(--text-muted)]/50 focus:outline-none focus:ring-1 focus:ring-[var(--primary)]/30"
+                />
+              </div>
+
+              {/* Filter Actions */}
+              <NeuSelect
+                value={actionFilter}
+                onChange={(val) => setActionFilter(String(val))}
+                options={[
+                  { value: 'all', label: t('all_actions') },
+                  { value: 'login', label: 'Login' },
+                  { value: 'register', label: 'Register' },
+                  { value: 'bookmark', label: 'Bookmark' },
+                  { value: 'trigger_collection', label: 'Trigger Collection' },
+                  { value: 'update_preferences', label: 'Update Preferences' },
+                  { value: 'collection_completed', label: 'Collection Completed' },
+                  { value: 'collection_failed', label: 'Collection Failed' },
+                  { value: 'gemini_api_error', label: 'Gemini API Error' },
+                  { value: 'gemini_generation_success', label: 'Gemini Generation Success' },
+                  { value: 'login_failed', label: 'Login Failed' },
+                  { value: 'quota_exceeded', label: 'Quota Exceeded' },
+                ]}
+                icon={<Filter className="w-3.5 h-3.5" />}
+                size="sm"
+                variant="inset"
+                searchable={false}
+                title={t('all_actions')}
+              />
+            </div>
           </div>
 
           {loadingAudit ? (
             <TableSkeleton rows={5} />
-          ) : auditLogs.length === 0 ? (
+          ) : paginatedLogs.length === 0 ? (
             <div className="text-center py-12 p-6 rounded-3xl neu-inset">
               <ShieldCheck className="w-8 h-8 text-[var(--text-muted)] mx-auto mb-2" />
-              <p className="text-xs text-[var(--text-muted)]">{t('no_history_runs')}</p>
+              <p className="text-xs text-[var(--text-muted)]">
+                {debouncedSearch ? 'Không tìm thấy kết quả phù hợp.' : t('no_history_runs')}
+              </p>
             </div>
           ) : (
-            <div className="rounded-3xl neu-flat overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs border-collapse">
-                  <thead>
-                    <tr className="border-b border-[var(--shadow-dark)]/20 shadow-[0_2px_4px_var(--shadow-dark)] bg-[var(--bg)] text-[var(--text-muted)] uppercase tracking-wider font-mono text-[10px]">
-                      <th className="p-3.5 pl-5">{t('col_time')}</th>
-                      <th className="p-3.5">{t('col_user')}</th>
-                      <th className="p-3.5">{t('col_action')}</th>
-                      <th className="p-3.5">{t('col_target')}</th>
-                      <th className="p-3.5 pr-5">{t('col_detail')}</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-[var(--shadow-dark)]/15 font-sans">
-                    {auditLogs.map((log) => (
-                      <tr key={log.id} className="hover:bg-[var(--shadow-dark)]/10 transition-colors">
-                        <td className="p-3.5 pl-5 font-mono text-[11px] text-[var(--text-muted)] whitespace-nowrap">
-                          {formatDate(log.created_at)}
-                        </td>
-                        <td className="p-3.5 font-bold text-[var(--text-main)]">
-                          @{log.username || 'guest'}
-                        </td>
-                        <td className="p-3.5">
-                          {getActionBadge(log.action)}
-                        </td>
-                        <td className="p-3.5 font-mono text-[var(--text-muted)] text-[11px]">
-                          {log.target_type ? `${log.target_type}${log.target_id ? ` #${log.target_id}` : ''}` : '-'}
-                        </td>
-                        <td className="p-3.5 pr-5 font-mono text-[10px] text-[var(--text-muted)] max-w-xs truncate">
-                          {log.detail ? JSON.stringify(log.detail) : '-'}
-                        </td>
+            <>
+              <div className="rounded-3xl neu-flat overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead>
+                      <tr className="border-b border-[var(--shadow-dark)]/20 shadow-[0_2px_4px_var(--shadow-dark)] bg-[var(--bg)] text-[var(--text-muted)] uppercase tracking-wider font-mono text-[10px]">
+                        <th className="p-3.5 pl-5">{t('col_time')}</th>
+                        <th className="p-3.5">{t('col_user')}</th>
+                        <th className="p-3.5">IP</th>
+                        <th className="p-3.5">{t('col_action')}</th>
+                        <th className="p-3.5">{t('col_target')}</th>
+                        <th className="p-3.5 pr-5">{t('col_detail')}</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody className="divide-y divide-[var(--shadow-dark)]/15 font-sans">
+                      {paginatedLogs.map((log) => (
+                        <tr
+                          key={log.id}
+                          onClick={() => setSelectedLog(log)}
+                          className="hover:bg-[var(--shadow-dark)]/10 transition-colors cursor-pointer group"
+                        >
+                          <td className="p-3.5 pl-5 font-mono text-[11px] text-[var(--text-muted)] whitespace-nowrap">
+                            {formatDate(log.created_at)}
+                          </td>
+                          <td className="p-3.5 font-bold text-[var(--text-main)]">
+                            @{log.username || 'guest'}
+                          </td>
+                          <td className="p-3.5">
+                            {log.ip_address ? (
+                              <span className="px-2 py-0.5 rounded-lg neu-inset-sm font-mono text-[11px] text-[var(--text-muted)] whitespace-nowrap inline-flex items-center">
+                                {log.ip_address}
+                              </span>
+                            ) : (
+                              <span className="text-[var(--text-muted)] text-[11px]">-</span>
+                            )}
+                          </td>
+                          <td className="p-3.5">
+                            {getActionBadge(log.action)}
+                          </td>
+                          <td className="p-3.5 font-mono text-[var(--text-muted)] text-[11px]">
+                            {log.target_type ? `${log.target_type}${log.target_id ? ` #${log.target_id}` : ''}` : '-'}
+                          </td>
+                          <td className="p-3.5 pr-5 font-mono text-[10px] text-[var(--text-muted)] max-w-xs truncate">
+                            <div className="flex items-center gap-1.5">
+                              <span className="truncate">{log.detail ? JSON.stringify(log.detail) : '-'}</span>
+                              <Eye className="w-3 h-3 text-[var(--text-muted)] opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
-            </div>
+
+              {/* Pagination Controls */}
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-1">
+                <div className="flex items-center gap-2.5 text-xs text-[var(--text-muted)]">
+                  <span className="font-mono">
+                    Trang {safePage} / {totalPages} — Tổng {totalFiltered} bản ghi
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  {/* Page size selector */}
+                  <NeuSelect
+                    value={pageSize}
+                    onChange={(val) => {
+                      setPageSize(Number(val));
+                      setPage(1);
+                    }}
+                    options={[
+                      { value: 20, label: '20 / trang' },
+                      { value: 25, label: '25 / trang' },
+                      { value: 50, label: '50 / trang' },
+                      { value: 100, label: '100 / trang' },
+                      { value: 200, label: '200 / trang' },
+                    ]}
+                    size="xs"
+                    variant="inset"
+                    searchable={false}
+                  />
+
+                  {/* Prev button */}
+                  <button
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    disabled={safePage <= 1}
+                    className={`flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+                      safePage <= 1
+                        ? 'neu-inset-sm text-[var(--text-muted)] opacity-50 cursor-not-allowed'
+                        : 'neu-flat-xs text-[var(--text-main)] hover:text-[var(--primary)] cursor-pointer'
+                    }`}
+                  >
+                    <ChevronLeft className="w-3.5 h-3.5" />
+                    Trước
+                  </button>
+
+                  {/* Next button */}
+                  <button
+                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                    disabled={safePage >= totalPages}
+                    className={`flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+                      safePage >= totalPages
+                        ? 'neu-inset-sm text-[var(--text-muted)] opacity-50 cursor-not-allowed'
+                        : 'neu-flat-xs text-[var(--text-main)] hover:text-[var(--primary)] cursor-pointer'
+                    }`}
+                  >
+                    Sau
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+            </>
           )}
         </div>
+      )}
+
+      {/* Detail Modal */}
+      {selectedLog && (
+        <AuditLogDetailModal log={selectedLog} onClose={() => setSelectedLog(null)} />
       )}
     </div>
   );

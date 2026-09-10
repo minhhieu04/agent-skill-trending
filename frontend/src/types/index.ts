@@ -205,6 +205,23 @@ export interface AuditLogItem {
 
 export type AuditLog = AuditLogItem;
 
+export interface PaginatedAuditLogResponse {
+  items: AuditLogItem[];
+  total: number;
+  page: number;
+  page_size: number;
+  total_pages: number;
+}
+
+export interface AuditLogStats {
+  total_events: number;
+  quota_exceeded_count: number;
+  collection_completed_count: number;
+  failed_count: number;
+  most_recent_quota_error: string | null;
+  most_recent_quota_source: string | null;
+}
+
 // Studio & AI Video Interfaces
 export interface VoiceOption {
   id: string;

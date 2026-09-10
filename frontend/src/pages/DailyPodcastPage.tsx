@@ -311,6 +311,10 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
   useEffect(() => {
     if (audioRef.current) {
       audioRef.current.pause();
+      // Clean up blob URL to prevent memory leak
+      if (audioRef.current.src?.startsWith('blob:')) {
+        URL.revokeObjectURL(audioRef.current.src);
+      }
       audioRef.current.src = '';
     }
     setIsPlaying(false);
@@ -384,18 +388,13 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
 
     if (!selectedDate || loadingDigest) return;
 
-    // Use the voice that's already cached in DB to avoid re-synthesis
-    // Only use selectedVoice if user explicitly changed it (different from digest)
-    const effectiveVoice = digest?.podcast_voice || selectedVoice;
-    const streamUrl = api.getPodcastAudioStreamUrl(selectedDate, effectiveVoice);
-
     if (audioRef.current) {
-      // Resume if already loaded and playing the same source
+      // Resume if already loaded (blob URL or data URL)
       if (
         audioRef.current.src &&
         !audioRef.current.ended &&
-        audioRef.current.currentTime > 0 &&
-        (audioRef.current.src.includes(encodeURIComponent(selectedDate)) || audioRef.current.src.startsWith('data:audio'))
+        audioRef.current.duration > 0 &&
+        (audioRef.current.src.startsWith('blob:') || audioRef.current.src.startsWith('data:audio'))
       ) {
         audioRef.current.playbackRate = playbackRate;
         try {
@@ -407,18 +406,32 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
         }
       }
 
-      // Load new stream source
+      // Fetch audio as blob for proper seeking support
+      // WAV streams don't support HTTP Range requests, so direct streaming can't seek
       setIsAudioLoading(true);
-      audioRef.current.src = streamUrl;
-      audioRef.current.playbackRate = playbackRate;
-      audioRef.current.volume = isMuted ? 0 : volume;
       try {
+        const effectiveVoice = digest?.podcast_voice || selectedVoice;
+        const streamUrl = api.getPodcastAudioStreamUrl(selectedDate, effectiveVoice);
+        const response = await fetch(streamUrl);
+        if (!response.ok) throw new Error(`Audio fetch failed: ${response.status}`);
+        const blob = await response.blob();
+        const blobUrl = URL.createObjectURL(blob);
+
+        // Clean up previous blob URL
+        if (audioRef.current.src?.startsWith('blob:')) {
+          URL.revokeObjectURL(audioRef.current.src);
+        }
+
+        audioRef.current.src = blobUrl;
+        audioRef.current.playbackRate = playbackRate;
+        audioRef.current.volume = isMuted ? 0 : volume;
         await audioRef.current.play();
         setIsPlaying(true);
         setIsAudioLoading(false);
       } catch (err: any) {
-        console.error('Playback error or waiting for stream:', err);
-        // Browser buffers stream, keep isAudioLoading true - onPlaying event will clear it
+        console.error('Audio loading error:', err);
+        setIsAudioLoading(false);
+        showToast('Không thể tải audio. Thử lại sau.', 'error');
       }
     }
   };
