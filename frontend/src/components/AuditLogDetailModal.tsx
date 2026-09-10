@@ -1,6 +1,7 @@
-import React, { useEffect, useCallback, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { AuditLogItem } from '../types';
-import { X, Copy, Check, AlertTriangle, Clock, User, Globe, Tag, Target } from 'lucide-react';
+import { X, Copy, Check, AlertTriangle, Clock, User, Globe, Tag, Target, FileJson, ShieldCheck } from 'lucide-react';
 
 interface AuditLogDetailModalProps {
   log: AuditLogItem | null;
@@ -9,24 +10,29 @@ interface AuditLogDetailModalProps {
 
 export const AuditLogDetailModal: React.FC<AuditLogDetailModalProps> = ({ log, onClose }) => {
   const [copied, setCopied] = useState(false);
-
-  const handleKeyDown = useCallback(
-    (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    },
-    [onClose],
-  );
+  const copyTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const mouseDownTargetRef = useRef<EventTarget | null>(null);
 
   useEffect(() => {
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [handleKeyDown]);
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      if (copyTimerRef.current) clearTimeout(copyTimerRef.current);
+    };
+  }, [onClose]);
 
   if (!log) return null;
 
   const isError =
     log.action.toLowerCase().includes('error') ||
-    log.action.toLowerCase().includes('failed');
+    log.action.toLowerCase().includes('failed') ||
+    log.action.toLowerCase().includes('quota');
 
   const formatUTC = (isoString: string) => {
     try {
@@ -58,200 +64,244 @@ export const AuditLogDetailModal: React.FC<AuditLogDetailModalProps> = ({ log, o
         hour: '2-digit',
         minute: '2-digit',
         second: '2-digit',
-      }) + ' (VN)';
+      });
     } catch {
       return isoString;
     }
   };
 
-  const detailJson = JSON.stringify(log.detail, null, 2);
+  const detailJson = JSON.stringify(log.detail || {}, null, 2);
+  const detailKeyCount = log.detail && typeof log.detail === 'object' ? Object.keys(log.detail).length : 0;
 
   const handleCopy = async () => {
     try {
       await navigator.clipboard.writeText(detailJson);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
     } catch {
-      // fallback
       const ta = document.createElement('textarea');
       ta.value = detailJson;
       document.body.appendChild(ta);
       ta.select();
       document.execCommand('copy');
       document.body.removeChild(ta);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
     }
+    setCopied(true);
+    if (copyTimerRef.current) clearTimeout(copyTimerRef.current);
+    copyTimerRef.current = setTimeout(() => setCopied(false), 2000);
   };
 
-  const getActionColor = (action: string) => {
+  const getActionBadgeStyle = (action: string) => {
     const a = action.toLowerCase();
-    if (a.includes('error') || a.includes('failed')) return 'text-rose-500 bg-rose-500/10';
-    if (a.includes('success') || a.includes('completed') || a === 'login' || a === 'register' || a === 'bookmark') return 'text-emerald-500 bg-emerald-500/10';
-    if (a.includes('update') || a.includes('quota')) return 'text-amber-500 bg-amber-500/10';
-    return 'text-[var(--primary)] bg-[var(--primary)]/10';
+    if (a.includes('quota')) return 'text-amber-500 bg-amber-500/10 border border-amber-500/20';
+    if (a.includes('error') || a.includes('failed') || a === 'login_failed') return 'text-rose-500 bg-rose-500/10 border border-rose-500/20';
+    if (a === 'trigger_collection' || a === 'collection_completed') return 'text-sky-500 bg-sky-500/10 border border-sky-500/20';
+    if (a === 'login' || a === 'register') return 'text-emerald-500 bg-emerald-500/10 border border-emerald-500/20';
+    if (a.includes('preference') || a === 'bookmark' || a === 'unbookmark') return 'text-purple-500 bg-purple-500/10 border border-purple-500/20';
+    return 'text-zinc-500 bg-zinc-500/10 border border-zinc-500/20';
   };
 
-  // Colorize JSON keys/values
-  const renderColoredJson = (jsonStr: string) => {
-    // Simple regex-based colorization
-    const parts = jsonStr.split(/("(?:[^"\\]|\\.)*")/g);
+  // Syntax highlight JSON string
+  const renderColoredJson = (json: string) => {
+    const parts = json.split(/("(?:[^"\\]|\\.)*")/g);
     return parts.map((part, i) => {
       if (part.startsWith('"') && part.endsWith('"')) {
-        const nextPart = parts[i + 1]?.trimStart();
-        if (nextPart?.startsWith(':')) {
-          return <span key={i} className="text-[var(--primary)]">{part}</span>;
+        const nextPart = parts[i + 1] || '';
+        if (/^\s*:/.test(nextPart)) {
+          return <span key={i} className="text-sky-400 font-semibold">{part}</span>;
         } else {
-          return <span key={i} className="text-emerald-500">{part}</span>;
+          return <span key={i} className="text-emerald-400">{part}</span>;
         }
       }
-      // Numbers
-      const numColored = part.replace(/\b(\d+\.?\d*)\b/g, '<NUM>$1</NUM>');
-      if (numColored.includes('<NUM>')) {
-        const numParts = numColored.split(/(<NUM>.*?<\/NUM>)/g);
+      // Numbers, booleans and null
+      const tokenized = part
+        .replace(/\b(true|false|null)\b/g, '<BOOL>$1</BOOL>')
+        .replace(/\b(\d+\.?\d*)\b/g, '<NUM>$1</NUM>');
+
+      if (tokenized.includes('<NUM>') || tokenized.includes('<BOOL>')) {
+        const subParts = tokenized.split(/(<(?:NUM|BOOL)>.*?<\/(?:NUM|BOOL)>)/g);
         return (
           <React.Fragment key={i}>
-            {numParts.map((np, j) => {
-              const match = np.match(/<NUM>(.*?)<\/NUM>/);
-              if (match) return <span key={j} className="text-amber-500">{match[1]}</span>;
-              // booleans and null
-              const boolColored = np.replace(/\b(true|false|null)\b/g, '###$1###');
-              if (boolColored.includes('###')) {
-                const boolParts = boolColored.split(/(###.*?###)/g);
-                return (
-                  <React.Fragment key={j}>
-                    {boolParts.map((bp, k) => {
-                      const boolMatch = bp.match(/###(.*?)###/);
-                      if (boolMatch) return <span key={k} className="text-rose-400">{boolMatch[1]}</span>;
-                      return <span key={k}>{bp}</span>;
-                    })}
-                  </React.Fragment>
-                );
-              }
-              return <span key={j}>{np}</span>;
+            {subParts.map((sp, j) => {
+              const numMatch = sp.match(/<NUM>(.*?)<\/NUM>/);
+              if (numMatch) return <span key={j} className="text-amber-400 font-semibold">{numMatch[1]}</span>;
+              const boolMatch = sp.match(/<BOOL>(.*?)<\/BOOL>/);
+              if (boolMatch) return <span key={j} className="text-rose-400 font-bold">{boolMatch[1]}</span>;
+              return <span key={j} className="text-[var(--text-muted)]">{sp}</span>;
             })}
           </React.Fragment>
         );
       }
-      return <span key={i}>{part}</span>;
+      return <span key={i} className="text-[var(--text-muted)]">{part}</span>;
     });
   };
 
-  return (
-    <div
-      className="fixed inset-0 z-[100] flex items-center justify-center p-4"
+  // Teleport modal straight to document.body so it is never trapped by parent CSS transforms
+  return createPortal(
+    <div 
+      className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-slate-950/50 dark:bg-black/70 backdrop-blur-md animate-modal-backdrop"
+      onMouseDown={(e) => {
+        mouseDownTargetRef.current = e.target;
+      }}
       onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
+        if (e.target === e.currentTarget && mouseDownTargetRef.current === e.currentTarget) {
+          onClose();
+        }
       }}
     >
-      {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
-
-      {/* Modal */}
-      <div className="relative w-full max-w-lg max-h-[85vh] overflow-y-auto rounded-3xl neu-flat p-5 sm:p-6 space-y-4 animate-fade-in custom-scrollbar">
-        {/* Close button */}
-        <button
-          onClick={onClose}
-          className="absolute top-4 right-4 p-2 rounded-xl neu-inset-sm text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors cursor-pointer"
-        >
-          <X className="w-4 h-4" />
-        </button>
-
-        {/* Title */}
-        <div className="flex items-center gap-3 pr-8">
-          <div className="p-2 rounded-xl neu-inset text-[var(--primary)]">
-            <Tag className="w-5 h-5" />
+      <div 
+        className="relative w-full max-w-xl bg-[var(--bg)] rounded-3xl neu-modal overflow-hidden animate-modal-pop text-[var(--text-main)] flex flex-col max-h-[90vh]"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Modal Header */}
+        <div className="p-4 sm:p-5 flex items-center justify-between bg-[var(--bg)] shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl neu-inset text-[var(--primary)] flex items-center justify-center shrink-0">
+              <ShieldCheck className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="font-bold text-sm sm:text-base text-[var(--text-main)]">Chi tiết Audit Log</h3>
+                <span className="px-2 py-0.5 rounded-lg neu-inset-sm font-mono text-[10px] text-[var(--text-muted)] font-bold">
+                  #{log.id}
+                </span>
+              </div>
+              <p className="text-xs text-[var(--text-muted)] mt-0.5">
+                Nhật ký hoạt động & an ninh hệ thống
+              </p>
+            </div>
           </div>
-          <div>
-            <h3 className="text-sm font-bold text-[var(--text-main)]">Chi tiết Audit Log</h3>
-            <p className="text-[10px] font-mono text-[var(--text-muted)]">ID: #{log.id}</p>
+          <button
+            onClick={onClose}
+            className="p-2 rounded-xl neu-btn text-[var(--text-muted)] hover:text-[var(--text-main)] transition-all shrink-0"
+            title="Đóng (ESC)"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <div className="neu-divider shrink-0" />
+
+        {/* Modal Body */}
+        <div className="p-5 sm:p-6 space-y-4 overflow-y-auto custom-scrollbar flex-1">
+          {/* Error Callout Banner if error exists */}
+          {isError && (
+            <div className="p-3 rounded-2xl neu-inset-sm flex items-center gap-2.5 text-rose-500 text-xs font-semibold border border-rose-500/20">
+              <AlertTriangle className="w-4 h-4 shrink-0" />
+              <span>Sự kiện này ghi nhận lỗi, thất bại hoặc chạm trần hạn mức (Quota)!</span>
+            </div>
+          )}
+
+          {/* Info Grid with standard neu-inset containers */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {/* Thời gian */}
+            <div className="p-3 rounded-2xl neu-inset space-y-1">
+              <span className="text-[10px] font-mono text-[var(--text-muted)] uppercase tracking-wider flex items-center gap-1.5">
+                <Clock className="w-3.5 h-3.5 text-[var(--primary)]" />
+                Thời gian ghi nhận
+              </span>
+              <p className="font-mono text-xs font-bold text-[var(--text-main)]">
+                {formatVN(log.created_at)}
+              </p>
+              <p className="font-mono text-[10px] text-[var(--text-muted)]">
+                {formatUTC(log.created_at)}
+              </p>
+            </div>
+
+            {/* Người thực hiện */}
+            <div className="p-3 rounded-2xl neu-inset space-y-1">
+              <span className="text-[10px] font-mono text-[var(--text-muted)] uppercase tracking-wider flex items-center gap-1.5">
+                <User className="w-3.5 h-3.5 text-[var(--primary)]" />
+                Người thực hiện
+              </span>
+              <p className="font-mono text-xs font-bold text-[var(--text-main)] truncate">
+                @{log.username || 'system'}
+              </p>
+              <p className="font-mono text-[10px] text-[var(--text-muted)]">
+                {log.user_id ? `User ID: #${log.user_id}` : 'Tác vụ hệ thống (System)'}
+              </p>
+            </div>
+
+            {/* Hành động */}
+            <div className="p-3 rounded-2xl neu-inset space-y-1.5">
+              <span className="text-[10px] font-mono text-[var(--text-muted)] uppercase tracking-wider flex items-center gap-1.5">
+                <Tag className="w-3.5 h-3.5 text-[var(--primary)]" />
+                Hành động
+              </span>
+              <div>
+                <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg text-xs font-mono font-bold ${getActionBadgeStyle(log.action)}`}>
+                  {log.action}
+                </span>
+              </div>
+            </div>
+
+            {/* Địa chỉ IP & Target */}
+            <div className="p-3 rounded-2xl neu-inset space-y-1">
+              <span className="text-[10px] font-mono text-[var(--text-muted)] uppercase tracking-wider flex items-center gap-1.5">
+                <Globe className="w-3.5 h-3.5 text-[var(--primary)]" />
+                Địa chỉ IP
+              </span>
+              <p className="font-mono text-xs font-bold text-[var(--text-main)]">
+                {log.ip_address || '— (Nội bộ / Docker)'}
+              </p>
+              <p className="font-mono text-[10px] text-[var(--text-muted)] flex items-center gap-1 truncate">
+                <Target className="w-3 h-3 text-[var(--primary)] shrink-0" />
+                <span>{log.target_type ? `${log.target_type}${log.target_id ? ` #${log.target_id}` : ''}` : 'Target: System'}</span>
+              </p>
+            </div>
+          </div>
+
+          {/* JSON Payload Detail */}
+          <div className="space-y-2 pt-1">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-wider text-[var(--text-muted)] font-bold min-w-0">
+                <FileJson className="w-3.5 h-3.5 text-[var(--primary)] shrink-0" />
+                <span className="truncate">
+                  <span className="hidden sm:inline">Dữ liệu chi tiết (Detail Payload)</span>
+                  <span className="sm:hidden">Dữ liệu chi tiết (Payload)</span>
+                </span>
+                {detailKeyCount > 0 && (
+                  <span className="shrink-0 px-1.5 py-0.5 rounded neu-inset-sm text-[9px] font-bold text-[var(--primary)] whitespace-nowrap">
+                    {detailKeyCount} {detailKeyCount === 1 ? 'key' : 'keys'}
+                  </span>
+                )}
+              </div>
+
+              <button
+                onClick={handleCopy}
+                className="shrink-0 flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-mono neu-btn text-[var(--text-muted)] hover:text-[var(--primary)] transition-all cursor-pointer ml-auto"
+              >
+                {copied ? (
+                  <>
+                    <Check className="w-3.5 h-3.5 text-emerald-500" />
+                    <span className="text-emerald-500 font-bold">Đã chép!</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-3.5 h-3.5" />
+                    <span>Sao chép JSON</span>
+                  </>
+                )}
+              </button>
+            </div>
+
+            <pre className="p-4 rounded-2xl neu-inset font-mono text-xs leading-relaxed max-h-56 overflow-y-auto custom-scrollbar whitespace-pre-wrap break-all">
+              {detailKeyCount > 0 ? renderColoredJson(detailJson) : <span className="text-[var(--text-muted)] font-italic">Không có payload đính kèm {'{ }'}</span>}
+            </pre>
           </div>
         </div>
 
-        {/* Error callout */}
-        {isError && (
-          <div className="p-3 rounded-xl neu-inset-sm flex items-center gap-2 text-rose-500 text-xs font-semibold">
-            <AlertTriangle className="w-4 h-4 shrink-0" />
-            <span>Hành động này chứa lỗi hoặc thất bại!</span>
-          </div>
-        )}
+        <div className="neu-divider shrink-0" />
 
-        {/* Info Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-          {/* Time */}
-          <div className="p-3 rounded-xl neu-inset-sm space-y-1">
-            <div className="flex items-center gap-1.5 text-[var(--text-muted)] text-[10px] font-mono uppercase">
-              <Clock className="w-3 h-3" /> Thời gian
-            </div>
-            <p className="font-mono text-[var(--text-main)] text-[11px]">{formatUTC(log.created_at)}</p>
-            <p className="font-mono text-[var(--text-muted)] text-[11px]">{formatVN(log.created_at)}</p>
-          </div>
-
-          {/* Username */}
-          <div className="p-3 rounded-xl neu-inset-sm space-y-1">
-            <div className="flex items-center gap-1.5 text-[var(--text-muted)] text-[10px] font-mono uppercase">
-              <User className="w-3 h-3" /> Người dùng
-            </div>
-            <p className="font-bold text-[var(--text-main)]">@{log.username || 'system'}</p>
-          </div>
-
-          {/* IP Address */}
-          <div className="p-3 rounded-xl neu-inset-sm space-y-1">
-            <div className="flex items-center gap-1.5 text-[var(--text-muted)] text-[10px] font-mono uppercase">
-              <Globe className="w-3 h-3" /> Địa chỉ IP
-            </div>
-            <p className="font-mono text-[var(--text-main)]">{log.ip_address || '-'}</p>
-          </div>
-
-          {/* Action */}
-          <div className="p-3 rounded-xl neu-inset-sm space-y-1">
-            <div className="flex items-center gap-1.5 text-[var(--text-muted)] text-[10px] font-mono uppercase">
-              <Tag className="w-3 h-3" /> Hành động
-            </div>
-            <span className={`inline-block px-2 py-0.5 rounded-lg text-[11px] font-mono font-semibold ${getActionColor(log.action)}`}>
-              {log.action}
-            </span>
-          </div>
-
-          {/* Target */}
-          <div className="p-3 rounded-xl neu-inset-sm space-y-1 sm:col-span-2">
-            <div className="flex items-center gap-1.5 text-[var(--text-muted)] text-[10px] font-mono uppercase">
-              <Target className="w-3 h-3" /> Đối tượng
-            </div>
-            <p className="font-mono text-[var(--text-main)]">
-              {log.target_type ? `${log.target_type}${log.target_id ? ` #${log.target_id}` : ''}` : '-'}
-            </p>
-          </div>
-        </div>
-
-        {/* JSON Detail */}
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-mono uppercase tracking-wider text-[var(--text-muted)]">
-              Detail (JSON)
-            </span>
-            <button
-              onClick={handleCopy}
-              className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-mono neu-inset-sm text-[var(--text-muted)] hover:text-[var(--primary)] transition-colors cursor-pointer"
-            >
-              {copied ? (
-                <>
-                  <Check className="w-3 h-3 text-emerald-500" />
-                  <span className="text-emerald-500">Đã copy!</span>
-                </>
-              ) : (
-                <>
-                  <Copy className="w-3 h-3" />
-                  <span>Copy JSON</span>
-                </>
-              )}
-            </button>
-          </div>
-          <pre className="p-3 rounded-xl neu-inset text-[11px] font-mono leading-relaxed overflow-x-auto max-h-48 custom-scrollbar whitespace-pre-wrap break-all">
-            {log.detail && Object.keys(log.detail).length > 0 ? renderColoredJson(detailJson) : <span className="text-[var(--text-muted)]">{'{ }'}</span>}
-          </pre>
+        {/* Modal Footer */}
+        <div className="p-4 sm:p-5 bg-[var(--bg)] flex justify-end shrink-0">
+          <button
+            onClick={onClose}
+            className="px-6 py-2 rounded-2xl neu-btn text-xs font-semibold text-[var(--text-main)] hover:text-[var(--primary)] transition-all cursor-pointer"
+          >
+            Đóng
+          </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };

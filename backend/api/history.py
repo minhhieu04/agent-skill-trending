@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlalchemy.orm import Session
-from sqlalchemy import desc, func
+from sqlalchemy import desc, func, or_
 from typing import List, Optional, Dict, Any
 from pydantic import BaseModel, ConfigDict
 from datetime import datetime, timedelta, date
@@ -93,6 +93,7 @@ def get_audit_logs(
     date_from: Optional[date] = Query(None, description="Filter from date (YYYY-MM-DD)"),
     date_to: Optional[date] = Query(None, description="Filter to date (YYYY-MM-DD)"),
     source: Optional[str] = Query(None, description="Filter quota errors by source (github, reddit, hackernews)"),
+    search: Optional[str] = Query(None, description="Search term across username, action, ip_address, target_type"),
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
     db: Session = Depends(get_db)
@@ -106,6 +107,16 @@ def get_audit_logs(
         query = query.filter(AuditLog.created_at >= datetime.combine(date_from, datetime.min.time()))
     if date_to:
         query = query.filter(AuditLog.created_at <= datetime.combine(date_to, datetime.max.time()))
+    if search and search.strip():
+        s = f"%{search.strip()}%"
+        query = query.filter(
+            or_(
+                AuditLog.username.ilike(s),
+                AuditLog.action.ilike(s),
+                AuditLog.ip_address.ilike(s),
+                AuditLog.target_type.ilike(s)
+            )
+        )
     
     logs = query.order_by(desc(AuditLog.created_at)).offset(offset).limit(limit).all()
     

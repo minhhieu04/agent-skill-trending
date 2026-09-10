@@ -307,7 +307,7 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
     }
   }, [digest?.podcast_voice]);
 
-  // Reset audio when date changes
+  // Reset audio when date changes or component unmounts
   useEffect(() => {
     if (audioRef.current) {
       audioRef.current.pause();
@@ -321,7 +321,32 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
     setIsAudioLoading(false);
     setCurrentTime(0);
     setDuration(digest?.podcast_duration_sec || 0);
+
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        if (audioRef.current.src?.startsWith('blob:')) {
+          URL.revokeObjectURL(audioRef.current.src);
+        }
+        audioRef.current.src = '';
+      }
+    };
   }, [selectedDate, digest?.id]);
+
+  // Global mouseup / touchend listener for seek bar dragging
+  useEffect(() => {
+    const handleGlobalSeekEnd = () => {
+      if (isSeekingRef.current) {
+        isSeekingRef.current = false;
+      }
+    };
+    window.addEventListener('mouseup', handleGlobalSeekEnd);
+    window.addEventListener('touchend', handleGlobalSeekEnd);
+    return () => {
+      window.removeEventListener('mouseup', handleGlobalSeekEnd);
+      window.removeEventListener('touchend', handleGlobalSeekEnd);
+    };
+  }, []);
 
   // Handle HTML5 Audio events
   const handleAudioTimeUpdate = () => {
@@ -359,6 +384,9 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
       });
       // Start streaming or play from base64
       if (audioRef.current) {
+        if (audioRef.current.src?.startsWith('blob:')) {
+          URL.revokeObjectURL(audioRef.current.src);
+        }
         audioRef.current.src = `data:audio/mp3;base64,${data.audio_base64}`;
         audioRef.current.playbackRate = playbackRate;
         audioRef.current
@@ -389,13 +417,16 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
     if (!selectedDate || loadingDigest) return;
 
     if (audioRef.current) {
-      // Resume if already loaded (blob URL or data URL)
+      // Resume or replay if already loaded (blob URL or data URL)
       if (
         audioRef.current.src &&
-        !audioRef.current.ended &&
         audioRef.current.duration > 0 &&
         (audioRef.current.src.startsWith('blob:') || audioRef.current.src.startsWith('data:audio'))
       ) {
+        if (audioRef.current.ended) {
+          audioRef.current.currentTime = 0;
+          setCurrentTime(0);
+        }
         audioRef.current.playbackRate = playbackRate;
         try {
           await audioRef.current.play();
@@ -410,7 +441,7 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
       // WAV streams don't support HTTP Range requests, so direct streaming can't seek
       setIsAudioLoading(true);
       try {
-        const effectiveVoice = digest?.podcast_voice || selectedVoice;
+        const effectiveVoice = selectedVoice || digest?.podcast_voice || 'gemini-Aoede';
         const streamUrl = api.getPodcastAudioStreamUrl(selectedDate, effectiveVoice);
         const response = await fetch(streamUrl);
         if (!response.ok) throw new Error(`Audio fetch failed: ${response.status}`);
@@ -934,6 +965,9 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
                   setSelectedVoice(String(newVoice));
                   if (audioRef.current) {
                     audioRef.current.pause();
+                    if (audioRef.current.src?.startsWith('blob:')) {
+                      URL.revokeObjectURL(audioRef.current.src);
+                    }
                     audioRef.current.src = '';
                   }
                   setIsPlaying(false);

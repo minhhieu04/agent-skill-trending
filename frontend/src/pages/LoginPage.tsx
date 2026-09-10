@@ -137,6 +137,9 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onSuccess }) => {
                 placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
                 className="w-full pl-4 pr-10 py-2.5 text-xs neu-inset rounded-xl text-[var(--text-main)] outline-none transition-all font-mono placeholder-[var(--text-muted)]/50"
               />
               <button

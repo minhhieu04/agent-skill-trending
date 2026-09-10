@@ -81,31 +81,33 @@ export function NeuSelect<T extends string | number>({
     if (!isOpen) return;
 
     // Horizontal alignment
-    if (align === 'right') {
-      setComputedAlign('right');
-    } else if (align === 'left') {
-      if (containerRef.current) {
-        const rect = containerRef.current.getBoundingClientRect();
-        const screenWidth = window.innerWidth;
-        if (rect.left + 320 > screenWidth - 16) {
-          setComputedAlign('right');
-        } else {
-          setComputedAlign('left');
-        }
+    if (containerRef.current) {
+      const rect = containerRef.current.getBoundingClientRect();
+      const screenWidth = window.innerWidth;
+      const estWidth = size === 'xs' ? 140 : size === 'sm' ? 170 : 210;
+
+      const spaceRight = screenWidth - rect.left;
+      const spaceLeft = rect.right;
+
+      const canAlignLeft = spaceRight >= estWidth + 8;
+      const canAlignRight = spaceLeft >= estWidth + 8;
+
+      if (align === 'right') {
+        setComputedAlign(canAlignRight ? 'right' : 'left');
+      } else if (align === 'left') {
+        setComputedAlign(canAlignLeft ? 'left' : 'right');
       } else {
-        setComputedAlign('left');
+        // Auto alignment:
+        if (rect.left > screenWidth * 0.55 && canAlignRight) {
+          setComputedAlign('right');
+        } else if (canAlignLeft) {
+          setComputedAlign('left');
+        } else {
+          setComputedAlign(spaceRight >= spaceLeft ? 'left' : 'right');
+        }
       }
     } else {
-      // Auto alignment:
-      if (containerRef.current) {
-        const rect = containerRef.current.getBoundingClientRect();
-        const screenWidth = window.innerWidth;
-        if (rect.left + 320 > screenWidth - 16 || rect.left > screenWidth * 0.48) {
-          setComputedAlign('right');
-        } else {
-          setComputedAlign('left');
-        }
-      }
+      setComputedAlign(align === 'right' ? 'right' : 'left');
     }
 
     // Vertical direction (flip upwards if not enough room below)
@@ -124,7 +126,7 @@ export function NeuSelect<T extends string | number>({
         setComputedDirection('down');
       }
     }
-  }, [isOpen, align, direction]);
+  }, [isOpen, align, direction, size]);
 
   // Auto-enable search if there are more than 7 options
   const isSearchable = searchable !== undefined ? searchable : options.length > 7;
@@ -271,8 +273,16 @@ export function NeuSelect<T extends string | number>({
               ? 'bottom-full mb-2 origin-bottom'
               : 'top-full mt-2 origin-top'
           } z-50 ${
-            fullWidth ? 'w-full min-w-[260px]' : 'w-max min-w-[220px]'
-          } max-w-[min(480px,calc(100vw-2rem))] neu-dropdown backdrop-blur-xl bg-[var(--bg)]/98 rounded-2xl p-1.5 shadow-2xl transition-all duration-200 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${
+            fullWidth
+              ? 'w-full min-w-[240px]'
+              : size === 'xs'
+              ? 'w-max min-w-[130px]'
+              : size === 'sm'
+              ? 'w-max min-w-[160px]'
+              : size === 'lg'
+              ? 'w-max min-w-[240px]'
+              : 'w-max min-w-[190px]'
+          } max-w-[min(480px,calc(100vw-1.5rem))] neu-dropdown backdrop-blur-xl bg-[var(--bg)]/98 rounded-2xl p-1.5 shadow-2xl transition-all duration-200 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${
             isVisible
               ? 'opacity-100 scale-100 translate-y-0 pointer-events-auto'
               : computedDirection === 'up'

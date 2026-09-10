@@ -16,6 +16,8 @@ from typing import Optional, List, Dict, Any, Literal
 
 from database import get_db
 from models.skill import Skill
+from models.user import User
+from middleware.auth import get_current_user
 from services.tts_service import TTSService
 from services.blog_video_service import BlogVideoService
 
@@ -391,19 +393,14 @@ async def generate_video_storyboard(payload: StoryboardGenerateRequest, db: Sess
 
 
 @router.post("/video/render")
-async def render_video(payload: VideoRenderRequest):
+async def render_video(
+    payload: VideoRenderRequest,
+    current_user: User = Depends(get_current_user)
+):
     """Renders the same Remotion composition used by the Player to an MP4 file."""
     if not payload.tts_result.audio_base64:
         raise HTTPException(status_code=400, detail="Audio is required before rendering video")
 
-    frontend_dir = Path(__file__).resolve().parents[2] / "frontend"
-    render_script = frontend_dir / "scripts" / "render-skill-video.mjs"
-    if not render_script.exists():
-        raise HTTPException(status_code=503, detail="Remotion render script is not installed")
-
-    render_dir = Path(tempfile.mkdtemp(prefix="agent-skill-video-"))
-    props_path = render_dir / "props.json"
-    output_path = render_dir / "skill-video.mp4"
     storyboard_payload = payload.storyboard.model_dump()
     scene_texts = [str(scene.get("voiceover_text") or "") for scene in storyboard_payload.get("scenes") or []]
     expected_revision = TTSService.narration_revision(
@@ -413,17 +410,24 @@ async def render_video(payload: VideoRenderRequest):
         payload.tts_result.pitch,
     )
     if not payload.tts_result.narration_revision:
-        shutil.rmtree(render_dir, ignore_errors=True)
         raise HTTPException(
             status_code=409,
             detail="Narration audio is missing its script revision. Synthesize the voice again before export.",
         )
     if payload.tts_result.narration_revision != expected_revision:
-        shutil.rmtree(render_dir, ignore_errors=True)
         raise HTTPException(
             status_code=409,
             detail="Storyboard or voice settings changed after synthesis. Regenerate narration before export.",
         )
+
+    frontend_dir = Path(__file__).resolve().parents[2] / "frontend"
+    render_script = frontend_dir / "scripts" / "render-skill-video.mjs"
+    if not render_script.exists():
+        raise HTTPException(status_code=503, detail="Remotion render script is not installed")
+
+    render_dir = Path(tempfile.mkdtemp(prefix="agent-skill-video-"))
+    props_path = render_dir / "props.json"
+    output_path = render_dir / "skill-video.mp4"
     storyboard_payload = await _attach_github_captures(storyboard_payload)
     # Never trust stale browser timings during export. Probe the submitted audio
     # again and rebuild every scene boundary before Remotion receives the props.

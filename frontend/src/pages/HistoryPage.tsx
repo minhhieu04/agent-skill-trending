@@ -77,7 +77,7 @@ export const HistoryPage: React.FC = () => {
       const matchUsername = (log.username || '').toLowerCase().includes(q);
       const matchIP = (log.ip_address || '').toLowerCase().includes(q);
       const matchAction = log.action.toLowerCase().includes(q);
-      const matchDetail = JSON.stringify(log.detail).toLowerCase().includes(q);
+      const matchDetail = (log.detail != null ? JSON.stringify(log.detail) : '').toLowerCase().includes(q);
       const matchTarget = (log.target_type || '').toLowerCase().includes(q);
       return matchUsername || matchIP || matchAction || matchDetail || matchTarget;
     });
@@ -420,6 +420,7 @@ export const HistoryPage: React.FC = () => {
                     size="xs"
                     variant="inset"
                     searchable={false}
+                    align="left"
                   />
 
                   {/* Prev button */}

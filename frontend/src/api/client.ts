@@ -295,6 +295,7 @@ export const api = {
     if (params?.limit) query.append('limit', params.limit.toString());
     if (params?.offset) query.append('offset', params.offset.toString());
     if (params?.source) query.append('source', params.source);
+    if (params?.search) query.append('search', params.search);
 
     const res = await fetch(`${API_BASE}/history/audit-log?${query.toString()}`, {
       headers: getAuthHeaders(),
