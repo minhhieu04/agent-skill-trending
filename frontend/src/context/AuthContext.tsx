@@ -75,6 +75,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     fetchCurrentUser();
+
+    const handleUnauthorized = () => {
+      setUser(null);
+      setAllUsers([]);
+    };
+
+    window.addEventListener('auth:unauthorized', handleUnauthorized);
+    return () => {
+      window.removeEventListener('auth:unauthorized', handleUnauthorized);
+    };
   }, []);
 
   const login = async (username: string, password: string) => {
@@ -111,7 +121,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         register,
         logout,
         allUsers,
-        refreshUsers: fetchUsers,
+        refreshUsers: () => {
+          if (user?.is_admin) {
+            fetchUsers();
+          }
+        },
       }}
     >
       {children}

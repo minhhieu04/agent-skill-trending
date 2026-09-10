@@ -9,12 +9,18 @@ from database import get_db
 from models.user import User
 
 def hash_password(password: str) -> str:
+    pw_bytes = password.encode("utf-8")
+    if len(pw_bytes) > 72:
+        raise ValueError("Password cannot exceed 72 bytes")
     salt = bcrypt.gensalt()
-    return bcrypt.hashpw(password.encode("utf-8"), salt).decode("utf-8")
+    return bcrypt.hashpw(pw_bytes, salt).decode("utf-8")
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     try:
-        return bcrypt.checkpw(plain_password.encode("utf-8"), hashed_password.encode("utf-8"))
+        pw_bytes = plain_password.encode("utf-8")
+        if len(pw_bytes) > 72:
+            return False
+        return bcrypt.checkpw(pw_bytes, hashed_password.encode("utf-8"))
     except Exception:
         return False
 
@@ -29,7 +35,12 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
 
 def decode_access_token(token: str) -> Optional[dict]:
     try:
-        payload = jwt.decode(token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
+        payload = jwt.decode(
+            token,
+            settings.JWT_SECRET_KEY,
+            algorithms=[settings.JWT_ALGORITHM],
+            options={"require": ["exp"]}
+        )
         return payload
     except jwt.PyJWTError:
         return None

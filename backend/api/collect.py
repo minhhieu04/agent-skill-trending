@@ -1,9 +1,9 @@
 import asyncio
 import logging
 import re
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import List, Dict, Any, Optional
-from fastapi import APIRouter, Depends, BackgroundTasks
+from fastapi import APIRouter, Depends, BackgroundTasks, Request, HTTPException
 from sqlalchemy.orm import Session
 
 from database import get_db, SessionLocal
@@ -14,6 +14,7 @@ from models.collection_run import CollectionRun
 from models.audit_log import AuditLog
 from models.user import User
 from middleware.auth import get_optional_current_user, get_current_user
+from middleware.ip_helper import get_client_ip
 from collectors import (
     GitHubCollector,
     RedditCollector,
@@ -41,7 +42,12 @@ async def _fetch_single_collector(collector: BaseCollector) -> Dict[str, Any]:
         logger.error(f"Collector '{collector.name}' failed: {e}")
         return {"name": collector.name, "status": "failed", "items": [], "error": str(e)}
 
-async def run_full_collection_pipeline(triggered_by: str = "scheduler", user_id: Optional[int] = None):
+async def run_full_collection_pipeline(
+    triggered_by: str = "scheduler",
+    user_id: Optional[int] = None,
+    ip_address: Optional[str] = "system:scheduler"
+):
+
     """
     High-performance parallel data collection pipeline using asyncio.gather.
     Saves results to DB safely with per-item isolation, calculates scores, and records CollectionRun & AuditLog.
@@ -105,7 +111,8 @@ async def run_full_collection_pipeline(triggered_by: str = "scheduler", user_id:
                             "reason": res.reason,
                             "retry_after": res.retry_after,
                             "run_id": run_id
-                        }
+                        },
+                        ip_address=ip_address or "system:scheduler"
                     )
                     db.add(quota_audit)
                     db.commit()
@@ -265,7 +272,8 @@ async def run_full_collection_pipeline(triggered_by: str = "scheduler", user_id:
                 action="collection_completed",
                 target_type="collection_run",
                 target_id=run_record.id,
-                detail={"new": total_new, "updated": total_updated, "parallel": True}
+                detail={"new": total_new, "updated": total_updated, "parallel": True},
+                ip_address=ip_address or "system:scheduler"
             )
             db.add(audit)
             db.commit()
@@ -280,6 +288,19 @@ async def run_full_collection_pipeline(triggered_by: str = "scheduler", user_id:
                 run_record.finished_at = datetime.utcnow()
                 run_record.error_detail = str(e)
                 db.commit()
+            
+            # Record collection_failed in AuditLog
+            failed_audit = AuditLog(
+                user_id=user_id,
+                username=triggered_by,
+                action="collection_failed",
+                target_type="collection_run",
+                target_id=run_id,
+                detail={"error": str(e)},
+                ip_address=ip_address or "system:scheduler"
+            )
+            db.add(failed_audit)
+            db.commit()
         except Exception:
             db.rollback()
     finally:
@@ -288,27 +309,45 @@ async def run_full_collection_pipeline(triggered_by: str = "scheduler", user_id:
 @router.post("/trigger")
 async def trigger_collection(
     background_tasks: BackgroundTasks,
+    request: Request,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    if not current_user.is_admin:
+        raise HTTPException(status_code=403, detail="Admin access required")
+
+    # Anti-spam: check if an active run is currently ongoing
+    active_run = db.query(CollectionRun).filter(
+        CollectionRun.status == "running",
+        CollectionRun.started_at >= datetime.utcnow() - timedelta(minutes=2)
+    ).first()
+    if active_run:
+        raise HTTPException(
+            status_code=400,
+            detail="A collection run is already in progress. Please wait for it to complete."
+        )
+
     triggered_by = current_user.username
     user_id = current_user.id
+    client_ip = get_client_ip(request)
 
     audit = AuditLog(
         user_id=user_id,
         username=triggered_by,
         action="trigger_collection",
         target_type="system",
-        detail={"triggered_at": datetime.utcnow().isoformat()}
+        detail={"triggered_at": datetime.utcnow().isoformat()},
+        ip_address=client_ip
     )
     db.add(audit)
     db.commit()
 
-    background_tasks.add_task(run_full_collection_pipeline, triggered_by, user_id)
+    background_tasks.add_task(run_full_collection_pipeline, triggered_by, user_id, client_ip)
     return {
         "status": "triggered",
         "message": f"Data collection pipeline launched concurrently for {triggered_by}."
     }
+
 
 @router.get("/status")
 def get_sources_status(db: Session = Depends(get_db)):

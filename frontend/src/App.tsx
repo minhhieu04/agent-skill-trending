@@ -108,11 +108,18 @@ const AppContent: React.FC = () => {
         setIsLoginModalOpen(false);
       }
     };
+    const handleOpenLogin = () => setIsLoginModalOpen(true);
+    window.addEventListener('open-login-modal', handleOpenLogin);
+
     if (isLoginModalOpen) {
       window.addEventListener('keydown', handleKeyDown);
-      return () => window.removeEventListener('keydown', handleKeyDown);
     }
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('open-login-modal', handleOpenLogin);
+    };
   }, [isLoginModalOpen]);
+
 
   // Queries
   const { data: stats } = useQuery<StatsData>({

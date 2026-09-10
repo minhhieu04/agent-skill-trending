@@ -240,7 +240,7 @@ async def translate_daily_digest(
 async def synthesize_audio(
     date_str: str,
     payload: AudioSynthesizeRequest = AudioSynthesizeRequest(),
-    current_user: Optional[User] = Depends(get_optional_current_user),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """

@@ -40,11 +40,11 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onSuccess }) => {
     setError(null);
     setLoading(true);
     try {
-      await login('hieu', '123456');
+      await login('hieu', 'Admin@2026!');
       onSuccess();
     } catch {
       try {
-        await register('hieu', '123456', 'Hiếu');
+        await register('hieu', 'Admin@2026!', 'Hiếu');
         onSuccess();
       } catch (err: any) {
         setError(err.message);
@@ -187,7 +187,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onSuccess }) => {
                   key={u.id}
                   onClick={() => {
                     setUsername(u.username);
-                    setPassword('123456');
+                    setPassword('Admin@2026!');
                   }}
                   className="px-3 py-1.5 rounded-xl neu-btn-sm text-[11px] font-mono text-[var(--text-muted)] hover:text-[var(--primary)] transition-all flex items-center gap-1.5 cursor-pointer"
                 >

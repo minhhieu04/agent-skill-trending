@@ -6,6 +6,8 @@ import time
 
 from database import get_db
 from models.skill import Skill
+from models.user import User
+from middleware.auth import get_current_user
 from services.security_scanner import SecurityScanner
 
 router = APIRouter(prefix="/playground", tags=["Playground"])
@@ -103,7 +105,11 @@ def get_matrix_art(template: str = Query("buddha", description="buddha, girl, ag
     }
 
 @router.post("/simulate", response_model=SimulateResponse)
-def simulate_skill_prompt(data: SimulateRequest, db: Session = Depends(get_db)):
+def simulate_skill_prompt(
+    data: SimulateRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
     skill = None
     if data.skill_id:
         skill = db.query(Skill).filter(Skill.id == data.skill_id).first()

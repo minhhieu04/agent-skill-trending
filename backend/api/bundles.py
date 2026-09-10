@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 from typing import List, Optional, Dict, Any
 from pydantic import BaseModel, ConfigDict
@@ -10,9 +10,11 @@ from models.skill import Skill
 from models.user import User
 from models.user_bookmark import UserBookmark
 from models.audit_log import AuditLog
-from middleware.auth import get_optional_current_user
+from middleware.auth import get_current_user
+from middleware.ip_helper import get_client_ip
 from services.skill_service import SkillService
 from services.exporter_service import ExporterService
+
 
 router = APIRouter(prefix="/bundles", tags=["Bundles"])
 
@@ -109,36 +111,37 @@ def get_bundle_by_slug(slug: str, db: Session = Depends(get_db)):
 @router.post("/{slug}/bookmark-all")
 def bookmark_all_in_bundle(
     slug: str,
-    current_user: Optional[User] = Depends(get_optional_current_user),
+    request: Request,
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     bundle = db.query(SkillBundle).filter(SkillBundle.slug == slug).first()
     if not bundle:
         raise HTTPException(status_code=404, detail="Bundle not found")
         
-    user = current_user or db.query(User).filter(User.username == "hieu").first()
-    if not user:
-        raise HTTPException(status_code=401, detail="Authentication required")
-        
+    client_ip = get_client_ip(request)
+
     added = 0
     for sid in (bundle.skill_ids or []):
         exists = db.query(UserBookmark).filter(
-            UserBookmark.user_id == user.id,
+            UserBookmark.user_id == current_user.id,
             UserBookmark.skill_id == sid
         ).first()
         if not exists:
-            db.add(UserBookmark(user_id=user.id, skill_id=sid))
+            db.add(UserBookmark(user_id=current_user.id, skill_id=sid))
             added += 1
             
     db.add(AuditLog(
-        user_id=user.id,
-        username=user.username,
+        user_id=current_user.id,
+        username=current_user.username,
         action="bookmark_bundle",
         target_type="bundle",
         target_id=bundle.id,
-        detail={"bundle_slug": slug, "skills_added": added}
+        detail={"bundle_slug": slug, "skills_added": added},
+        ip_address=client_ip
     ))
     db.commit()
+
     return {"message": f"Successfully bookmarked {added} skills from bundle {bundle.title}", "added_count": added}
 
 @router.get("/{slug}/export/{target_ide}")

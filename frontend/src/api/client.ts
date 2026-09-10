@@ -7,9 +7,11 @@ import {
   DataSourceStatus, 
   User, 
   CollectionRun, 
-  AuditLogItem,
-  AuditLogStats,
+  AuditLogPageResponse,
+  AuditStatsSummary,
   ExportConfig,
+
+
   SecurityReport,
   SkillBundle,
   PlaygroundSimResult,
@@ -34,15 +36,49 @@ import {
 const rawBase = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace(/\/+$/, '') : '';
 const API_BASE = rawBase ? `${rawBase}/api/v1` : '/api/v1';
 
+export const AUTH_TOKEN_KEY = 'agent_trending_token';
+
+export const handleUnauthorized = () => {
+  localStorage.removeItem(AUTH_TOKEN_KEY);
+  window.dispatchEvent(new CustomEvent('auth:unauthorized'));
+};
+
 const getAuthHeaders = (): Record<string, string> => {
-  const token = localStorage.getItem('agent_trending_token');
+  const token = localStorage.getItem(AUTH_TOKEN_KEY);
   return token ? { Authorization: `Bearer ${token}` } : {};
+};
+
+/**
+ * Global HTTP Interceptor for API requests:
+ * 1. Automatically attaches Authorization header if token exists and not already provided.
+ * 2. Catches HTTP 401 Unauthorized responses to purge token and broadcast a logout event.
+ */
+export const authFetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+  const headers = new Headers(init?.headers || {});
+  const token = localStorage.getItem(AUTH_TOKEN_KEY);
+  if (token && !headers.has('Authorization')) {
+    headers.set('Authorization', `Bearer ${token}`);
+  }
+
+  const response = await fetch(input, {
+    ...init,
+    headers,
+  });
+
+  if (response.status === 401) {
+    const urlStr = typeof input === 'string' ? input : input instanceof Request ? input.url : input.toString();
+    if (!urlStr.includes('/auth/login')) {
+      handleUnauthorized();
+    }
+  }
+
+  return response;
 };
 
 export const api = {
   // Auth
   login: async (username: string, password: string): Promise<{ access_token: string; user: User }> => {
-    const res = await fetch(`${API_BASE}/auth/login`, {
+    const res = await authFetch(`${API_BASE}/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username, password }),
@@ -52,13 +88,13 @@ export const api = {
       throw new Error(err.detail || 'Đăng nhập thất bại');
     }
     const data = await res.json();
-    localStorage.setItem('agent_trending_token', data.access_token);
+    localStorage.setItem(AUTH_TOKEN_KEY, data.access_token);
     localStorage.setItem('agent_trending_user', JSON.stringify(data.user));
     return data;
   },
 
   register: async (username: string, password: string, displayName?: string): Promise<{ access_token: string; user: User }> => {
-    const res = await fetch(`${API_BASE}/auth/register`, {
+    const res = await authFetch(`${API_BASE}/auth/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username, password, display_name: displayName }),
@@ -68,13 +104,13 @@ export const api = {
       throw new Error(err.detail || 'Đăng ký thất bại');
     }
     const data = await res.json();
-    localStorage.setItem('agent_trending_token', data.access_token);
+    localStorage.setItem(AUTH_TOKEN_KEY, data.access_token);
     localStorage.setItem('agent_trending_user', JSON.stringify(data.user));
     return data;
   },
 
   getMe: async (): Promise<User> => {
-    const res = await fetch(`${API_BASE}/auth/me`, {
+    const res = await authFetch(`${API_BASE}/auth/me`, {
       headers: getAuthHeaders(),
     });
     if (!res.ok) {
@@ -86,7 +122,7 @@ export const api = {
   },
 
   getAllUsers: async (): Promise<User[]> => {
-    const res = await fetch(`${API_BASE}/auth/users`, {
+    const res = await authFetch(`${API_BASE}/auth/users`, {
       headers: getAuthHeaders(),
     });
     if (!res.ok) throw new Error('Failed to fetch users');
@@ -94,8 +130,8 @@ export const api = {
   },
 
   logout: () => {
-    localStorage.removeItem('agent_trending_token');
     localStorage.removeItem('agent_trending_user');
+    handleUnauthorized();
   },
 
   // Skills
@@ -117,7 +153,7 @@ export const api = {
     if (params?.sort_by) query.append('sort_by', params.sort_by);
     if (params?.limit) query.append('limit', params.limit.toString());
 
-    const res = await fetch(`${API_BASE}/skills/trending?${query.toString()}`, {
+    const res = await authFetch(`${API_BASE}/skills/trending?${query.toString()}`, {
       headers: getAuthHeaders(),
     });
     if (!res.ok) throw new Error('Failed to fetch trending skills');
@@ -125,7 +161,7 @@ export const api = {
   },
 
   getPersonalizedSkills: async (limit: number = 30): Promise<Skill[]> => {
-    const res = await fetch(`${API_BASE}/skills/personalized?limit=${limit}`, {
+    const res = await authFetch(`${API_BASE}/skills/personalized?limit=${limit}`, {
       headers: getAuthHeaders(),
     });
     if (!res.ok) throw new Error('Failed to fetch personalized skills');
@@ -133,7 +169,7 @@ export const api = {
   },
 
   compareSkills: async (skillIds: number[]): Promise<Skill[]> => {
-    const res = await fetch(`${API_BASE}/skills/compare`, {
+    const res = await authFetch(`${API_BASE}/skills/compare`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
       body: JSON.stringify({ skill_ids: skillIds }),
@@ -143,7 +179,7 @@ export const api = {
   },
 
   getBookmarkedSkills: async (): Promise<Skill[]> => {
-    const res = await fetch(`${API_BASE}/skills/bookmarked`, {
+    const res = await authFetch(`${API_BASE}/skills/bookmarked`, {
       headers: getAuthHeaders(),
     });
     if (!res.ok) throw new Error('Failed to fetch bookmarks');
@@ -151,7 +187,7 @@ export const api = {
   },
 
   toggleBookmark: async (skillId: number): Promise<Skill> => {
-    const res = await fetch(`${API_BASE}/skills/${skillId}/bookmark`, {
+    const res = await authFetch(`${API_BASE}/skills/${skillId}/bookmark`, {
       method: 'POST',
       headers: getAuthHeaders(),
     });
@@ -160,7 +196,7 @@ export const api = {
   },
 
   getSkillDetail: async (skillId: number): Promise<Skill> => {
-    const res = await fetch(`${API_BASE}/skills/${skillId}`, {
+    const res = await authFetch(`${API_BASE}/skills/${skillId}`, {
       headers: getAuthHeaders(),
     });
     if (!res.ok) throw new Error('Failed to fetch skill detail');
@@ -168,7 +204,7 @@ export const api = {
   },
 
   getTranslationProviders: async (): Promise<TranslationProviderOption[]> => {
-    const res = await fetch(`${API_BASE}/skills/translation-providers`, {
+    const res = await authFetch(`${API_BASE}/skills/translation-providers`, {
       headers: getAuthHeaders(),
     });
     if (!res.ok) throw new Error('Failed to fetch translation providers');
@@ -176,7 +212,7 @@ export const api = {
   },
 
   translateSkillSummary: async (skillId: number): Promise<{ skill_id: number; ai_summary: string }> => {
-    const res = await fetch(`${API_BASE}/skills/${skillId}/summary/translate`, {
+    const res = await authFetch(`${API_BASE}/skills/${skillId}/summary/translate`, {
       method: 'POST',
       headers: getAuthHeaders(),
     });
@@ -185,7 +221,7 @@ export const api = {
   },
 
   getSkillReadme: async (skillId: number): Promise<ReadmeData> => {
-    const res = await fetch(`${API_BASE}/skills/${skillId}/readme`, {
+    const res = await authFetch(`${API_BASE}/skills/${skillId}/readme`, {
       headers: getAuthHeaders(),
     });
     if (!res.ok) throw new Error('Failed to fetch repository README');
@@ -193,7 +229,7 @@ export const api = {
   },
 
   refreshSkillReadme: async (skillId: number): Promise<ReadmeData> => {
-    const res = await fetch(`${API_BASE}/skills/${skillId}/readme/refresh`, {
+    const res = await authFetch(`${API_BASE}/skills/${skillId}/readme/refresh`, {
       method: 'POST',
       headers: getAuthHeaders(),
     });
@@ -207,7 +243,7 @@ export const api = {
     forceRefresh: boolean = false,
     preferredProvider: string = 'auto'
   ): Promise<TranslateReadmeResult> => {
-    const res = await fetch(`${API_BASE}/skills/${skillId}/readme/translate`, {
+    const res = await authFetch(`${API_BASE}/skills/${skillId}/readme/translate`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -227,7 +263,7 @@ export const api = {
   },
 
   getStats: async (): Promise<StatsData> => {
-    const res = await fetch(`${API_BASE}/skills/stats`, {
+    const res = await authFetch(`${API_BASE}/skills/stats`, {
       headers: getAuthHeaders(),
     });
     if (!res.ok) throw new Error('Failed to fetch stats');
@@ -236,20 +272,20 @@ export const api = {
 
   // Categories & Runtimes
   getCategories: async (): Promise<CategoryInfo[]> => {
-    const res = await fetch(`${API_BASE}/categories`);
+    const res = await authFetch(`${API_BASE}/categories`);
     if (!res.ok) throw new Error('Failed to fetch categories');
     return res.json();
   },
 
   getRuntimes: async (): Promise<RuntimeInfo[]> => {
-    const res = await fetch(`${API_BASE}/runtimes`);
+    const res = await authFetch(`${API_BASE}/runtimes`);
     if (!res.ok) throw new Error('Failed to fetch runtimes');
     return res.json();
   },
 
   // User Preferences
   getPreferences: async (): Promise<UserPreference> => {
-    const res = await fetch(`${API_BASE}/preferences`, {
+    const res = await authFetch(`${API_BASE}/preferences`, {
       headers: getAuthHeaders(),
     });
     if (!res.ok) throw new Error('Failed to fetch preferences');
@@ -257,7 +293,7 @@ export const api = {
   },
 
   updatePreferences: async (pref: UserPreference): Promise<UserPreference> => {
-    const res = await fetch(`${API_BASE}/preferences`, {
+    const res = await authFetch(`${API_BASE}/preferences`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
       body: JSON.stringify(pref),
@@ -268,7 +304,7 @@ export const api = {
 
   // Data Collection & History
   triggerCollection: async (): Promise<{ status: string; message: string }> => {
-    const res = await fetch(`${API_BASE}/collect/trigger`, {
+    const res = await authFetch(`${API_BASE}/collect/trigger`, {
       method: 'POST',
       headers: getAuthHeaders(),
     });
@@ -277,35 +313,60 @@ export const api = {
   },
 
   getSourcesStatus: async (): Promise<DataSourceStatus[]> => {
-    const res = await fetch(`${API_BASE}/collect/status`);
+    const res = await authFetch(`${API_BASE}/collect/status`);
     if (!res.ok) throw new Error('Failed to fetch sources status');
     return res.json();
   },
 
   getCollectionRuns: async (limit: number = 30): Promise<CollectionRun[]> => {
-    const res = await fetch(`${API_BASE}/history/runs?limit=${limit}`);
+    const res = await authFetch(`${API_BASE}/history/runs?limit=${limit}`);
     if (!res.ok) throw new Error('Failed to fetch collection runs');
     return res.json();
   },
 
-  getAuditLogs: async (params?: { action?: string; user_id?: number; limit?: number; offset?: number; search?: string; source?: string }): Promise<AuditLogItem[]> => {
+  getAuditLogs: async (params?: {
+    action?: string;
+    username?: string;
+    user_id?: number;
+    search?: string;
+    source?: string;
+    page?: number;
+    page_size?: number;
+    limit?: number;
+    offset?: number;
+  }): Promise<AuditLogPageResponse> => {
     const query = new URLSearchParams();
-    if (params?.action) query.append('action', params.action);
+    if (params?.action && params.action !== 'all') query.append('action', params.action);
+    if (params?.username && params.username !== 'all') query.append('username', params.username);
     if (params?.user_id) query.append('user_id', params.user_id.toString());
+    if (params?.search && params.search.trim()) query.append('search', params.search.trim());
+    if (params?.source && params.source !== 'all') query.append('source', params.source);
+    if (params?.page) query.append('page', params.page.toString());
+    if (params?.page_size) query.append('page_size', params.page_size.toString());
     if (params?.limit) query.append('limit', params.limit.toString());
     if (params?.offset) query.append('offset', params.offset.toString());
-    if (params?.source) query.append('source', params.source);
-    if (params?.search) query.append('search', params.search);
 
-    const res = await fetch(`${API_BASE}/history/audit-log?${query.toString()}`, {
+    const res = await authFetch(`${API_BASE}/history/audit-log?${query.toString()}`, {
       headers: getAuthHeaders(),
     });
     if (!res.ok) throw new Error('Failed to fetch audit logs');
-    return res.json();
+    const data = await res.json();
+    if (Array.isArray(data)) {
+      return {
+        items: data,
+        total: data.length,
+        page: 1,
+        page_size: data.length,
+        total_pages: 1,
+        has_next: false,
+        has_prev: false,
+      };
+    }
+    return data;
   },
 
-  getAuditStats: async (days: number = 7): Promise<AuditLogStats> => {
-    const res = await fetch(`${API_BASE}/history/audit-log/stats?days=${days}`, {
+  getAuditStats: async (days: number = 7): Promise<AuditStatsSummary> => {
+    const res = await authFetch(`${API_BASE}/history/audit-log/stats?days=${days}`, {
       headers: getAuthHeaders(),
     });
     if (!res.ok) throw new Error('Failed to fetch audit stats');
@@ -314,33 +375,33 @@ export const api = {
 
   // 1-Click Multi-IDE Exporter
   exportSkillConfig: async (skillId: number, ide: string): Promise<ExportConfig> => {
-    const res = await fetch(`${API_BASE}/skills/${skillId}/export/${ide}`);
+    const res = await authFetch(`${API_BASE}/skills/${skillId}/export/${ide}`);
     if (!res.ok) throw new Error('Failed to export skill configuration');
     return res.json();
   },
 
   // Security Scanner
   getSkillSecurityReport: async (skillId: number): Promise<SecurityReport> => {
-    const res = await fetch(`${API_BASE}/skills/${skillId}/security`);
+    const res = await authFetch(`${API_BASE}/skills/${skillId}/security`);
     if (!res.ok) throw new Error('Failed to fetch security report');
     return res.json();
   },
 
   // Bundles & Starter Packs
   getBundles: async (): Promise<SkillBundle[]> => {
-    const res = await fetch(`${API_BASE}/bundles`);
+    const res = await authFetch(`${API_BASE}/bundles`);
     if (!res.ok) throw new Error('Failed to fetch bundles');
     return res.json();
   },
 
   getBundleDetail: async (slug: string): Promise<SkillBundle> => {
-    const res = await fetch(`${API_BASE}/bundles/${slug}`);
+    const res = await authFetch(`${API_BASE}/bundles/${slug}`);
     if (!res.ok) throw new Error('Failed to fetch bundle detail');
     return res.json();
   },
 
   bookmarkBundle: async (slug: string): Promise<{ message: string; added_count: number }> => {
-    const res = await fetch(`${API_BASE}/bundles/${slug}/bookmark-all`, {
+    const res = await authFetch(`${API_BASE}/bundles/${slug}/bookmark-all`, {
       method: 'POST',
       headers: getAuthHeaders(),
     });
@@ -349,7 +410,7 @@ export const api = {
   },
 
   exportBundle: async (slug: string, ide: string): Promise<any> => {
-    const res = await fetch(`${API_BASE}/bundles/${slug}/export/${ide}`);
+    const res = await authFetch(`${API_BASE}/bundles/${slug}/export/${ide}`);
     if (!res.ok) throw new Error('Failed to export bundle');
     return res.json();
   },
@@ -361,7 +422,7 @@ export const api = {
     skill_id?: number;
     skill_slug?: string;
   }): Promise<PlaygroundSimResult> => {
-    const res = await fetch(`${API_BASE}/playground/simulate`, {
+    const res = await authFetch(`${API_BASE}/playground/simulate`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
@@ -372,13 +433,13 @@ export const api = {
 
   // AI Video & Blog Studio APIs
   getVoices: async (): Promise<VoiceOption[]> => {
-    const res = await fetch(`${API_BASE}/studio/tts/voices`);
+    const res = await authFetch(`${API_BASE}/studio/tts/voices`);
     if (!res.ok) throw new Error('Failed to fetch AI voices');
     return res.json();
   },
 
   generateBlog: async (data: BlogGenerateRequest): Promise<BlogPost> => {
-    const res = await fetch(`${API_BASE}/studio/blog/generate`, {
+    const res = await authFetch(`${API_BASE}/studio/blog/generate`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
       body: JSON.stringify(data),
@@ -388,7 +449,7 @@ export const api = {
   },
 
   generateStoryboard: async (data: StoryboardRequest): Promise<VideoStoryboard> => {
-    const res = await fetch(`${API_BASE}/studio/storyboard/generate`, {
+    const res = await authFetch(`${API_BASE}/studio/storyboard/generate`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
       body: JSON.stringify(data),
@@ -398,7 +459,7 @@ export const api = {
   },
 
   synthesizeTTS: async (data: TTSRequest): Promise<TTSResult> => {
-    const res = await fetch(`${API_BASE}/studio/tts/synthesize`, {
+    const res = await authFetch(`${API_BASE}/studio/tts/synthesize`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
       body: JSON.stringify(data),
@@ -412,7 +473,7 @@ export const api = {
     sceneNumber: number = 1,
     aspectRatio: '9:16' | '16:9' = '9:16',
   ): Promise<SceneImageResponse> => {
-    const res = await fetch(`${API_BASE}/studio/scene/image`, {
+    const res = await authFetch(`${API_BASE}/studio/scene/image`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
       body: JSON.stringify({ prompt, scene_number: sceneNumber, aspect_ratio: aspectRatio }),
@@ -437,7 +498,7 @@ export const api = {
     github_capture_viewport: { width: number; height: number; deviceScaleFactor?: number };
     capture_status: 'captured';
   }> => {
-    const res = await fetch(`${API_BASE}/studio/github/capture`, {
+    const res = await authFetch(`${API_BASE}/studio/github/capture`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
       body: JSON.stringify({
@@ -460,7 +521,7 @@ export const api = {
     skill_stats: { stars?: number; forks?: number; language?: string };
     show_captions: boolean;
   }): Promise<Blob> => {
-    const res = await fetch(`${API_BASE}/studio/video/render`, {
+    const res = await authFetch(`${API_BASE}/studio/video/render`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
       body: JSON.stringify(data),
@@ -474,7 +535,7 @@ export const api = {
 
   // AI Learning Track & Goal Advisor
   getAIRecommendedTrack: async (goal_query: string, language: string = 'vi', max_skills: number = 8): Promise<AIRecommendationResponse> => {
-    const res = await fetch(`${API_BASE}/skills/ai-recommend-track`, {
+    const res = await authFetch(`${API_BASE}/skills/ai-recommend-track`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
       body: JSON.stringify({ goal_query, language, max_skills }),
@@ -488,7 +549,7 @@ export const api = {
 
   // RAG Agent Chat
   getAgentChatSessions: async (): Promise<AgentChatSessionSummary[]> => {
-    const res = await fetch(`${API_BASE}/agent-chat/sessions`, {
+    const res = await authFetch(`${API_BASE}/agent-chat/sessions`, {
       method: 'GET',
       headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
     });
@@ -500,7 +561,7 @@ export const api = {
   },
 
   getAgentChatSessionDetail: async (sessionId: string): Promise<AgentChatSessionDetail> => {
-    const res = await fetch(`${API_BASE}/agent-chat/sessions/${encodeURIComponent(sessionId)}`, {
+    const res = await authFetch(`${API_BASE}/agent-chat/sessions/${encodeURIComponent(sessionId)}`, {
       method: 'GET',
       headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
     });
@@ -512,7 +573,7 @@ export const api = {
   },
 
   createAgentChatSession: async (title?: string): Promise<AgentChatSessionDetail> => {
-    const res = await fetch(`${API_BASE}/agent-chat/sessions`, {
+    const res = await authFetch(`${API_BASE}/agent-chat/sessions`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
       body: JSON.stringify({ title: title || 'Cuộc trò chuyện mới' }),
@@ -525,7 +586,7 @@ export const api = {
   },
 
   updateAgentChatSession: async (sessionId: string, title: string): Promise<AgentChatSessionSummary> => {
-    const res = await fetch(`${API_BASE}/agent-chat/sessions/${encodeURIComponent(sessionId)}`, {
+    const res = await authFetch(`${API_BASE}/agent-chat/sessions/${encodeURIComponent(sessionId)}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
       body: JSON.stringify({ title }),
@@ -538,7 +599,7 @@ export const api = {
   },
 
   deleteAgentChatSession: async (sessionId: string): Promise<{ success: boolean; message: string }> => {
-    const res = await fetch(`${API_BASE}/agent-chat/sessions/${encodeURIComponent(sessionId)}`, {
+    const res = await authFetch(`${API_BASE}/agent-chat/sessions/${encodeURIComponent(sessionId)}`, {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
     });
@@ -555,7 +616,7 @@ export const api = {
     language: string = 'vi',
     sessionId?: string
   ): Promise<AgentChatResponse> => {
-    const res = await fetch(`${API_BASE}/agent-chat/message`, {
+    const res = await authFetch(`${API_BASE}/agent-chat/message`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
       body: JSON.stringify({ query, history, language, session_id: sessionId || null }),
@@ -568,7 +629,7 @@ export const api = {
   },
 
   getAgentChatSuggestions: async (language: string = 'vi'): Promise<AgentChatSuggestion[]> => {
-    const res = await fetch(`${API_BASE}/agent-chat/suggestions?language=${encodeURIComponent(language)}`, {
+    const res = await authFetch(`${API_BASE}/agent-chat/suggestions?language=${encodeURIComponent(language)}`, {
       method: 'GET',
       headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
     });
@@ -581,7 +642,7 @@ export const api = {
 
   // Daily AI Podcast & Feed
   getDailyDigestDates: async (): Promise<{ dates: import('../types').DailyDigestDateInfo[] }> => {
-    const res = await fetch(`${API_BASE}/daily-digest/dates`, {
+    const res = await authFetch(`${API_BASE}/daily-digest/dates`, {
       headers: getAuthHeaders(),
     });
     if (!res.ok) throw new Error('Không thể tải danh sách ngày bản tin');
@@ -589,7 +650,7 @@ export const api = {
   },
 
   getDailyDigest: async (date: string): Promise<import('../types').DailyDigest> => {
-    const res = await fetch(`${API_BASE}/daily-digest/${encodeURIComponent(date)}`, {
+    const res = await authFetch(`${API_BASE}/daily-digest/${encodeURIComponent(date)}`, {
       headers: getAuthHeaders(),
     });
     if (!res.ok) throw new Error(`Không thể tải bản tin ngày ${date}`);
@@ -601,7 +662,7 @@ export const api = {
     language: string = 'vi',
     model: string = 'gemini-3.8-flash'
   ): Promise<import('../types').DailyDigest> => {
-    const res = await fetch(`${API_BASE}/daily-digest/${encodeURIComponent(date)}/generate`, {
+    const res = await authFetch(`${API_BASE}/daily-digest/${encodeURIComponent(date)}/generate`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
       body: JSON.stringify({ language, model }),
@@ -615,7 +676,7 @@ export const api = {
     targetLanguage: string = 'en',
     model: string = 'gemini-3.8-flash'
   ): Promise<import('../types').DailyDigest> => {
-    const res = await fetch(`${API_BASE}/daily-digest/${encodeURIComponent(date)}/translate`, {
+    const res = await authFetch(`${API_BASE}/daily-digest/${encodeURIComponent(date)}/translate`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
       body: JSON.stringify({ target_language: targetLanguage, model }),
@@ -630,7 +691,7 @@ export const api = {
     rate: string = '+5%',
     forceRegenerate: boolean = false
   ): Promise<import('../types').DailyPodcastAudioResponse> => {
-    const res = await fetch(`${API_BASE}/daily-digest/${encodeURIComponent(date)}/audio`, {
+    const res = await authFetch(`${API_BASE}/daily-digest/${encodeURIComponent(date)}/audio`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
       body: JSON.stringify({ voice, rate, force_regenerate: forceRegenerate }),
@@ -640,7 +701,7 @@ export const api = {
   },
 
   getPodcastVoices: async (): Promise<{ voices: import('../types').VoiceOption[] }> => {
-    const res = await fetch(`${API_BASE}/daily-digest/voices`, {
+    const res = await authFetch(`${API_BASE}/daily-digest/voices`, {
       headers: getAuthHeaders(),
     });
     if (!res.ok) throw new Error('Không thể tải danh sách giọng đọc podcast');
