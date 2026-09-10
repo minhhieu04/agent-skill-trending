@@ -1045,13 +1045,13 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
         {/* BOTTOM TABS: SCRIPT VS HIGHLIGHTS */}
         <div className="pt-2 border-t border-[var(--shadow-dark)]/20">
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 mb-2.5">
-            <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto pb-0.5 sm:pb-0 scrollbar-none">
+            <div className="flex items-center gap-1 p-1 rounded-2xl neu-inset self-start sm:self-auto shrink-0">
               <button
                 onClick={() => setHeroTab('script')}
-                className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 neu-tab whitespace-nowrap shrink-0 ${
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 neu-tab whitespace-nowrap shrink-0 transition-all ${
                   heroTab === 'script'
-                    ? 'neu-inset text-[var(--primary)] font-bold'
-                    : 'neu-btn text-[var(--text-muted)] hover:text-[var(--text-main)]'
+                    ? 'neu-tab-active'
+                    : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
                 }`}
               >
                 <FileText className="w-3.5 h-3.5" />
@@ -1060,10 +1060,10 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
               </button>
               <button
                 onClick={() => setHeroTab('highlights')}
-                className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 neu-tab whitespace-nowrap shrink-0 ${
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 neu-tab whitespace-nowrap shrink-0 transition-all ${
                   heroTab === 'highlights'
-                    ? 'neu-inset text-[var(--primary)] font-bold'
-                    : 'neu-btn text-[var(--text-muted)] hover:text-[var(--text-main)]'
+                    ? 'neu-tab-active'
+                    : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
                 }`}
               >
                 <Sparkles className="w-3.5 h-3.5" />
