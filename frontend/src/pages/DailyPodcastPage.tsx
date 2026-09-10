@@ -1045,24 +1045,24 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
         {/* BOTTOM TABS: SCRIPT VS HIGHLIGHTS */}
         <div className="pt-2 border-t border-[var(--shadow-dark)]/20">
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 mb-2.5">
-            <div className="flex items-center gap-1 p-1 rounded-2xl neu-inset self-start sm:self-auto shrink-0">
+            <div className="flex items-center p-0.5 rounded-xl neu-inset-sm self-start sm:self-auto shrink-0 text-xs font-semibold">
               <button
                 onClick={() => setHeroTab('script')}
-                className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 neu-tab whitespace-nowrap shrink-0 transition-all ${
+                className={`px-3.5 py-1.5 rounded-lg flex items-center gap-1.5 transition-all cursor-pointer ${
                   heroTab === 'script'
-                    ? 'neu-tab-active'
+                    ? 'bg-[var(--primary)] text-white font-bold shadow-xs'
                     : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
                 }`}
               >
                 <FileText className="w-3.5 h-3.5" />
                 <span>Kịch Bản</span>
-                <span className="hidden sm:inline font-normal">(Radio Script)</span>
+                <span className="hidden sm:inline font-normal opacity-90">(Radio Script)</span>
               </button>
               <button
                 onClick={() => setHeroTab('highlights')}
-                className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 neu-tab whitespace-nowrap shrink-0 transition-all ${
+                className={`px-3.5 py-1.5 rounded-lg flex items-center gap-1.5 transition-all cursor-pointer ${
                   heroTab === 'highlights'
-                    ? 'neu-tab-active'
+                    ? 'bg-[var(--primary)] text-white font-bold shadow-xs'
                     : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
                 }`}
               >
@@ -1149,13 +1149,13 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
           {/* Controls: View Switcher, Search, Category Filter */}
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
             {/* View Mode Toggle */}
-            <div className="flex items-center gap-1.5 p-1 rounded-2xl neu-inset self-start sm:self-auto">
+            <div className="flex items-center p-0.5 rounded-xl neu-inset-sm self-start sm:self-auto text-xs font-semibold">
               <button
                 onClick={() => setFeedViewMode('feed')}
-                className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs neu-tab ${
+                className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg transition-all cursor-pointer ${
                   feedViewMode === 'feed'
-                    ? 'neu-tab-active'
-                    : 'text-[var(--text-muted)] hover:text-[var(--text-main)] font-semibold'
+                    ? 'bg-[var(--primary)] text-white font-bold shadow-xs'
+                    : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
                 }`}
                 title="Xem bài post đầy đủ như mạng xã hội"
               >
@@ -1165,10 +1165,10 @@ export const DailyPodcastPage: React.FC<DailyPodcastPageProps> = ({
 
               <button
                 onClick={() => setFeedViewMode('matrix')}
-                className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs neu-tab ${
+                className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg transition-all cursor-pointer ${
                   feedViewMode === 'matrix'
-                    ? 'neu-tab-active'
-                    : 'text-[var(--text-muted)] hover:text-[var(--text-main)] font-semibold'
+                    ? 'bg-[var(--primary)] text-white font-bold shadow-xs'
+                    : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
                 }`}
                 title="Xem thẻ tóm tắt nhanh gọn"
               >

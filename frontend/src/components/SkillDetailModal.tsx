@@ -1356,98 +1356,133 @@ export const SkillDetailModal: React.FC<SkillDetailModalProps> = ({
 
               {/* Official Repository README with Multi-Tier AI Translation */}
               <div className="p-5 sm:p-6 rounded-2xl neu-flat space-y-4">
-                {/* Header & Controls Bar */}
-                <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-3 pb-3 border-b border-[var(--border)]">
-                  {/* Left: Title & Status Badge */}
-                  <div className="flex items-center gap-2.5">
-                    <div className="p-2 rounded-xl neu-inset-sm text-[var(--primary)] shrink-0">
-                      <FileText className="w-4 h-4" />
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <h4 className="text-sm font-bold text-[var(--text-main)]">
-                          {language === 'vi' ? 'Tài Liệu README' : 'Repository README'}
-                        </h4>
-                        {readmeMode === 'original' ? (
-                          <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-lg neu-inset-sm text-[var(--text-muted)]">
-                            RAW MARKDOWN
-                          </span>
-                        ) : isTranslating ? (
-                          <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-lg neu-inset-sm text-amber-500 flex items-center gap-1">
-                            <Loader2 className="w-3 h-3 animate-spin" />
-                            <span>{language === 'vi' ? 'ĐANG DỊCH...' : 'TRANSLATING...'}</span>
-                          </span>
-                        ) : (
-                          <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-lg neu-inset-sm flex items-center gap-1 ${
-                            activeTranslationMeta?.provider === 'local_llm'
-                              ? 'text-emerald-500'
-                              : activeTranslationMeta?.provider === 'translation_engine'
-                              ? 'text-amber-500'
-                              : 'text-[var(--primary)]'
-                          }`}>
-                            {activeTranslationMeta?.provider === 'local_llm' ? '🖥️ ' : activeTranslationMeta?.provider === 'translation_engine' ? '🌐 ' : '⚡ '}
-                            <span>{activeTranslationMeta?.model_used || (language === 'vi' ? 'ĐÃ DỊCH AI' : 'AI TRANSLATED')}</span>
-                          </span>
-                        )}
+                {/* Header & Controls Bar: 2-Row Structured Layout for iPad & Desktop */}
+                <div className="flex flex-col gap-3 pb-3 border-b border-[var(--border)]">
+                  {/* Row 1: Title, Status Badge & Quick Document Utilities */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="p-2 rounded-xl neu-inset-sm text-[var(--primary)] shrink-0">
+                        <FileText className="w-4 h-4" />
                       </div>
-                      <p className="text-xs text-[var(--text-muted)]">
-                        {language === 'vi' 
-                          ? 'Trích xuất nguyên bản từ GitHub • Hỗ trợ dịch Local LLM & Cloud AI' 
-                          : 'Extracted from GitHub • Local LLM & Cloud AI translation'}
-                      </p>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h4 className="text-sm font-bold text-[var(--text-main)] whitespace-nowrap">
+                            {language === 'vi' ? 'Tài Liệu README' : 'Repository README'}
+                          </h4>
+                          {readmeMode === 'original' ? (
+                            <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-lg neu-inset-sm text-[var(--text-muted)] shrink-0">
+                              RAW MARKDOWN
+                            </span>
+                          ) : isTranslating ? (
+                            <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-lg neu-inset-sm text-amber-500 flex items-center gap-1 shrink-0">
+                              <Loader2 className="w-3 h-3 animate-spin" />
+                              <span>{language === 'vi' ? 'ĐANG DỊCH...' : 'TRANSLATING...'}</span>
+                            </span>
+                          ) : (
+                            <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-lg neu-inset-sm flex items-center gap-1 shrink-0 ${
+                              activeTranslationMeta?.provider === 'local_llm'
+                                ? 'text-emerald-500'
+                                : activeTranslationMeta?.provider === 'translation_engine'
+                                ? 'text-amber-500'
+                                : 'text-[var(--primary)]'
+                            }`}>
+                              {activeTranslationMeta?.provider === 'local_llm' ? '🖥️ ' : activeTranslationMeta?.provider === 'translation_engine' ? '🌐 ' : '⚡ '}
+                              <span>{activeTranslationMeta?.model_used || (language === 'vi' ? 'ĐÃ DỊCH AI' : 'AI TRANSLATED')}</span>
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-[var(--text-muted)] truncate hidden sm:block">
+                          {language === 'vi' 
+                            ? 'Trích xuất nguyên bản từ GitHub • Hỗ trợ dịch Local LLM & Cloud AI' 
+                            : 'Extracted from GitHub • Local LLM & Cloud AI translation'}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Quick Document Utilities: Copy, Sync, GitHub */}
+                    <div className="flex items-center gap-1.5 self-end sm:self-auto shrink-0">
+                      {/* Copy Markdown Button */}
+                      <button
+                        onClick={handleCopyReadme}
+                        className="px-2.5 py-1.5 rounded-xl neu-btn text-[var(--text-muted)] hover:text-emerald-500 transition-all cursor-pointer flex items-center gap-1.5 text-xs font-semibold"
+                        title={language === 'vi' ? 'Sao chép nội dung Markdown' : 'Copy markdown'}
+                        aria-label="Copy Markdown"
+                      >
+                        {copiedReadme ? (
+                          <>
+                            <Check className="w-3.5 h-3.5 text-emerald-500" />
+                            <span className="text-emerald-500">{language === 'vi' ? 'Đã sao chép' : 'Copied'}</span>
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="w-3.5 h-3.5" />
+                            <span>{language === 'vi' ? 'Sao chép' : 'Copy'}</span>
+                          </>
+                        )}
+                      </button>
+
+                      {/* Sync from GitHub Button */}
+                      <button
+                        onClick={handleRefreshReadme}
+                        disabled={isRefreshingReadme || isLoadingReadme}
+                        className={`px-2.5 py-1.5 rounded-xl neu-btn text-[var(--text-muted)] hover:text-[var(--primary)] transition-all cursor-pointer flex items-center gap-1.5 text-xs font-semibold ${
+                          isRefreshingReadme ? 'opacity-70 cursor-wait' : ''
+                        }`}
+                        title={language === 'vi' ? 'Tải lại bản gốc từ GitHub' : 'Re-fetch original from GitHub'}
+                        aria-label="Refresh README"
+                      >
+                        <Download className={`w-3.5 h-3.5 ${isRefreshingReadme ? 'animate-bounce text-[var(--primary)]' : ''}`} />
+                        <span>{language === 'vi' ? 'Đồng bộ' : 'Sync'}</span>
+                      </button>
+
+                      {/* View on GitHub */}
+                      {skill.repository_url && (
+                        <a
+                          href={skill.repository_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="px-2.5 py-1.5 rounded-xl neu-btn text-[var(--text-muted)] hover:text-[var(--primary)] transition-all flex items-center gap-1.5 text-xs font-semibold shrink-0"
+                          title={language === 'vi' ? 'Mở trên GitHub' : 'Open on GitHub'}
+                        >
+                          <ExternalLink className="w-3.5 h-3.5" />
+                          <span>GitHub</span>
+                        </a>
+                      )}
                     </div>
                   </div>
 
-                  {/* Right: Streamlined Actions Toolbar */}
-                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 w-full lg:w-auto justify-start lg:justify-end">
-                    <div className="flex items-center justify-between sm:justify-start gap-2">
-                      {/* View Mode Switch: Original vs AI Translated */}
-                      <div className="flex items-center p-0.5 rounded-xl neu-inset-sm text-xs font-semibold">
-                        <button
-                          onClick={() => setReadmeMode('original')}
-                          className={`px-3 py-1 rounded-lg transition-all cursor-pointer ${
-                            readmeMode === 'original'
-                              ? 'bg-[var(--primary)] text-white shadow-xs font-bold'
-                              : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
-                          }`}
-                          title={language === 'vi' ? 'Xem tài liệu gốc từ GitHub' : 'View original README'}
-                        >
-                          {language === 'vi' ? 'Bản Gốc' : 'Original'}
-                        </button>
-                        <button
-                          onClick={handleSwitchToTranslated}
-                          className={`px-3 py-1 rounded-lg transition-all flex items-center gap-1.5 cursor-pointer ${
-                            readmeMode === 'translated'
-                              ? 'bg-[var(--primary)] text-white shadow-xs font-bold'
-                              : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
-                          }`}
-                          title={language === 'vi' ? 'Xem bản dịch AI' : 'View AI translation'}
-                        >
-                          <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-                          <span>{language === 'vi' ? 'Bản Dịch AI' : 'AI Translation'}</span>
-                        </button>
-                      </div>
-
-                      {/* Utility Actions (Mobile) */}
-                      <div className="flex items-center gap-1 sm:hidden">
-                        <button
-                          onClick={handleCopyReadme}
-                          className="p-1.5 rounded-xl neu-btn text-[var(--text-muted)] hover:text-emerald-500 transition-all cursor-pointer"
-                          title={language === 'vi' ? 'Sao chép nội dung Markdown' : 'Copy markdown'}
-                          aria-label="Copy Markdown"
-                        >
-                          {copiedReadme ? (
-                            <Check className="w-3.5 h-3.5 text-emerald-500" />
-                          ) : (
-                            <Copy className="w-3.5 h-3.5" />
-                          )}
-                        </button>
-                      </div>
+                  {/* Row 2: View Mode Switch & Translation Controls Bar */}
+                  <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-2.5 pt-1">
+                    {/* View Mode Switch: Original vs AI Translated */}
+                    <div className="flex items-center p-0.5 rounded-xl neu-inset-sm text-xs font-semibold self-start md:self-auto shrink-0">
+                      <button
+                        onClick={() => setReadmeMode('original')}
+                        className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+                          readmeMode === 'original'
+                            ? 'bg-[var(--primary)] text-white shadow-xs font-bold'
+                            : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
+                        }`}
+                        title={language === 'vi' ? 'Xem tài liệu gốc từ GitHub' : 'View original README'}
+                      >
+                        {language === 'vi' ? 'Bản Gốc' : 'Original'}
+                      </button>
+                      <button
+                        onClick={handleSwitchToTranslated}
+                        className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 cursor-pointer ${
+                          readmeMode === 'translated'
+                            ? 'bg-[var(--primary)] text-white shadow-xs font-bold'
+                            : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
+                        }`}
+                        title={language === 'vi' ? 'Xem bản dịch AI' : 'View AI translation'}
+                      >
+                        <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                        <span>{language === 'vi' ? 'Bản Dịch AI' : 'AI Translation'}</span>
+                      </button>
                     </div>
 
                     {/* Translation Settings (Visible in Translated Mode) */}
                     {readmeMode === 'translated' && (
-                      <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap w-full sm:w-auto">
+                      <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap flex-1 md:justify-end min-w-0">
                         {/* Target Language Dropdown */}
                         <div className="shrink-0">
                           <NeuSelect
@@ -1464,7 +1499,7 @@ export const SkillDetailModal: React.FC<SkillDetailModalProps> = ({
                         </div>
 
                         {/* AI Provider / Engine Selector */}
-                        <div className="flex-1 sm:flex-none min-w-0">
+                        <div className="flex-1 sm:max-w-xs md:max-w-sm min-w-[180px]">
                           <NeuSelect
                             value={selectedProvider}
                             onChange={(val) => handleProviderChange(String(val))}
@@ -1474,7 +1509,7 @@ export const SkillDetailModal: React.FC<SkillDetailModalProps> = ({
                             align="auto"
                             direction="auto"
                             fullWidth={true}
-                            dropdownClassName="z-[90] min-w-[220px]"
+                            dropdownClassName="z-[90] min-w-[240px]"
                             title={language === 'vi' ? 'Mô hình dịch' : 'Translation engine'}
                           />
                         </div>
@@ -1483,62 +1518,17 @@ export const SkillDetailModal: React.FC<SkillDetailModalProps> = ({
                         <button
                           onClick={() => handleTranslateReadme(true)}
                           disabled={isTranslating}
-                          className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl neu-btn text-xs font-semibold text-[var(--primary)] hover:neu-flat transition-all cursor-pointer shrink-0 ${
+                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl neu-btn text-xs font-semibold text-[var(--primary)] hover:neu-flat transition-all cursor-pointer shrink-0 ${
                             isTranslating ? 'opacity-50 cursor-wait' : ''
                           }`}
                           title={language === 'vi' ? 'Dịch lại tài liệu với mô hình đã chọn' : 'Re-translate with selected model'}
                           aria-label="Re-translate"
                         >
                           <RefreshCw className={`w-3.5 h-3.5 ${isTranslating ? 'animate-spin text-amber-500' : ''}`} />
-                          <span className="hidden sm:inline">{language === 'vi' ? 'Dịch lại' : 'Re-translate'}</span>
+                          <span className="inline">{language === 'vi' ? 'Dịch lại' : 'Re-translate'}</span>
                         </button>
                       </div>
                     )}
-
-                    <div className="h-4 w-px bg-[var(--border)] mx-0.5 hidden sm:block" />
-
-                    {/* Utility Actions (Desktop) */}
-                    <div className="hidden sm:flex items-center gap-1">
-                      {/* Copy Markdown Button */}
-                      <button
-                        onClick={handleCopyReadme}
-                        className="p-1.5 rounded-xl neu-btn text-[var(--text-muted)] hover:text-emerald-500 transition-all cursor-pointer"
-                        title={language === 'vi' ? 'Sao chép nội dung Markdown' : 'Copy markdown'}
-                        aria-label="Copy Markdown"
-                      >
-                        {copiedReadme ? (
-                          <Check className="w-3.5 h-3.5 text-emerald-500" />
-                        ) : (
-                          <Copy className="w-3.5 h-3.5" />
-                        )}
-                      </button>
-
-                      {/* Sync from GitHub Button */}
-                      <button
-                        onClick={handleRefreshReadme}
-                        disabled={isRefreshingReadme || isLoadingReadme}
-                        className={`p-1.5 rounded-xl neu-btn text-[var(--text-muted)] hover:text-[var(--primary)] transition-all cursor-pointer ${
-                          isRefreshingReadme ? 'opacity-70 cursor-wait' : ''
-                        }`}
-                        title={language === 'vi' ? 'Tải lại bản gốc từ GitHub' : 'Re-fetch original from GitHub'}
-                        aria-label="Refresh README"
-                      >
-                        <Download className={`w-3.5 h-3.5 ${isRefreshingReadme ? 'animate-bounce text-[var(--primary)]' : ''}`} />
-                      </button>
-
-                      {/* View on GitHub */}
-                      {skill.repository_url && (
-                        <a
-                          href={skill.repository_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="p-1.5 rounded-xl neu-btn text-[var(--text-muted)] hover:text-[var(--primary)] transition-all flex items-center shrink-0"
-                          title={language === 'vi' ? 'Mở trên GitHub' : 'Open on GitHub'}
-                        >
-                          <ExternalLink className="w-3.5 h-3.5" />
-                        </a>
-                      )}
-                    </div>
                   </div>
                 </div>
 

@@ -89,25 +89,25 @@ export const PlaygroundPage: React.FC = () => {
         </div>
 
         {/* Tab Switcher */}
-        <div className="flex items-center gap-1.5 p-1.5 neu-inset rounded-2xl shrink-0">
+        <div className="flex items-center p-0.5 neu-inset-sm rounded-xl shrink-0 text-xs font-semibold">
           <button
             onClick={() => setActiveTab('image_matrix')}
-            className={`px-3.5 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 neu-tab ${
+            className={`px-3.5 py-1.5 rounded-lg flex items-center gap-2 transition-all cursor-pointer ${
               activeTab === 'image_matrix'
-                ? 'neu-tab-active'
-                : 'text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--shadow-dark)]/10'
+                ? 'bg-[var(--primary)] text-white font-bold shadow-xs'
+                : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
             }`}
           >
             <Binary className="w-3.5 h-3.5" />
-            <span className="flex items-center gap-1">Ảnh <ArrowRight className="w-3 h-3 text-blue-500 inline" /> Nhị Phân 01</span>
+            <span className="flex items-center gap-1">Ảnh <ArrowRight className="w-3 h-3 text-white/80 inline" /> Nhị Phân 01</span>
           </button>
 
           <button
             onClick={() => setActiveTab('prompt_sim')}
-            className={`px-3.5 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 neu-tab ${
+            className={`px-3.5 py-1.5 rounded-lg flex items-center gap-2 transition-all cursor-pointer ${
               activeTab === 'prompt_sim'
-                ? 'neu-tab-active'
-                : 'text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--shadow-dark)]/10'
+                ? 'bg-[var(--primary)] text-white font-bold shadow-xs'
+                : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
             }`}
           >
             <Code className="w-3.5 h-3.5" />
